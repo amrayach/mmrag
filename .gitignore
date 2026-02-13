@@ -1,0 +1,34 @@
+# Environment (contains secrets)
+.env
+
+# Runtime data directories
+data/inbox/*
+data/processed/*
+data/assets/*
+!data/inbox/.gitkeep
+!data/processed/.gitkeep
+!data/assets/.gitkeep
+
+# Machine-specific admin docs
+DGX_Docker_Guidelines_for_Ammer_EN.pdf
+
+# Editor / AI tool configs
+.claude/
+.codex/
+.cursor/
+.gemini/
+.vscode/
+.zed/
+.opencode.json
+.mcp.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,58 @@
+{
+  "name": "MMRAG Ingestion Factory (Schedule + Webhook)",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "minutes", "minutesInterval": 2 }] } },
+      "id": "Schedule_Ingest",
+      "name": "Schedule (every 2 min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 280]
+    },
+    {
+      "parameters": { "path": "ingest-now", "httpMethod": "POST", "responseMode": "onReceived" },
+      "id": "Webhook_IngestNow",
+      "name": "Webhook (ingest-now)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 120],
+      "webhookId": "e597090d-a6c2-4e1f-a24a-7608848fa9f7"
+    },
+    {
+      "parameters": {
+        "url": "http://pdf-ingest:8001/ingest/scan?max_docs=1&lang=de",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": { "timeout": 300000 }
+      },
+      "id": "HTTP_Scan",
+      "name": "Scan & Ingest 1 PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { status: $json.status, processed_count: $json.processed_count, processed: $json.processed } }];"
+      },
+      "id": "Fn_Summarize",
+      "name": "Summarize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 200]
+    }
+  ],
+  "connections": {
+    "Schedule (every 2 min)": { "main": [[{ "node": "Scan & Ingest 1 PDF", "type": "main", "index": 0 }]] },
+    "Webhook (ingest-now)": { "main": [[{ "node": "Scan & Ingest 1 PDF", "type": "main", "index": 0 }]] },
+    "Scan & Ingest 1 PDF": { "main": [[{ "node": "Summarize Result", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "frozen-v2.4"
+}

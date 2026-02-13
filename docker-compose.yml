@@ -1,0 +1,178 @@
+version: "3.9"
+
+name: ammer-mmragv2
+
+services:
+  postgres:
+    image: supabase/postgres:15.14.1.081
+    container_name: ammer_mmragv2_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:${PORT_PG}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest-arm64
+    container_name: ammer_mmragv2_n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      N8N_HOST: "0.0.0.0"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: "http"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+
+      DB_TYPE: "postgresdb"
+      DB_POSTGRESDB_HOST: "postgres"
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: "${N8N_DB}"
+      DB_POSTGRESDB_USER: "${POSTGRES_USER}"
+      DB_POSTGRESDB_PASSWORD: "${POSTGRES_PASSWORD}"
+
+      # REQUIRED for workflows that reference $env.*
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_TEXT_MODEL: ${OLLAMA_TEXT_MODEL}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL}
+      PUBLIC_ASSETS_BASE_URL: ${PUBLIC_ASSETS_BASE_URL}
+
+    ports:
+      - "127.0.0.1:${PORT_N8N}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ammer_mmragv2_ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: "4"
+      OLLAMA_MAX_LOADED_MODELS: "3"
+      OLLAMA_KEEP_ALIVE: "-1"
+    volumes:
+      - ollama_data:/root/.ollama
+    gpus: all
+    restart: unless-stopped
+
+  rag-gateway:
+    build:
+      context: ./services/rag-gateway
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_rag_gateway
+    depends_on:
+      n8n:
+        condition: service_started
+    environment:
+      N8N_CHAT_WEBHOOK_URL: ${N8N_CHAT_WEBHOOK_URL}
+      REQUEST_TIMEOUT_SECS: "120"
+      DEFAULT_MODEL: ${OLLAMA_TEXT_MODEL}
+    restart: unless-stopped
+
+  pdf-ingest:
+    build:
+      context: ./services/pdf-ingest
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_pdf_ingest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${RAG_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL}
+
+      INBOX_DIR: /kb/inbox
+      PROCESSED_DIR: /kb/processed
+      ASSETS_DIR: /kb/assets
+
+      # strict single-worker ingestion (lock)
+      LOCK_FILE: /tmp/pdf_ingest.lock
+
+      MAX_DOCS_PER_SCAN: "1"
+      MAX_PAGES: "0"
+      MAX_IMAGES_PER_PAGE: "5"
+      CHUNK_CHARS: "1500"
+      CHUNK_OVERLAP_CHARS: "200"
+    volumes:
+      - ./data/inbox:/kb/inbox
+      - ./data/processed:/kb/processed
+      - ./data/assets:/kb/assets
+    restart: unless-stopped
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ammer_mmragv2_openwebui
+    depends_on:
+      rag-gateway:
+        condition: service_started
+    environment:
+      WEBUI_NAME: "MMRAG Demo (Tailnet Only)"
+    ports:
+      - "127.0.0.1:${PORT_OPENWEBUI}:8080"
+    volumes:
+      - openwebui_data:/app/backend/data
+    restart: unless-stopped
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: ammer_mmragv2_filebrowser
+    ports:
+      - "127.0.0.1:${PORT_FILEBROWSER}:80"
+    volumes:
+      - ./data:/srv
+      - filebrowser_db:/database
+      - filebrowser_config:/config
+    command: ["--database", "/database/filebrowser.db", "--root", "/srv", "--port", "80", "--address", "0.0.0.0"]
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    container_name: ammer_mmragv2_adminer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "127.0.0.1:${PORT_ADMINER}:8080"
+    restart: unless-stopped
+
+  assets:
+    image: nginx:alpine
+    container_name: ammer_mmragv2_assets
+    ports:
+      - "127.0.0.1:${PORT_ASSETS}:80"
+    volumes:
+      - ./data/assets:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  n8n_data:
+  ollama_data:
+  openwebui_data:
+  filebrowser_db:
+  filebrowser_config:
