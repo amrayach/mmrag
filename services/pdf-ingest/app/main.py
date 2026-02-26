@@ -1,10 +1,13 @@
 import base64
 import hashlib
 import json
+import logging
 import os
+import re
 import shutil
+import time as _time
 import uuid
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,9 +15,22 @@ import fitz  # PyMuPDF
 import psycopg
 import requests
 from fastapi import FastAPI, File, UploadFile
-from pydantic import BaseModel
 from pgvector.psycopg import register_vector
+from psycopg_pool import ConnectionPool
+from pydantic import BaseModel
 
+# ---------------------------------------------------------------------------
+# Logging (structured JSON)
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"ts":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}',
+)
+logger = logging.getLogger("pdf-ingest")
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
 DB_HOST = os.getenv("DATABASE_HOST", "postgres")
 DB_PORT = int(os.getenv("DATABASE_PORT", "5432"))
 DB_NAME = os.getenv("DATABASE_NAME", "rag")
@@ -34,10 +50,58 @@ MAX_PAGES = int(os.getenv("MAX_PAGES", "0"))
 MAX_IMAGES_PER_PAGE = int(os.getenv("MAX_IMAGES_PER_PAGE", "5"))
 CHUNK_CHARS = int(os.getenv("CHUNK_CHARS", "1500"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP_CHARS", "200"))
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 
 LOCK_FILE = os.getenv("LOCK_FILE", "/tmp/pdf_ingest.lock")
 
-app = FastAPI(title="pdf-ingest", version="0.3.0")
+# ---------------------------------------------------------------------------
+# Connection pool (initialized in lifespan)
+# ---------------------------------------------------------------------------
+pool: Optional[ConnectionPool] = None
+
+# ---------------------------------------------------------------------------
+# Lifespan — startup / shutdown
+# ---------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def lifespan(app):
+    global pool
+    # Startup: clean stale lock (container restart = previous worker is dead)
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+        logger.info("Stale lock removed on startup")
+
+    # Init connection pool
+    conninfo = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASS}"
+    pool = ConnectionPool(
+        conninfo, min_size=2, max_size=3, open=True,
+        configure=lambda conn: register_vector(conn),
+    )
+    logger.info("Connection pool initialized (min=2, max=3)")
+    logger.info("pdf-ingest starting")
+    yield
+    pool.close()
+    logger.info("pdf-ingest shutting down")
+
+
+app = FastAPI(title="pdf-ingest", version="0.4.0", lifespan=lifespan)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+CAPTION_PROMPTS = {
+    "de": "Beschreibe dieses Bild kurz und präzise auf Deutsch (1-2 Sätze).",
+    "en": "Describe this image briefly and precisely in English (1-2 sentences).",
+    "fr": "Décrivez cette image brièvement et précisément en français (1-2 phrases).",
+}
+
+
+def sanitize_filename(name: str) -> str:
+    name = os.path.basename(name)
+    name = re.sub(r'[^\w.\-]', '_', name)
+    return name or "upload.pdf"
 
 
 def ensure_dirs():
@@ -47,11 +111,6 @@ def ensure_dirs():
 
 @contextmanager
 def ingestion_lock():
-    """
-    Strict single-worker lock:
-    - If lock file exists -> return busy.
-    - Otherwise create it and remove on exit.
-    """
     ensure_dirs()
     if os.path.exists(LOCK_FILE):
         raise RuntimeError("busy")
@@ -66,12 +125,17 @@ def ingestion_lock():
             pass
 
 
-def db_conn():
-    conn = psycopg.connect(
-        host=DB_HOST, port=DB_PORT, dbname=DB_NAME, user=DB_USER, password=DB_PASS
-    )
-    register_vector(conn)
-    return conn
+def _retry(fn, max_retries=3, backoff=(2, 4, 8)):
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except (requests.RequestException, requests.Timeout, ConnectionError) as e:
+            if attempt == max_retries:
+                raise
+            delay = backoff[min(attempt, len(backoff) - 1)]
+            logger.warning("Ollama call failed (attempt %d/%d), retrying in %ds: %s",
+                           attempt + 1, max_retries, delay, e)
+            _time.sleep(delay)
 
 
 def sha256_file(path: str) -> str:
@@ -83,18 +147,47 @@ def sha256_file(path: str) -> str:
 
 
 def split_text(text: str, chunk_chars: int, overlap: int) -> List[str]:
-    text = " ".join(text.split())
-    if not text:
+    if not text or not text.strip():
         return []
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = min(len(text), start + chunk_chars)
-        chunks.append(text[start:end])
-        if end == len(text):
-            break
-        start = max(0, end - overlap)
-    return chunks
+
+    # Collapse horizontal whitespace but PRESERVE newlines for paragraph detection
+    text = re.sub(r'[^\S\n]+', ' ', text)
+
+    # Split on paragraph breaks first, then on sentence boundaries
+    # (period/!/? followed by space + capital letter — avoids breaking "z.B." or "Nr.")
+    paragraphs = re.split(r'\n\s*\n+', text)
+    sentences: List[str] = []
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        parts = re.split(r'(?<=[.!?])\s+(?=[A-ZÄÖÜ])', para)
+        sentences.extend(p.strip() for p in parts if p.strip())
+
+    # Merge sentences into chunks up to chunk_chars
+    chunks: List[str] = []
+    current = ""
+    for sent in sentences:
+        if current and len(current) + len(sent) + 1 > chunk_chars:
+            chunks.append(current)
+            tail = current[-overlap:] if overlap else ""
+            current = (tail + " " + sent).strip() if tail else sent
+        else:
+            current = (current + " " + sent).strip() if current else sent
+    if current:
+        chunks.append(current)
+
+    # Fallback: hard-split any oversized chunks (single huge sentence)
+    result: List[str] = []
+    for c in chunks:
+        if len(c) <= chunk_chars:
+            result.append(c)
+        else:
+            start = 0
+            while start < len(c):
+                result.append(c[start:start + chunk_chars])
+                start += chunk_chars - overlap
+    return result
 
 
 def ollama_embeddings(text: str) -> List[float]:
@@ -107,14 +200,15 @@ def ollama_embeddings(text: str) -> List[float]:
     return resp.json()["embedding"]
 
 
-def ollama_caption_image(image_bytes: bytes) -> str:
+def ollama_caption_image(image_bytes: bytes, lang: str = "de") -> str:
+    prompt = CAPTION_PROMPTS.get(lang, CAPTION_PROMPTS["de"])
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     payload = {
         "model": VISION_MODEL,
         "messages": [
             {
                 "role": "user",
-                "content": "Beschreibe dieses Bild kurz und präzise auf Deutsch (1-2 Sätze).",
+                "content": prompt,
                 "images": [b64],
             }
         ],
@@ -123,6 +217,11 @@ def ollama_caption_image(image_bytes: bytes) -> str:
     resp = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=180)
     resp.raise_for_status()
     return (resp.json().get("message", {}) or {}).get("content", "").strip()
+
+
+# ---------------------------------------------------------------------------
+# DB helpers
+# ---------------------------------------------------------------------------
 
 
 def upsert_doc(cur, doc_id: uuid.UUID, filename: str, sha: str, lang: str, pages: int):
@@ -156,18 +255,16 @@ def insert_chunk(
     embedding: Optional[List[float]],
     meta: Dict[str, Any],
 ):
-    emb_val = embedding
     cur.execute(
         """
         INSERT INTO rag_chunks(doc_id, chunk_type, page, content_text, caption, asset_path, embedding, meta)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """,
-        (doc_id, chunk_type, page, content_text, caption, asset_path, emb_val, json.dumps(meta)),
+        (doc_id, chunk_type, page, content_text, caption, asset_path, embedding, json.dumps(meta)),
     )
 
 
 def get_or_create_doc_id(filename: str) -> uuid.UUID:
-    # stable id per filename (demo-grade)
     return uuid.uuid5(uuid.NAMESPACE_URL, f"mmrag:{filename}")
 
 
@@ -180,15 +277,21 @@ def should_process(cur, doc_id: uuid.UUID, sha: str) -> Tuple[bool, Optional[str
     return existing != sha, existing
 
 
+# ---------------------------------------------------------------------------
+# Core ingestion
+# ---------------------------------------------------------------------------
+
+
 def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, Any]:
     ensure_dirs()
 
     filename = os.path.basename(pdf_path)
     sha = sha256_file(pdf_path)
+    t0 = _time.monotonic()
 
     stats = {"filename": filename, "doc_id": str(doc_id), "sha256": sha, "pages": 0, "text_chunks": 0, "images": 0}
 
-    with db_conn() as conn:
+    with pool.connection() as conn:
         with conn.cursor() as cur:
             process, _prev = should_process(cur, doc_id, sha)
             if not process:
@@ -203,43 +306,64 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
 
             stats["pages"] = total_pages
             upsert_doc(cur, doc_id, filename, sha, lang, total_pages)
+            logger.info("Ingestion started: %s (%d pages)", filename, total_pages)
 
-            for pno in range(total_pages):
-                page = doc.load_page(pno)
-                text = page.get_text("text") or ""
-                text_chunks = split_text(text, CHUNK_CHARS, CHUNK_OVERLAP)
+            written_assets: List[str] = []
 
-                for idx, chunk in enumerate(text_chunks):
-                    emb = ollama_embeddings(chunk)
-                    insert_chunk(
-                        cur, doc_id, "text", pno + 1, chunk, None, None, emb,
-                        {"source": "pdf_text", "page": pno + 1, "chunk_index": idx},
-                    )
-                stats["text_chunks"] += len(text_chunks)
+            try:
+                for pno in range(total_pages):
+                    page = doc.load_page(pno)
+                    text = page.get_text("text") or ""
+                    text_chunks = split_text(text, CHUNK_CHARS, CHUNK_OVERLAP)
 
-                images = (page.get_images(full=True) or [])[:MAX_IMAGES_PER_PAGE]
-                for im_i, img in enumerate(images):
-                    xref = img[0]
-                    base = doc.extract_image(xref)
-                    img_bytes = base["image"]
-                    ext = base.get("ext", "png")
+                    for idx, chunk in enumerate(text_chunks):
+                        emb = _retry(lambda c=chunk: ollama_embeddings(c))
+                        insert_chunk(
+                            cur, doc_id, "text", pno + 1, chunk, None, None, emb,
+                            {"source": "pdf_text", "page": pno + 1, "chunk_index": idx},
+                        )
+                    stats["text_chunks"] += len(text_chunks)
 
-                    asset_name = f"{doc_id}_p{pno+1}_i{im_i}.{ext}"
-                    asset_path = os.path.join(ASSETS_DIR, asset_name)
-                    with open(asset_path, "wb") as f:
-                        f.write(img_bytes)
+                    images = (page.get_images(full=True) or [])[:MAX_IMAGES_PER_PAGE]
+                    for im_i, img in enumerate(images):
+                        xref = img[0]
+                        base = doc.extract_image(xref)
+                        img_bytes = base["image"]
+                        ext = base.get("ext", "png")
 
-                    caption = ollama_caption_image(img_bytes)
-                    emb = ollama_embeddings(caption) if caption else None
+                        asset_name = f"{doc_id}_p{pno+1}_i{im_i}.{ext}"
+                        asset_path = os.path.join(ASSETS_DIR, asset_name)
+                        with open(asset_path, "wb") as f:
+                            f.write(img_bytes)
+                        written_assets.append(asset_path)
 
-                    insert_chunk(
-                        cur, doc_id, "image", pno + 1, None, caption, asset_name, emb,
-                        {"source": "pdf_image", "page": pno + 1, "image_index": im_i},
-                    )
-                    stats["images"] += 1
+                        caption = _retry(lambda ib=img_bytes, la=lang: ollama_caption_image(ib, la))
+                        emb = _retry(lambda c=caption: ollama_embeddings(c)) if caption else None
 
-            conn.commit()
+                        insert_chunk(
+                            cur, doc_id, "image", pno + 1, None, caption, asset_name, emb,
+                            {"source": "pdf_image", "page": pno + 1, "image_index": im_i},
+                        )
+                        stats["images"] += 1
 
+                    img_count = len(images)
+                    logger.info("Page %d/%d: %d text chunks, %d images", pno + 1, total_pages, len(text_chunks), img_count)
+
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                for path in written_assets:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                logger.warning("Ingestion failed for %s, rolled back %d chunks and %d assets",
+                               filename, stats["text_chunks"] + stats["images"], len(written_assets))
+                raise
+
+    elapsed = _time.monotonic() - t0
+    logger.info("Ingestion complete: %s — %d chunks, %d images in %.1fs",
+                filename, stats["text_chunks"], stats["images"], elapsed)
     return {"status": "ingested", **stats}
 
 
@@ -260,27 +384,67 @@ class ScanResponse(BaseModel):
     processed: List[Dict[str, Any]]
 
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "ts": datetime.utcnow().isoformat()}
 
 
+@app.get("/health/ready")
+def health_ready():
+    checks = {}
+    try:
+        with pool.connection() as conn:
+            conn.execute("SELECT 1")
+        checks["db"] = "ok"
+    except Exception as e:
+        checks["db"] = str(e)
+    try:
+        r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
+        checks["ollama"] = "ok" if r.ok else f"status {r.status_code}"
+    except Exception as e:
+        checks["ollama"] = str(e)
+    ok = all(v == "ok" for v in checks.values())
+    return {"ok": ok, "checks": checks}
+
+
 @app.post("/ingest/upload")
 async def ingest_upload(file: UploadFile = File(...), lang: str = "de"):
     ensure_dirs()
+
+    # Fast pre-check from Content-Length
+    if file.size and file.size > MAX_UPLOAD_BYTES:
+        return {"status": "error", "reason": f"file too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}
+
+    safe_name = sanitize_filename(file.filename)
+
     try:
         with ingestion_lock():
-            tmp_path = os.path.join(INBOX_DIR, file.filename)
-            with open(tmp_path, "wb") as f:
-                f.write(await file.read())
+            tmp_path = os.path.join(INBOX_DIR, safe_name)
+            total = 0
+            try:
+                with open(tmp_path, "wb") as f:
+                    while chunk := await file.read(1024 * 1024):
+                        total += len(chunk)
+                        if total > MAX_UPLOAD_BYTES:
+                            raise ValueError("file too large")
+                        f.write(chunk)
+            except ValueError:
+                os.remove(tmp_path)
+                return {"status": "error", "reason": f"file too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}
 
-            doc_id = get_or_create_doc_id(file.filename)
+            doc_id = get_or_create_doc_id(safe_name)
             res = extract_and_store(tmp_path, doc_id, lang)
             if res.get("status") == "ingested":
                 move_to_processed(tmp_path)
             return res
     except RuntimeError as e:
         if str(e) == "busy":
+            logger.info("Lock busy, returning busy status")
             return {"status": "busy", "reason": "ingestion_in_progress"}
         raise
 
@@ -304,5 +468,6 @@ def ingest_scan(max_docs: int = 1, lang: str = "de"):
             return ScanResponse(status="ok", processed_count=len(processed), processed=processed)
     except RuntimeError as e:
         if str(e) == "busy":
+            logger.info("Lock busy, returning busy status")
             return ScanResponse(status="busy", processed_count=0, processed=[])
         raise

@@ -13,13 +13,25 @@ if ! docker compose ps postgres | grep -q "Up"; then
   exit 1
 fi
 
-echo "Resetting RAG tables and clearing processed/assets..."
-docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d rag -c "
-  TRUNCATE TABLE rag_chunks RESTART IDENTITY CASCADE;
-  TRUNCATE TABLE rag_docs RESTART IDENTITY CASCADE;
-"
+RSS_ONLY=false
+if [ "${1:-}" = "--rss-only" ]; then
+  RSS_ONLY=true
+fi
 
-rm -f data/processed/* || true
-rm -f data/assets/* || true
-
-echo "Reset complete."
+if [ "$RSS_ONLY" = true ]; then
+  echo "Resetting RSS data only (preserving PDF data)..."
+  docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d rag -c "
+    DELETE FROM rag_docs WHERE filename LIKE 'http%';
+  "
+  rm -rf data/assets/rss/ || true
+  echo "RSS reset complete."
+else
+  echo "Resetting ALL RAG tables and clearing processed/assets..."
+  docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d rag -c "
+    TRUNCATE TABLE rag_chunks RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE rag_docs RESTART IDENTITY CASCADE;
+  "
+  rm -f data/processed/* || true
+  rm -rf data/assets/* || true
+  echo "Full reset complete."
+fi

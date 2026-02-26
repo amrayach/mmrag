@@ -8,11 +8,11 @@ if [ ! -f .env ]; then
 fi
 set -a; source .env; set +a
 
-echo "Pre-warming text model (keep_alive 1h)..."
+echo "Pre-warming text model (keep_alive 10m)..."
 docker compose exec -T rag-gateway curl -s http://ollama:11434/api/generate -d "{
   \"model\": \"${OLLAMA_TEXT_MODEL}\",
   \"prompt\": \"Sag kurz Hallo auf Deutsch.\",
-  \"keep_alive\": \"1h\",
+  \"keep_alive\": \"10m\",
   \"stream\": false
 }" >/dev/null
 echo "Prewarm complete."

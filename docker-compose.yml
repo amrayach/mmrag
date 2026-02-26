@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 
   n8n:
-    image: n8nio/n8n:latest-arm64
+    image: n8nio/n8n:1.102.0
     container_name: ammer_mmragv2_n8n
     depends_on:
       postgres:
@@ -49,6 +49,7 @@ services:
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL}
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL}
       PUBLIC_ASSETS_BASE_URL: ${PUBLIC_ASSETS_BASE_URL}
+      VECTOR_DISTANCE_THRESHOLD: "0.5"
 
     ports:
       - "127.0.0.1:${PORT_N8N}:5678"
@@ -58,12 +59,12 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.13.0
     container_name: ammer_mmragv2_ollama
     environment:
-      OLLAMA_NUM_PARALLEL: "4"
-      OLLAMA_MAX_LOADED_MODELS: "3"
-      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "10m"
     volumes:
       - ollama_data:/root/.ollama
     gpus: all
@@ -122,8 +123,40 @@ services:
       - ./data/assets:/kb/assets
     restart: unless-stopped
 
+  rss-ingest:
+    build:
+      context: ./services/rss-ingest
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_rss_ingest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${RAG_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL}
+      ASSETS_DIR: /kb/assets
+      LOCK_FILE: /tmp/rss_ingest.lock
+      MAX_ARTICLES_PER_FEED: "20"
+      MAX_ARTICLES_PER_RUN: "50"
+      CAPTION_IMAGES: "false"
+      CHUNK_CHARS: "1500"
+      CHUNK_OVERLAP_CHARS: "200"
+      FETCH_DELAY_SECS: "2.0"
+      RSS_FEEDS_ENABLED: "all"
+    volumes:
+      - ./data/assets:/kb/assets
+    restart: unless-stopped
+
   openwebui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui@sha256:53a4d2fc8c7a7cc620cd18e6fe416ed9940f2db87fddf837e3aa55111bec6995
     container_name: ammer_mmragv2_openwebui
     depends_on:
       rag-gateway:
@@ -137,7 +170,7 @@ services:
     restart: unless-stopped
 
   filebrowser:
-    image: filebrowser/filebrowser:latest
+    image: filebrowser/filebrowser:v2.57.1
     container_name: ammer_mmragv2_filebrowser
     ports:
       - "127.0.0.1:${PORT_FILEBROWSER}:80"
@@ -149,7 +182,7 @@ services:
     restart: unless-stopped
 
   adminer:
-    image: adminer:latest
+    image: adminer:5.4.2
     container_name: ammer_mmragv2_adminer
     depends_on:
       postgres:
@@ -161,7 +194,7 @@ services:
     restart: unless-stopped
 
   assets:
-    image: nginx:alpine
+    image: nginx:1.29-alpine
     container_name: ammer_mmragv2_assets
     ports:
       - "127.0.0.1:${PORT_ASSETS}:80"

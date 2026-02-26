@@ -1,0 +1,66 @@
+{
+  "name": "MMRAG RSS Ingestion (Schedule + Webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 8 }]
+        }
+      },
+      "id": "Schedule_RSS",
+      "name": "Schedule (every 8h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 280]
+    },
+    {
+      "parameters": {
+        "path": "rss-ingest-now",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      },
+      "id": "Webhook_RSSIngest",
+      "name": "Webhook (rss-ingest-now)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 120],
+      "webhookId": "b7c3a912-4d1e-4f8a-9b2c-6e5d4f3a2b1c"
+    },
+    {
+      "parameters": {
+        "url": "http://rss-ingest:8002/ingest/feeds?max_articles=50&lang=de",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": { "timeout": 1800000 }
+      },
+      "id": "HTTP_RSSIngest",
+      "name": "Ingest RSS Feeds",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { status: $json.status, feeds_processed: $json.feeds_processed, articles_ingested: $json.articles_ingested, articles_skipped: $json.articles_skipped, total_chunks: $json.total_chunks, elapsed_secs: $json.elapsed_secs } }];"
+      },
+      "id": "Fn_SummarizeRSS",
+      "name": "Summarize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 200]
+    }
+  ],
+  "connections": {
+    "Schedule (every 8h)": { "main": [[{ "node": "Ingest RSS Feeds", "type": "main", "index": 0 }]] },
+    "Webhook (rss-ingest-now)": { "main": [[{ "node": "Ingest RSS Feeds", "type": "main", "index": 0 }]] },
+    "Ingest RSS Feeds": { "main": [[{ "node": "Summarize Result", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "rss-v1.0"
+}

@@ -14,7 +14,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const body = $json.body || $json;\nconst msgs = body.messages || [];\nlet q = body.query;\nif (!q && msgs.length) {\n  for (let i = msgs.length - 1; i >= 0; i--) {\n    if (msgs[i].role === 'user') { q = msgs[i].content; break; }\n  }\n}\nq = q || '';\nreturn [{ json: { query: q, embedRequestBody: { model: $env.OLLAMA_EMBED_MODEL || 'nomic-embed-text', prompt: q } } }];"
+        "jsCode": "const body = $json.body || $json;\nconst msgs = body.messages || [];\nlet q = body.query;\n\nif (!q && msgs.length) {\n  for (let i = msgs.length - 1; i >= 0; i--) {\n    if (msgs[i].role === 'user') { q = msgs[i].content; break; }\n  }\n}\nq = q || '';\n\n// Follow-up query rewriting: detect short follow-ups with conversation history\nconst lastAssistant = msgs.filter(m => m.role === 'assistant').slice(-1)[0];\nif (lastAssistant && q.length < 100) {\n  let hint = lastAssistant.content;\n  const preamblePatterns = /^(Basierend auf|Laut den Dokumenten|Gemäß|Auf Grundlage|Den Dokumenten zufolge)/i;\n  if (preamblePatterns.test(hint)) {\n    const firstSentEnd = hint.search(/[.!?:]\\s/);\n    if (firstSentEnd > 0 && firstSentEnd < 150) {\n      hint = hint.substring(firstSentEnd + 2);\n    }\n  }\n  hint = hint.substring(0, 150).trim();\n  q = q + ' ' + hint;\n}\n\n// Document filter: parse optional @filename prefix\nlet docFilter = '';\nlet hasDocFilter = false;\nif (q.startsWith('@')) {\n  const spaceIdx = q.indexOf(' ');\n  if (spaceIdx > 0) {\n    docFilter = q.substring(1, spaceIdx);\n    docFilter = docFilter.replace(/[^\\w.\\-]/g, '_');\n    hasDocFilter = true;\n    q = q.substring(spaceIdx + 1).trim();\n  }\n}\n\nreturn [{ json: {\n  query: q,\n  originalQuery: body.query || q,\n  docFilter,\n  hasDocFilter,\n  embedRequestBody: { model: $env.OLLAMA_EMBED_MODEL || 'nomic-embed-text', prompt: q }\n} }];"
       },
       "id": "Fn_ExtractQuery",
       "name": "Extract Query",
@@ -42,7 +42,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const emb = $json.embedding || [];\nconst embVec = '[' + emb.join(',') + ']';\nreturn [{ json: { query: $('Extract Query').first().json.query, embedding_vec: embVec } }];"
+        "jsCode": "const emb = $json.embedding || [];\nconst embVec = '[' + emb.join(',') + ']';\nconst eq = $('Extract Query').first().json;\nreturn [{ json: { query: eq.query, docFilter: eq.docFilter, hasDocFilter: eq.hasDocFilter, embedding_vec: embVec } }];"
       },
       "id": "Fn_VectorLiteral",
       "name": "To Vector Literal",
@@ -53,7 +53,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT chunk_type, page, content_text, caption, asset_path,\n       1 - (embedding <=> '{{$json.embedding_vec}}'::vector) AS score\nFROM rag_chunks\nWHERE embedding IS NOT NULL\nORDER BY embedding <=> '{{$json.embedding_vec}}'::vector\nLIMIT 4;"
+        "query": "=SELECT chunk_type, page, content_text, caption, asset_path,\n       1 - (embedding <=> '{{$json.embedding_vec}}'::vector) AS score\nFROM rag_chunks\nWHERE embedding IS NOT NULL\n  AND embedding <=> '{{$json.embedding_vec}}'::vector < {{ $env.VECTOR_DISTANCE_THRESHOLD || '0.5' }}\n  AND (\n    {{$json.hasDocFilter}} = false\n    OR doc_id IN (\n      SELECT doc_id FROM rag_docs\n      WHERE filename ILIKE '%' || '{{$json.docFilter}}' || '%'\n    )\n  )\nORDER BY embedding <=> '{{$json.embedding_vec}}'::vector\nLIMIT 6;"
       },
       "id": "PG_VectorSearch",
       "name": "Vector Search (Postgres)",

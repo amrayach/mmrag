@@ -29,7 +29,8 @@ cp .env.example .env
 4. Import workflows from `n8n/workflows/`:
    - `01_chat_brain.json` — handles chat requests via webhook
    - `02_ingestion_factory.json` — scheduled PDF ingestion
-5. Activate both workflows
+   - `03_rss_ingestion.json` — scheduled RSS feed ingestion (every 8h + manual webhook)
+5. Activate all three workflows
 
 ## 3) Change FileBrowser Password
 
@@ -48,6 +49,29 @@ tailscale serve --bg --https=8451 http://127.0.0.1:56151   # OpenWebUI
 tailscale serve --bg --https=8452 http://127.0.0.1:56152   # FileBrowser
 tailscale serve --bg --https=8453 http://127.0.0.1:56153   # Adminer
 tailscale serve --bg --https=8454 http://127.0.0.1:56157   # Assets
+```
+
+**Client prerequisites:** Tailscale must be running and connected on the accessing device. Verify with `tailscale status`.
+
+**Serve persistence:** Tailscale Serve rules persist across daemon restarts on Linux (stored in Tailscale state). To verify after a server reboot, run `tailscale serve status`.
+
+**Quick self-diagnosis:**
+```bash
+# Verify serve rules are active
+tailscale serve status
+
+# Test all endpoints from the server
+for port in 8450 8451 8452 8453 8454; do
+  echo -n ":$port -> "
+  curl -k -s -o /dev/null -w "%{http_code}" https://spark-e010.tail907fce.ts.net:$port
+  echo
+done
+
+# If a client can't connect, have them run on their machine:
+tailscale status                                    # Must show "active"
+nslookup spark-e010.tail907fce.ts.net               # Must resolve to 100.77.150.62
+curl -k https://spark-e010.tail907fce.ts.net:8450   # Test directly
+# macOS DNS cache flush: sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
 ```
 
 ## 5) OpenWebUI Provider
