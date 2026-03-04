@@ -122,6 +122,79 @@ def ingest_feeds(max_articles: int = 0, lang: str = "de", dry_run: bool = False)
         raise
 
 
+@app.post("/ingest/backfill-images")
+def backfill_images(limit: int = 50, lang: str = "de"):
+    """Add image chunks to RSS articles that were ingested without images."""
+    from app.db import get_docs_missing_images
+    from app.ingest import backfill_images_for_doc
+
+    try:
+        with ingestion_lock():
+            with pool.connection() as conn:
+                with conn.cursor() as cur:
+                    docs = get_docs_missing_images(cur, limit=limit)
+
+            results = {"total_candidates": len(docs), "processed": 0, "images_added": 0, "skipped": 0}
+            for doc in docs:
+                try:
+                    r = backfill_images_for_doc(pool, doc["doc_id"], doc["url"], lang)
+                    if r.get("status") == "ok":
+                        results["processed"] += 1
+                        results["images_added"] += r.get("images_added", 0)
+                    else:
+                        results["skipped"] += 1
+                except Exception as e:
+                    logger.warning("Backfill error for %s: %s", doc["url"], e)
+                    results["skipped"] += 1
+
+        return results
+    except RuntimeError:
+        logger.info("Lock busy, returning busy status")
+        return {"status": "busy", "reason": "ingestion_in_progress"}
+
+
+@app.post("/ingest/recaption-images")
+def recaption_images(limit: int = 0, lang: str = "de"):
+    """Re-caption all image chunks with context-aware prompts and re-embed."""
+    from app.db import get_all_image_chunks
+    from app.ingest import recaption_image_chunk
+
+    try:
+        with ingestion_lock():
+            with pool.connection() as conn:
+                with conn.cursor() as cur:
+                    chunks = get_all_image_chunks(cur, limit=limit)
+
+            results = {
+                "total_chunks": len(chunks),
+                "recaptioned": 0,
+                "skipped": 0,
+                "errors": 0,
+            }
+            for i, chunk in enumerate(chunks):
+                try:
+                    r = recaption_image_chunk(pool, chunk, lang)
+                    if r.get("status") == "ok":
+                        results["recaptioned"] += 1
+                    else:
+                        results["skipped"] += 1
+                except Exception as e:
+                    logger.warning(
+                        "Recaption error for chunk %s: %s", chunk["id"], e
+                    )
+                    results["errors"] += 1
+
+                if (i + 1) % 50 == 0:
+                    logger.info(
+                        "Recaption progress: %d/%d done", i + 1, len(chunks)
+                    )
+
+            return results
+    except RuntimeError:
+        logger.info("Lock busy, returning busy status")
+        return {"status": "busy", "reason": "ingestion_in_progress"}
+
+
 @app.get("/ingest/status")
 def ingest_status():
     with pool.connection() as conn:

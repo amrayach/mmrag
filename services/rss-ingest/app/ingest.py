@@ -1,6 +1,7 @@
 import logging
 import os
 import time as _time
+import urllib.parse
 from typing import Any, Dict, Optional
 
 import requests
@@ -15,9 +16,13 @@ from app.db import (
     should_process, upsert_doc,
 )
 from app.feeds import FeedConfig, get_enabled_feeds
-from app.ollama import _retry, ollama_caption_image, ollama_embeddings
+from app.ollama import (
+    _retry, ollama_caption_image, ollama_caption_image_contextual,
+    ollama_embeddings, enriched_image_embedding_text,
+)
 from app.scraper import (
-    extract_article_content, fetch_article, parse_feed, sha256_text,
+    MIN_IMAGE_BYTES, extract_article_content, fetch_article, parse_feed,
+    sha256_text,
 )
 from app.text import split_text
 
@@ -222,16 +227,24 @@ def ingest_article(
                             if img_resp.status_code != 200:
                                 continue
                             img_bytes = img_resp.content
+                            if len(img_bytes) < MIN_IMAGE_BYTES:
+                                logger.debug("Skipping tiny image (%d bytes): %s", len(img_bytes), img_url)
+                                continue
 
-                            ext = img_url.rsplit(".", 1)[-1][:4] if "." in img_url else "jpg"
+                            clean_path = urllib.parse.urlparse(img_url).path
+                            ext = clean_path.rsplit(".", 1)[-1][:4] if "." in clean_path else "jpg"
                             asset_name = f"rss/{str(doc_id)[:8]}/{im_i}.{ext}"
                             asset_path = os.path.join(ASSETS_DIR, asset_name)
                             with open(asset_path, "wb") as f:
                                 f.write(img_bytes)
                             written_assets.append(asset_path)
 
-                            caption = _retry(lambda ib=img_bytes, la=lang: ollama_caption_image(ib, la))
-                            emb = _retry(lambda c=caption: ollama_embeddings(c)) if caption else None
+                            caption = _retry(
+                                lambda ib=img_bytes, t=title, fn=feed_config.name, la=lang:
+                                    ollama_caption_image_contextual(ib, t, fn, la)
+                            ) or ""
+                            emb_text = enriched_image_embedding_text(caption, title, feed_config.name)
+                            emb = _retry(lambda et=emb_text: ollama_embeddings(et)) if caption else None
 
                             meta = {
                                 "source": "rss_image",
@@ -264,3 +277,138 @@ def ingest_article(
                 raise
 
     return {"chunks": chunk_count}
+
+
+def backfill_images_for_doc(pool, doc_id, url: str, lang: str = "de") -> dict:
+    """
+    Add image chunks to an existing RSS article that was ingested text-only.
+    Does NOT re-process text — only fetches images, captions, embeds, and inserts.
+    """
+    from app.feeds import FEEDS
+
+    # Find matching feed config by URL
+    feed_config = None
+    for fc in FEEDS.values():
+        feed_domain = urllib.parse.urlparse(fc.feed_url).netloc.replace("www.", "")
+        url_domain = urllib.parse.urlparse(url).netloc.replace("www.", "")
+        if feed_domain == url_domain:
+            feed_config = fc
+            break
+
+    if not feed_config or not feed_config.img_selector:
+        return {"status": "skipped", "reason": "no feed config or img_selector"}
+
+    page = fetch_article(url, feed_config)
+    if page is None:
+        return {"status": "skipped", "reason": "fetch failed"}
+
+    _, image_urls = extract_article_content(
+        page, feed_config, fallback_summary="", content_encoded=""
+    )
+
+    if not image_urls:
+        return {"status": "skipped", "reason": "no images found"}
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT meta->>'title' FROM rag_chunks WHERE doc_id=%s AND chunk_type='text' LIMIT 1",
+                (doc_id,),
+            )
+            row = cur.fetchone()
+            title = row[0] if row else ""
+
+            rss_assets_dir = os.path.join(ASSETS_DIR, "rss", str(doc_id)[:8])
+            os.makedirs(rss_assets_dir, exist_ok=True)
+            written_assets = []
+            image_count = 0
+
+            try:
+                for im_i, img_url in enumerate(image_urls[:MAX_IMAGES_PER_ARTICLE]):
+                    try:
+                        img_resp = requests.get(img_url, timeout=30)
+                        if img_resp.status_code != 200:
+                            continue
+                        img_bytes = img_resp.content
+                        if len(img_bytes) < MIN_IMAGE_BYTES:
+                            logger.debug("Skipping tiny image (%d bytes): %s", len(img_bytes), img_url)
+                            continue
+
+                        clean_path = urllib.parse.urlparse(img_url).path
+                        ext = clean_path.rsplit(".", 1)[-1][:4] if "." in clean_path else "jpg"
+                        asset_name = f"rss/{str(doc_id)[:8]}/{im_i}.{ext}"
+                        asset_path = os.path.join(ASSETS_DIR, asset_name)
+                        with open(asset_path, "wb") as f:
+                            f.write(img_bytes)
+                        written_assets.append(asset_path)
+
+                        caption = _retry(
+                            lambda ib=img_bytes, t=title, fn=feed_config.name, la=lang:
+                                ollama_caption_image_contextual(ib, t, fn, la)
+                        ) or ""
+                        emb_text = enriched_image_embedding_text(caption, title, feed_config.name)
+                        emb = _retry(lambda et=emb_text: ollama_embeddings(et)) if caption else None
+
+                        meta = {
+                            "source": "rss_image",
+                            "content_type": "rss_article",
+                            "feed_name": feed_config.name,
+                            "title": title,
+                            "url": url,
+                            "image_index": im_i,
+                        }
+                        insert_chunk(cur, doc_id, "image", 1, None, caption, asset_name, emb, meta)
+                        image_count += 1
+                    except Exception as e:
+                        logger.warning("Backfill image %s failed: %s", img_url, e)
+
+                conn.commit()
+                logger.info("Backfill: %s — %d images added", title[:60], image_count)
+
+            except Exception:
+                conn.rollback()
+                for path in written_assets:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                logger.warning("Backfill failed for %s, rolled back", url)
+                raise
+
+    return {"status": "ok", "images_added": image_count}
+
+
+def recaption_image_chunk(pool, chunk: dict, lang: str = "de") -> dict:
+    """
+    Re-caption a single image chunk using contextual prompt and update in-place.
+    Reads saved image from disk (no re-download).
+    """
+    from app.db import update_chunk_caption_embedding
+
+    asset_path = os.path.join(ASSETS_DIR, chunk["asset_path"])
+    if not os.path.exists(asset_path):
+        return {"status": "skipped", "reason": "asset file missing"}
+
+    with open(asset_path, "rb") as f:
+        img_bytes = f.read()
+
+    if len(img_bytes) < MIN_IMAGE_BYTES:
+        return {"status": "skipped", "reason": "image too small"}
+
+    meta = chunk.get("meta", {})
+    title = meta.get("title", "")
+    feed_name = meta.get("feed_name", "RSS")
+
+    caption = _retry(
+        lambda ib=img_bytes, t=title, fn=feed_name, la=lang:
+            ollama_caption_image_contextual(ib, t, fn, la)
+    ) or ""
+    emb_text = enriched_image_embedding_text(caption, title, feed_name)
+    emb = _retry(lambda et=emb_text: ollama_embeddings(et)) if caption else None
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            update_chunk_caption_embedding(cur, chunk["id"], caption, emb)
+        conn.commit()
+
+    return {"status": "ok", "caption": caption[:80]}

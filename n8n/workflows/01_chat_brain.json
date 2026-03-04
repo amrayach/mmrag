@@ -53,7 +53,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT chunk_type, page, content_text, caption, asset_path,\n       1 - (embedding <=> '{{$json.embedding_vec}}'::vector) AS score\nFROM rag_chunks\nWHERE embedding IS NOT NULL\n  AND embedding <=> '{{$json.embedding_vec}}'::vector < {{ $env.VECTOR_DISTANCE_THRESHOLD || '0.5' }}\n  AND (\n    {{$json.hasDocFilter}} = false\n    OR doc_id IN (\n      SELECT doc_id FROM rag_docs\n      WHERE filename ILIKE '%' || '{{$json.docFilter}}' || '%'\n    )\n  )\nORDER BY embedding <=> '{{$json.embedding_vec}}'::vector\nLIMIT 6;"
+        "query": "=SELECT doc_id, chunk_type, page, content_text, caption, asset_path, meta,\n       1 - (embedding <=> '{{$json.embedding_vec}}'::vector) AS score\nFROM rag_chunks\nWHERE embedding IS NOT NULL\n  AND embedding <=> '{{$json.embedding_vec}}'::vector < {{ $env.VECTOR_DISTANCE_THRESHOLD || '0.5' }}\n  AND (\n    {{$json.hasDocFilter}} = false\n    OR doc_id IN (\n      SELECT doc_id FROM rag_docs\n      WHERE filename ILIKE '%' || '{{$json.docFilter}}' || '%'\n    )\n  )\nORDER BY embedding <=> '{{$json.embedding_vec}}'::vector\nLIMIT 6;"
       },
       "id": "PG_VectorSearch",
       "name": "Vector Search (Postgres)",
@@ -65,41 +65,13 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const hits = ($('Vector Search (Postgres)').all() || []).map(it => it.json);\nconst base = $env.PUBLIC_ASSETS_BASE_URL || '';\nconst images = hits\n  .filter(h => h.chunk_type === 'image' && h.asset_path)\n  .map(h => `${base}/${h.asset_path}`);\nconst ctxLines = hits.map(h => {\n  if (h.chunk_type === 'image') {\n    const url = h.asset_path ? `${base}/${h.asset_path}` : '';\n    return `Bild (Seite ${h.page}): ${h.caption || ''} ${url}`.trim();\n  }\n  return `Text (Seite ${h.page}): ${h.content_text || ''}`;\n});\nconst sources = hits.map(h => `Seite ${h.page} (${h.chunk_type})`).slice(0, 8);\nconst query = $('Extract Query').first().json.query;\nconst context = ctxLines.join('\\n\\n');\nconst chatRequestBody = {\n  model: $env.OLLAMA_TEXT_MODEL || 'llama3.1:8b',\n  stream: false,\n  options: { num_predict: 400 },\n  messages: [\n    {role: 'system', content: 'Du bist ein präziser Assistent. Antworte auf Deutsch. Zitiere Seitenzahlen wenn möglich.'},\n    {role: 'user', content: 'Frage: ' + query + '\\n\\nKontext aus Dokumenten:\\n' + context + '\\n\\nAntworte kurz, korrekt und mit Seitenhinweisen.'}\n  ]\n};\nreturn [{ json: { query, context, images, sources, chatRequestBody } }];"
+        "jsCode": "const hits = ($('Vector Search (Postgres)').all() || []).map(it => it.json);\nconst base = $env.PUBLIC_ASSETS_BASE_URL || '';\n\n// Determine dominant result type by majority vote\nconst textHits = hits.filter(h => h.chunk_type === 'text');\nconst imageHits = hits.filter(h => h.chunk_type === 'image');\nconst imageDominant = imageHits.length > textHits.length;\n\n// Collect doc_ids from text hits for cross-referencing\nconst textDocIds = new Set(textHits.map(h => h.doc_id));\n\n// Score-based image filtering: only show images scoring >= 60% of best text hit\nconst bestTextScore = Math.max(...textHits.map(h => h.score), 0);\nconst imageScoreThreshold = bestTextScore * 0.6;\n\n// Image inclusion rules:\n// 1. Must pass score threshold (>= 60% of best text score)\n// 2. If images are the majority → show all passing image hits\n// 3. If text is the majority → only show passing images from same documents\nconst showImage = (h) => {\n  if (h.chunk_type !== 'image' || !h.asset_path) return false;\n  if (h.score < imageScoreThreshold) return false;\n  if (imageDominant) return true;\n  return textDocIds.has(h.doc_id);\n};\n\nconst images = hits.filter(showImage).map(h => `${base}/${h.asset_path}`);\n\n// Structured image objects with caption for rag-gateway\nconst imageObjects = hits.filter(h => h.chunk_type === 'image' && showImage(h) && h.asset_path)\n  .map(h => ({ url: `${base}/${h.asset_path}`, caption: h.caption || 'Bild' }));\n\nconst ctxLines = hits.map(h => {\n  const meta = h.meta || {};\n  const isRss = meta.content_type === 'rss_article';\n  if (h.chunk_type === 'image') {\n    if (!showImage(h)) return null;\n    const url = h.asset_path ? `${base}/${h.asset_path}` : '';\n    const src = isRss ? `Bild (${meta.feed_name || 'RSS'})` : `Bild (Seite ${h.page})`;\n    return `${src}: ${h.caption || ''} ${url}`.trim();\n  }\n  if (isRss) {\n    return `Quelle ${meta.feed_name || 'RSS'} - \"${meta.title || ''}\": ${h.content_text || ''}`;\n  }\n  return `Text (Seite ${h.page}): ${h.content_text || ''}`;\n}).filter(l => l !== null);\n\n// Sources with markdown links for RSS items\nconst sources = hits.filter(h => {\n  if (h.chunk_type === 'image' && !showImage(h)) return false;\n  return true;\n}).map(h => {\n  const meta = h.meta || {};\n  if (meta.content_type === 'rss_article') {\n    const title = (meta.title || '').substring(0, 60);\n    if (meta.url) return `[${meta.feed_name || 'RSS'}: ${title}](${meta.url})`;\n    return `${meta.feed_name || 'RSS'}: ${title}`;\n  }\n  return `Seite ${h.page} (${h.chunk_type})`;\n}).slice(0, 8);\n\nconst query = $('Extract Query').first().json.query;\nconst context = ctxLines.join('\\n\\n');\nconst chatRequestBody = {\n  model: $env.OLLAMA_TEXT_MODEL || 'llama3.1:8b',\n  stream: false,\n  options: { num_predict: 400 },\n  messages: [\n    {role: 'system', content: 'Du bist ein intelligenter Multimodal-Assistent. Antworte auf Deutsch und beziehe dich auf den bereitgestellten Kontext. Wenn der Kontext Bildbeschreibungen (Captions) enthält, weise den Nutzer aktiv darauf hin, was auf den Bildern zu sehen ist. Zitiere immer deine Quellen (z.B. \\'Laut Seite 4...\\' oder \\'Wie im Bild auf Seite 2 zu sehen ist...\\').'},\n    {role: 'user', content: 'Frage: ' + query + '\\n\\nKontext aus Dokumenten und Nachrichten:\\n' + context + '\\n\\nAntworte kurz, korrekt und mit Quellenhinweisen.'}\n  ]\n};\nreturn [{ json: { query, context, images, imageObjects, sources, chatRequestBody } }];"
       },
       "id": "Fn_BuildContext",
       "name": "Build Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1380, 200]
-    },
-    {
-      "parameters": {
-        "url": "http://ollama:11434/api/chat",
-        "method": "POST",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.chatRequestBody) }}",
-        "options": { "timeout": 180000 }
-      },
-      "id": "HTTP_Generate",
-      "name": "Generate Answer (Ollama)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [1620, 200]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "javaScript",
-        "jsCode": "const msg = $json.message?.content || '';\nconst ctx = $('Build Context').first().json;\nreturn [{ json: { answer: msg, images: ctx.images || [], sources: ctx.sources || [] } }];"
-      },
-      "id": "Fn_FormatResponse",
-      "name": "Format Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1860, 200]
     }
   ],
   "connections": {
@@ -107,11 +79,9 @@
     "Extract Query": { "main": [[{ "node": "Embed Query (Ollama)", "type": "main", "index": 0 }]] },
     "Embed Query (Ollama)": { "main": [[{ "node": "To Vector Literal", "type": "main", "index": 0 }]] },
     "To Vector Literal": { "main": [[{ "node": "Vector Search (Postgres)", "type": "main", "index": 0 }]] },
-    "Vector Search (Postgres)": { "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]] },
-    "Build Context": { "main": [[{ "node": "Generate Answer (Ollama)", "type": "main", "index": 0 }]] },
-    "Generate Answer (Ollama)": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+    "Vector Search (Postgres)": { "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": {},
-  "versionId": "frozen-v2.4"
+  "versionId": "frozen-v2.4-streaming"
 }

@@ -55,3 +55,56 @@ def should_process(cur, doc_id: uuid.UUID, sha: str) -> Tuple[bool, Optional[str
         return True, None
     existing = row[0]
     return existing != sha, existing
+
+
+def get_docs_missing_images(cur, limit: int = 0) -> list:
+    """Find RSS docs that have text chunks but no image chunks."""
+    sql = """
+        SELECT d.doc_id, d.filename AS url
+        FROM rag_docs d
+        WHERE d.doc_id IN (
+            SELECT doc_id FROM rag_chunks
+            WHERE meta->>'content_type' = 'rss_article' AND chunk_type = 'text'
+        )
+        AND d.doc_id NOT IN (
+            SELECT doc_id FROM rag_chunks
+            WHERE meta->>'content_type' = 'rss_article' AND chunk_type = 'image'
+        )
+        ORDER BY d.updated_at DESC
+    """
+    if limit > 0:
+        sql += f" LIMIT {int(limit)}"
+    cur.execute(sql)
+    return [{"doc_id": row[0], "url": row[1]} for row in cur.fetchall()]
+
+
+def get_all_image_chunks(cur, limit: int = 0) -> list:
+    """Get all RSS image chunks for re-captioning."""
+    sql = """
+        SELECT id, doc_id, caption, asset_path, meta
+        FROM rag_chunks
+        WHERE chunk_type = 'image'
+          AND asset_path IS NOT NULL
+        ORDER BY id
+    """
+    if limit > 0:
+        sql += f" LIMIT {int(limit)}"
+    cur.execute(sql)
+    return [
+        {
+            "id": row[0],
+            "doc_id": row[1],
+            "caption": row[2],
+            "asset_path": row[3],
+            "meta": row[4] if isinstance(row[4], dict) else {},
+        }
+        for row in cur.fetchall()
+    ]
+
+
+def update_chunk_caption_embedding(cur, chunk_id: int, caption: str, embedding: Optional[list]):
+    """Update an existing chunk's caption and embedding in-place."""
+    cur.execute(
+        "UPDATE rag_chunks SET caption = %s, embedding = %s WHERE id = %s",
+        (caption, embedding, chunk_id),
+    )
