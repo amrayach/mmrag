@@ -1,32 +1,36 @@
 # MMRAG — Multimodal RAG Demo
 
-A self-hosted, GPU-accelerated **Retrieval-Augmented Generation** pipeline that ingests PDFs (text + images), stores vector embeddings in PostgreSQL/pgvector, and serves answers through a chat UI — all orchestrated by n8n workflows running on a local Ollama instance.
+A self-hosted, GPU-accelerated **Retrieval-Augmented Generation** pipeline that ingests PDFs and RSS feeds (text + images), stores vector embeddings in PostgreSQL/pgvector, and serves streaming answers through a chat UI — orchestrated by n8n workflows with direct Ollama token streaming.
 
 ## Architecture
 
 ```
-Chat flow:
-  OpenWebUI → rag-gateway (OpenAI-compatible API) → n8n (Chat Brain workflow)
-    → PostgreSQL/pgvector (vector search) + Ollama (LLM)
+Chat flow (streaming):
+  OpenWebUI → rag-gateway (OpenAI SSE) → n8n (context retrieval)
+    → PostgreSQL/pgvector (vector search)
+  rag-gateway → Ollama (streaming LLM) → OpenWebUI (token-by-token)
 
-Ingestion flow:
-  FileBrowser upload → data/inbox/ → n8n (Ingestion Factory workflow)
+Ingestion flows:
+  FileBrowser upload → data/inbox/ → n8n (Ingestion Factory)
     → pdf-ingest → PostgreSQL/pgvector + assets/ (nginx)
+
+  RSS feeds → rss-ingest (scheduled) → PostgreSQL/pgvector + assets/ (nginx)
 ```
 
-### Services (9 containers)
+### Services (10 containers)
 
 | Service | Description |
 |---------|-------------|
 | **postgres** | PostgreSQL 15 with pgvector for document storage and vector search |
-| **n8n** | Workflow automation — runs Chat Brain and Ingestion Factory workflows |
+| **n8n** | Workflow automation — Chat Brain (context), Ingestion Factory, RSS Ingestion |
 | **ollama** | Local LLM inference (GPU-accelerated) |
-| **rag-gateway** | OpenAI-compatible API proxy that routes chat requests through n8n |
+| **rag-gateway** | OpenAI-compatible API with true SSE streaming (Ollama NDJSON → OpenAI SSE) |
 | **pdf-ingest** | PDF processing: text extraction, image captioning, embedding generation |
+| **rss-ingest** | RSS feed ingestion: article scraping, image captioning, embedding generation |
 | **openwebui** | Chat UI frontend |
 | **filebrowser** | Web-based file manager for PDF uploads |
 | **adminer** | Database admin UI |
-| **assets** | Nginx serving extracted images for inline display in chat answers |
+| **assets** | Nginx serving extracted images + browsable gallery |
 
 ### Models (Ollama)
 
@@ -35,6 +39,8 @@ Ingestion flow:
 | `qwen2.5:7b-instruct` | Text generation (chat answers) |
 | `qwen2.5vl:7b` | Vision model (image captioning during ingestion) |
 | `nomic-embed-text` | Embedding generation (768-dim vectors) |
+
+All three models are kept loaded in GPU memory simultaneously (`OLLAMA_MAX_LOADED_MODELS=3`, ~11 GB total) to eliminate model swap latency.
 
 ## Prerequisites
 
@@ -80,12 +86,22 @@ docker compose up -d --build
 
 6. **Configure OpenWebUI:**
    - Add OpenAI-compatible provider pointing to `http://rag-gateway:8000/v1`
+   - Set up welcome banner and starter questions (see MANUAL_STEPS.md)
 
 ## Usage
 
 1. Upload PDFs via FileBrowser into `data/inbox/`
 2. Trigger ingestion: wait for the 2-minute cron, or call the `/webhook/ingest-now` endpoint in n8n
-3. Chat in OpenWebUI — answers include relevant text chunks and inline images from your documents
+3. Chat in OpenWebUI — answers stream token-by-token with relevant text chunks, inline images, and source citations
+
+### Demo Mode
+
+For live demos, stop background GPU consumers and pre-warm models:
+
+```bash
+make demo-start   # Stops rss-ingest, pre-warms models, shows dashboard
+make demo-stop    # Restarts rss-ingest
+```
 
 ### Reset demo data
 
@@ -106,7 +122,8 @@ All ports bind to `127.0.0.1` only (not publicly exposed).
 | 56152 | FileBrowser |
 | 56153 | Adminer |
 | 56154 | PostgreSQL |
-| 56157 | Assets (nginx) |
+| 56155 | RAG Gateway |
+| 56157 | Assets (nginx + gallery) |
 
 Use a reverse proxy or Tailscale Serve to expose services on your network.
 
@@ -117,12 +134,19 @@ Use a reverse proxy or Tailscale Serve to expose services on your network.
 ├── db/init/              # SQL init scripts (schema + pgvector setup)
 ├── services/
 │   ├── pdf-ingest/       # PDF processing microservice (FastAPI)
-│   └── rag-gateway/      # OpenAI-compatible chat proxy (FastAPI)
+│   ├── rss-ingest/       # RSS feed ingestion microservice (FastAPI)
+│   └── rag-gateway/      # OpenAI-compatible streaming proxy (FastAPI)
 ├── n8n/workflows/        # Exportable n8n workflow JSONs
-├── scripts/              # Setup, health check, model pull scripts
+├── nginx/                # Custom nginx config (assets gallery)
+├── scripts/              # Setup, health check, demo mode, prewarm scripts
 ├── data/                 # Runtime data (inbox, processed, assets)
-├── docs/                 # Architecture and port documentation
+├── docs/                 # Demo guides, architecture, dress rehearsal
+│   ├── DEMO_GUIDE.md     # German demo guide
+│   ├── DEMO_GUIDE_EN.md  # English demo guide
+│   ├── DRESS_REHEARSAL.md # 3-track rehearsal checklist
+│   └── architecture.md   # Architecture overview
 ├── docker-compose.yml
+├── Makefile              # Common tasks (up, down, demo-start, test-rag, etc.)
 ├── .env.example
 └── MANUAL_STEPS.md       # Post-deploy manual configuration steps
 ```

@@ -113,6 +113,42 @@ _add(FeedConfig(
     img_selector=".article__body img",
 ))
 
+_add(FeedConfig(
+    key="netzpolitik",
+    name="Netzpolitik",
+    feed_url="https://netzpolitik.org/feed/",
+    article_selector="article .entry-content",
+    strip_selectors=["aside", ".vgwort", ".donate-box"],
+    img_selector="article img.attachment-large, .entry-content img",
+))
+
+_add(FeedConfig(
+    key="tagesschau",
+    name="Tagesschau",
+    feed_url="https://www.tagesschau.de/xml/rss2/",
+    article_selector="article .textabsatz, article .m-ten",
+    strip_selectors=[".modul", ".infobox", ".social-media"],
+    img_selector="article picture img",
+))
+
+_add(FeedConfig(
+    key="caschys_blog",
+    name="Caschys Blog",
+    feed_url="https://stadt-bremerhaven.de/feed/",
+    article_selector="article .entry-content",
+    strip_selectors=[".ad", ".ez-toc-container", ".post-meta"],
+    img_selector=".entry-content img",
+))
+
+_add(FeedConfig(
+    key="computerbase",
+    name="ComputerBase",
+    feed_url="https://www.computerbase.de/rss/news.xml",
+    article_selector="article .article-main, article .text",
+    strip_selectors=["aside", ".ad", ".recommendations", ".related-links"],
+    img_selector="article figure img, .article-main img",
+))
+
 # Fallback config used when no site-specific selector matches
 DEFAULT_SELECTOR = "article, main"
 

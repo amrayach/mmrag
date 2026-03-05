@@ -1,4 +1,4 @@
-.PHONY: up down restart logs health models reset build prewarm ingest rss-ingest rss-logs test-rag
+.PHONY: up down restart logs health models reset build prewarm ingest rss-ingest rss-logs test-rag demo-start demo-stop
 
 up:
 	docker compose up -d
@@ -38,7 +38,13 @@ rss-logs:
 
 test-rag:
 	@echo "Sending test query to RAG gateway..."
-	curl -s -X POST http://127.0.0.1:56151/v1/chat/completions \
+	curl -s -X POST http://127.0.0.1:56155/v1/chat/completions \
 		-H 'Content-Type: application/json' \
 		-d '{"messages":[{"role":"user","content":"Was steht in den Dokumenten?"}]}' \
 		| python3 -m json.tool
+
+demo-start:
+	bash scripts/demo_mode.sh start
+
+demo-stop:
+	bash scripts/demo_mode.sh stop

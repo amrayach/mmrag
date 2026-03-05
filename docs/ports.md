@@ -7,7 +7,8 @@ Localhost binds:
 * 56152 FileBrowser
 * 56153 Adminer
 * 56154 Postgres
-* 56157 Assets
+* 56155 RAG Gateway
+* 56157 Assets (gallery)
 
 Tailnet-only (Tailscale Serve):
 

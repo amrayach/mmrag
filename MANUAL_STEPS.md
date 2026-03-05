@@ -27,7 +27,7 @@ cp .env.example .env
    - User / Password: from your `.env`
    - SSL: disabled
 4. Import workflows from `n8n/workflows/`:
-   - `01_chat_brain.json` — handles chat requests via webhook
+   - `01_chat_brain.json` — context retrieval via webhook (6 nodes: embed, vector search, build context)
    - `02_ingestion_factory.json` — scheduled PDF ingestion
    - `03_rss_ingestion.json` — scheduled RSS feed ingestion (every 8h + manual webhook)
 5. Activate all three workflows
@@ -81,7 +81,30 @@ In OpenWebUI Admin panel:
   - Base URL: `http://rag-gateway:8000/v1`
   - API key: any non-empty string (e.g. `sk-dummy`)
 
-## 6) Adminer (Optional)
+## 6) OpenWebUI Welcome Banner & Starter Questions
+
+In OpenWebUI **Admin > Settings > Interface**:
+
+1. **Welcome Banner Text** (set under "Default Prompt Suggestions"):
+   ```
+   MMRAG Multi-Source AI Assistant — Ask questions about your documents and live news feeds.
+   ```
+
+2. **Starter Questions** — add exactly these 4 prompts:
+   - `Was steht im Handbuch zur Wartung und Pflege?`
+     *(PDF query — tests document retrieval with page references)*
+   - `Was sind die neuesten Technologie-Nachrichten?`
+     *(RSS query — tests live news feed retrieval with source links)*
+   - `Zeige mir Bilder aus den Dokumenten und beschreibe sie`
+     *(Multimodal query — tests image retrieval and captioning)*
+   - `Vergleiche die Informationen aus dem Handbuch mit aktuellen Nachrichten`
+     *(Cross-source query — tests multi-source synthesis)*
+
+3. **Model Selection** — set the default model to the rag-gateway model (should appear as `qwen2.5:7b-instruct` or whatever `DEFAULT_MODEL` is set to in `.env`).
+
+These starter questions are designed to showcase all four capabilities in the demo: PDF retrieval, RSS feeds, multimodal images, and cross-source reasoning.
+
+## 7) Adminer (Optional)
 
 - URL: `http://127.0.0.1:56153`
 - System: PostgreSQL
@@ -91,7 +114,7 @@ In OpenWebUI Admin panel:
 
 ---
 
-## Deployment Deviations from Spec (v2.4)
+## Deployment Deviations from Spec (v2.4) — 17 items
 
 | # | Spec Item | Deviation | Reason |
 |---|-----------|-----------|--------|
@@ -108,3 +131,7 @@ In OpenWebUI Admin panel:
 | D11 | Expression fields without `=` prefix | Added `=` prefix | n8n v1.x requires `=` prefix for `{{ }}` expressions |
 | D12 | httpRequest jsonBody with inline `{{ }}` | Moved to Code nodes with `JSON.stringify` | Inline `{{ }}` in JSON breaks on user input with quotes/newlines |
 | D13 | Code node `$json.query` for webhook body | Changed to `$json.body.query` | Webhook v2 wraps POST body in `$json.body` |
+| D14 | LLM generation in n8n Chat Brain | Moved to rag-gateway (Phase 2 streaming) | Enables true token streaming (Ollama NDJSON → OpenAI SSE). n8n now returns context only (6 nodes). |
+| D15 | Assets nginx with default config | Custom `nginx/assets.conf` with gallery | Added JSON autoindex at `/api/files` and HTML gallery as index page |
+| D16 | `OLLAMA_MAX_LOADED_MODELS=1` | Changed to `3` | DGX Spark has 128 GB unified memory — keeps all 3 models loaded (~11 GB total), eliminates model swap latency |
+| D17 | No RSS image backfill | Added `/ingest/backfill-images` endpoint | Adds image chunks to RSS articles ingested before captioning was enabled. Filters SVGs, tracking pixels, and images < 5 KB |

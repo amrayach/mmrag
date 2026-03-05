@@ -56,6 +56,12 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5678/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   ollama:
@@ -63,7 +69,7 @@ services:
     container_name: ammer_mmragv2_ollama
     environment:
       OLLAMA_NUM_PARALLEL: "1"
-      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_MAX_LOADED_MODELS: "3"
       OLLAMA_KEEP_ALIVE: "10m"
     volumes:
       - ollama_data:/root/.ollama
@@ -78,10 +84,21 @@ services:
     depends_on:
       n8n:
         condition: service_started
+      ollama:
+        condition: service_started
     environment:
       N8N_CHAT_WEBHOOK_URL: ${N8N_CHAT_WEBHOOK_URL}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
       REQUEST_TIMEOUT_SECS: "120"
       DEFAULT_MODEL: ${OLLAMA_TEXT_MODEL}
+    ports:
+      - "127.0.0.1:56155:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   pdf-ingest:
@@ -121,6 +138,12 @@ services:
       - ./data/inbox:/kb/inbox
       - ./data/processed:/kb/processed
       - ./data/assets:/kb/assets
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   rss-ingest:
@@ -146,13 +169,19 @@ services:
       LOCK_FILE: /tmp/rss_ingest.lock
       MAX_ARTICLES_PER_FEED: "20"
       MAX_ARTICLES_PER_RUN: "50"
-      CAPTION_IMAGES: "false"
+      CAPTION_IMAGES: "true"
       CHUNK_CHARS: "1500"
       CHUNK_OVERLAP_CHARS: "200"
       FETCH_DELAY_SECS: "2.0"
       RSS_FEEDS_ENABLED: "all"
     volumes:
       - ./data/assets:/kb/assets
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   openwebui:
@@ -200,6 +229,13 @@ services:
       - "127.0.0.1:${PORT_ASSETS}:80"
     volumes:
       - ./data/assets:/usr/share/nginx/html:ro
+      - ./nginx/assets.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
 
 volumes:

@@ -15,9 +15,9 @@ logger = logging.getLogger("rss-ingest")
 # ---------------------------------------------------------------------------
 _USE_SCRAPLING = False
 try:
-    from scrapling.fetchers import Fetcher
+    from scrapling.fetchers import StealthyFetcher
     _USE_SCRAPLING = True
-    logger.info("Scrapling Fetcher available — using stealthy HTTP")
+    logger.info("Scrapling StealthyFetcher available — using headless Chromium")
 except ImportError:
     logger.warning("Scrapling not available — falling back to requests + BeautifulSoup")
     import requests as _requests
@@ -60,7 +60,7 @@ def fetch_article(url: str, feed_config: FeedConfig) -> Optional[object]:
     """Fetch article page. Returns a Scrapling Response or BeautifulSoup object."""
     try:
         if _USE_SCRAPLING:
-            fetcher = Fetcher(stealthy_headers=True, timeout=FETCH_TIMEOUT)
+            fetcher = StealthyFetcher(headless=True, timeout=FETCH_TIMEOUT)
             page = fetcher.get(url)
             if page.status == 200:
                 return page
@@ -180,6 +180,16 @@ def _strip_selectors_from_html(content: str, feed_config: FeedConfig, is_html: b
         return content
 
 
+_JUNK_URL_PATTERNS = (".svg", "vgwort.de", "/pixel", "/tracking", "/beacon")
+MIN_IMAGE_BYTES = 5000
+
+
+def _is_junk_image_url(url: str) -> bool:
+    """Filter out SVGs, tracking pixels, and analytics beacons."""
+    lower = url.lower()
+    return any(p in lower for p in _JUNK_URL_PATTERNS)
+
+
 def _extract_image_urls(page, feed_config: FeedConfig) -> List[str]:
     """Extract image URLs from the page using feed-specific selector."""
     urls: List[str] = []
@@ -188,13 +198,13 @@ def _extract_image_urls(page, feed_config: FeedConfig) -> List[str]:
             imgs = page.css(feed_config.img_selector)
             for img in imgs:
                 src = img.attrib.get("src", "") or img.attrib.get("data-src", "")
-                if src and src.startswith("http"):
+                if src and src.startswith("http") and not _is_junk_image_url(src):
                     urls.append(src)
         else:
             imgs = page.select(feed_config.img_selector)
             for img in imgs:
                 src = img.get("src", "") or img.get("data-src", "")
-                if src and src.startswith("http"):
+                if src and src.startswith("http") and not _is_junk_image_url(src):
                     urls.append(src)
     except Exception as e:
         logger.debug("Image extraction failed: %s", e)

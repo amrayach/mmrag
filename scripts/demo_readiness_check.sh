@@ -68,19 +68,39 @@ else
   warn "RSS Ingestion webhook not found (HTTP $RSS_CODE) — import workflow 03"
 fi
 
-# ── 4. Chat returns non-500 (proves Ollama reachable from n8n) ────────────
-echo "== 4. Chat pipeline (end-to-end) =="
+# ── 4. n8n context pipeline (proves embedding + vector search work) ───────
+echo "== 4. n8n context pipeline =="
 CHAT_RESP=$(curl -s -m 120 -X POST http://127.0.0.1:56150/webhook/rag-chat \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Antworte nur mit OK."}]}' 2>/dev/null)
-if echo "$CHAT_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('answer')" 2>/dev/null; then
-  pass "Chat returned a valid answer"
+if echo "$CHAT_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('chatRequestBody')" 2>/dev/null; then
+  pass "n8n returned context with chatRequestBody"
 else
   HTTP_ERR=$(echo "$CHAT_RESP" | head -c 200)
-  fail "Chat did not return a valid answer: $HTTP_ERR"
+  fail "n8n did not return valid context: $HTTP_ERR"
 fi
 
-# ── 5. Tailscale serve rules ─────────────────────────────────────────────
+# ── 5. RAG Gateway SSE streaming ────────────────────────────────────────
+echo "== 5. RAG Gateway streaming =="
+SSE_RESP=$(curl -s -m 30 -N -X POST http://127.0.0.1:56155/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Antworte nur mit OK."}],"stream":true}' 2>/dev/null | head -c 2000)
+if echo "$SSE_RESP" | grep -q "^data:"; then
+  pass "SSE streaming chunks received from rag-gateway"
+else
+  fail "No SSE chunks from rag-gateway: $(echo "$SSE_RESP" | head -c 100)"
+fi
+
+# ── 6. Demo mode check (rss-ingest stopped) ───────────────────────────
+echo "== 6. Demo mode (rss-ingest) =="
+RSS_STATE=$(docker compose -p ammer-mmragv2 ps --format '{{.State}}' rss-ingest 2>/dev/null || echo "unknown")
+if echo "$RSS_STATE" | grep -qi "running"; then
+  warn "rss-ingest is running (GPU contention possible during demo — run 'make demo-start')"
+else
+  pass "rss-ingest is stopped (demo mode active, GPU freed)"
+fi
+
+# ── 7. Tailscale serve rules ─────────────────────────────────────────────
 echo "== 5. Tailscale serve =="
 SERVE_OUT=$(tailscale serve status 2>&1 || true)
 if echo "$SERVE_OUT" | grep -q "$TAILNET_HOST"; then
@@ -89,8 +109,8 @@ else
   fail "Tailscale serve rules not found"
 fi
 
-# ── 6. Tailnet URLs respond ──────────────────────────────────────────────
-echo "== 6. Tailnet URLs =="
+# ── 8. Tailnet URLs respond ──────────────────────────────────────────────
+echo "== 8. Tailnet URLs =="
 for port in 8450 8451 8452 8453 8454; do
   CODE=$(curl -k -s -o /dev/null -w "%{http_code}" -m 10 "https://${TAILNET_HOST}:${port}" 2>/dev/null || echo "000")
   if [ "$CODE" != "000" ]; then

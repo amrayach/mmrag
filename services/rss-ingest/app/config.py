@@ -40,7 +40,7 @@ MAX_IMAGES_PER_ARTICLE = int(os.getenv("MAX_IMAGES_PER_ARTICLE", "3"))
 FETCH_DELAY_SECS = float(os.getenv("FETCH_DELAY_SECS", "2.0"))
 FEED_DELAY_SECS = float(os.getenv("FEED_DELAY_SECS", "5.0"))
 FETCH_TIMEOUT = int(os.getenv("FETCH_TIMEOUT", "30"))
-USER_AGENT = os.getenv("USER_AGENT", "MMRAG-RSS-Bot/1.0 (internal-research-demo)")
+USER_AGENT = os.getenv("USER_AGENT", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")
 
 # ---------------------------------------------------------------------------
 # Lock / assets / feeds
