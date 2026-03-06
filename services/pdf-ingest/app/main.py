@@ -244,6 +244,26 @@ def ollama_embeddings(text: str) -> List[float]:
     return resp.json()["embedding"]
 
 
+EMBED_BATCH_SIZE = 10
+
+
+def ollama_embed_batch(texts: list) -> list:
+    """Embed multiple texts in batches via /api/embed. Returns list of embedding vectors."""
+    if not texts:
+        return []
+    all_embeddings = []
+    for i in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[i:i + EMBED_BATCH_SIZE]
+        resp = _retry(lambda b=batch: requests.post(
+            f"{OLLAMA_BASE}/api/embed",
+            json={"model": EMBED_MODEL, "input": b},
+            timeout=120,
+        ))
+        resp.raise_for_status()
+        all_embeddings.extend(resp.json()["embeddings"])
+    return all_embeddings
+
+
 def ollama_caption_image(image_bytes: bytes, lang: str = "de") -> str:
     prompt = CAPTION_PROMPTS.get(lang, CAPTION_PROMPTS["de"])
     b64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -361,12 +381,13 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                     text = page.get_text("text") or ""
                     text_chunks = split_text(text, CHUNK_CHARS, CHUNK_OVERLAP)
 
-                    for idx, chunk in enumerate(text_chunks):
-                        emb = _retry(lambda c=chunk: ollama_embeddings(c))
-                        insert_chunk(
-                            cur, doc_id, "text", pno + 1, chunk, None, None, emb,
-                            {"source": "pdf_text", "page": pno + 1, "chunk_index": idx},
-                        )
+                    if text_chunks:
+                        text_embeddings = ollama_embed_batch(text_chunks)
+                        for idx, (chunk, emb) in enumerate(zip(text_chunks, text_embeddings)):
+                            insert_chunk(
+                                cur, doc_id, "text", pno + 1, chunk, None, None, emb,
+                                {"source": "pdf_text", "page": pno + 1, "chunk_index": idx},
+                            )
                     stats["text_chunks"] += len(text_chunks)
 
                     images = page.get_images(full=True) or []
