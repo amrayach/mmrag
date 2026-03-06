@@ -3,10 +3,13 @@ import hashlib
 import json
 import logging
 import os
+import queue
 import re
 import shutil
+import threading
 import time as _time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -56,6 +59,41 @@ LOCK_FILE = os.getenv("LOCK_FILE", "/tmp/pdf_ingest.lock")
 
 CAPTION_TIMEOUT = 60  # seconds — skip image if vision model hangs
 ERROR_DIR = os.getenv("ERROR_DIR", "/kb/error")
+
+# ---------------------------------------------------------------------------
+# Concurrency config
+# ---------------------------------------------------------------------------
+MAX_CONCURRENT_DOCS = int(os.getenv("MAX_CONCURRENT_DOCS", "2"))
+MAX_CAPTION_WORKERS = int(os.getenv("MAX_CAPTION_WORKERS", "3"))
+CAPTION_QUEUE_SIZE = int(os.getenv("CAPTION_QUEUE_SIZE", "50"))
+WATCHER_POLL_INTERVAL = int(os.getenv("WATCHER_POLL_INTERVAL", "10"))
+DOC_TIMEOUT = int(os.getenv("DOC_TIMEOUT", "1800"))  # 30 min per document
+
+shutdown_event = threading.Event()
+caption_q: queue.Queue = queue.Queue(maxsize=CAPTION_QUEUE_SIZE)
+doc_executor: Optional[ThreadPoolExecutor] = None
+
+# Thread-safe status counters
+_status_lock = threading.Lock()
+_status = {
+    "active_docs": 0,
+    "completed_docs": 0,
+    "failed_docs": 0,
+    "completed_images": 0,
+    "completed_text_chunks": 0,
+    "skipped_images": 0,
+}
+
+
+def _inc(key: str, n: int = 1):
+    with _status_lock:
+        _status[key] = _status.get(key, 0) + n
+
+
+def _dec(key: str, n: int = 1):
+    with _status_lock:
+        _status[key] = _status.get(key, 0) - n
+
 
 MIN_IMAGE_WIDTH = 150   # pixels — skip icons, logos
 MIN_IMAGE_HEIGHT = 150
@@ -288,6 +326,37 @@ def ollama_caption_image(image_bytes: bytes, lang: str = "de") -> str:
     except requests.Timeout:
         logger.warning("Caption timed out after %ds — skipping image", CAPTION_TIMEOUT)
         return ""
+
+
+# ---------------------------------------------------------------------------
+# Caption worker (consumer thread for caption_q)
+# ---------------------------------------------------------------------------
+# Queue items: (doc_id, page, im_i, img_bytes, lang, asset_name, cancel_event, result_q)
+
+
+def _caption_worker():
+    """Consume images from caption_q, caption + embed, put result in per-doc queue."""
+    while not shutdown_event.is_set():
+        try:
+            item = caption_q.get(timeout=2)
+        except queue.Empty:
+            continue
+
+        doc_id, page, im_i, img_bytes, lang, asset_name, cancel_event, result_q = item
+        try:
+            if cancel_event.is_set():
+                caption_q.task_done()
+                continue
+
+            caption = _retry(lambda ib=img_bytes, la=lang: ollama_caption_image(ib, la))
+            emb = ollama_embed_batch([caption])[0] if caption else None
+            result_q.put((page, im_i, caption, asset_name, emb))
+            _inc("completed_images")
+        except Exception:
+            logger.exception("Caption failed for %s page %d", doc_id, page)
+            result_q.put((page, im_i, "", asset_name, None))
+        finally:
+            caption_q.task_done()
 
 
 # ---------------------------------------------------------------------------
