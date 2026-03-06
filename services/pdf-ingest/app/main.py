@@ -424,12 +424,12 @@ def should_process(cur, doc_id: uuid.UUID, sha: str) -> Tuple[bool, Optional[str
 
 def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, Any]:
     ensure_dirs()
-
     filename = os.path.basename(pdf_path)
     sha = sha256_file(pdf_path)
     t0 = _time.monotonic()
 
-    stats = {"filename": filename, "doc_id": str(doc_id), "sha256": sha, "pages": 0, "text_chunks": 0, "images": 0}
+    stats = {"filename": filename, "doc_id": str(doc_id), "sha256": sha,
+             "pages": 0, "text_chunks": 0, "images": 0, "skipped_images": 0}
 
     with pool.connection() as conn:
         with conn.cursor() as cur:
@@ -449,14 +449,19 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
             logger.info("Ingestion started: %s (%d pages)", filename, total_pages)
 
             written_assets: List[str] = []
+            cancel_event = threading.Event()
+            result_q: queue.Queue = queue.Queue()
             seen_xrefs: set = set()
+            images_queued = 0
 
             try:
+                # --- Phase 1+2: Extract text + embed, queue images ---
                 for pno in range(total_pages):
                     page = doc.load_page(pno)
                     text = page.get_text("text") or ""
                     text_chunks = split_text(text, CHUNK_CHARS, CHUNK_OVERLAP)
 
+                    # Batch embed text
                     if text_chunks:
                         text_embeddings = ollama_embed_batch(text_chunks)
                         for idx, (chunk, emb) in enumerate(zip(text_chunks, text_embeddings)):
@@ -464,18 +469,23 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                                 cur, doc_id, "text", pno + 1, chunk, None, None, emb,
                                 {"source": "pdf_text", "page": pno + 1, "chunk_index": idx},
                             )
-                    stats["text_chunks"] += len(text_chunks)
+                        stats["text_chunks"] += len(text_chunks)
+                        _inc("completed_text_chunks", len(text_chunks))
 
+                    # Filter + downscale + queue images
                     images = page.get_images(full=True) or []
                     img_count = 0
                     for im_i, img in enumerate(images[:MAX_IMAGES_PER_PAGE]):
                         xref = img[0]
                         base = doc.extract_image(xref)
+
                         if _should_skip_image(base, xref, seen_xrefs):
+                            stats["skipped_images"] += 1
+                            _inc("skipped_images")
                             continue
                         seen_xrefs.add(xref)
+
                         img_bytes, ext = downscale_image(base["image"])
-                        img_count += 1
 
                         asset_name = f"{doc_id}_p{pno+1}_i{im_i}.{ext}"
                         asset_path = os.path.join(ASSETS_DIR, asset_name)
@@ -483,19 +493,46 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                             f.write(img_bytes)
                         written_assets.append(asset_path)
 
-                        caption = _retry(lambda ib=img_bytes, la=lang: ollama_caption_image(ib, la))
-                        emb = _retry(lambda c=caption: ollama_embeddings(c)) if caption else None
-
-                        insert_chunk(
-                            cur, doc_id, "image", pno + 1, None, caption, asset_name, emb,
-                            {"source": "pdf_image", "page": pno + 1, "image_index": im_i},
+                        # Enqueue for caption workers (blocks if queue full = backpressure)
+                        caption_q.put(
+                            (doc_id, pno + 1, im_i, img_bytes, lang, asset_name,
+                             cancel_event, result_q),
+                            block=True,
                         )
-                        stats["images"] += 1
+                        images_queued += 1
+                        img_count += 1
 
-                    logger.info("Page %d/%d: %d text chunks, %d images", pno + 1, total_pages, len(text_chunks), img_count)
+                    logger.info("Page %d/%d: %d text chunks, %d images queued",
+                                pno + 1, total_pages, len(text_chunks), img_count)
+
+                # --- Phase 3: Wait for caption results ---
+                caption_results = []
+                deadline = _time.monotonic() + DOC_TIMEOUT
+                while len(caption_results) < images_queued:
+                    remaining = deadline - _time.monotonic()
+                    if remaining <= 0:
+                        logger.error("Document timeout (%ds) for %s — %d/%d images done",
+                                     DOC_TIMEOUT, filename, len(caption_results), images_queued)
+                        cancel_event.set()  # Purge remaining queued images for this doc
+                        break
+                    try:
+                        result = result_q.get(timeout=min(remaining, 5))
+                        caption_results.append(result)
+                    except queue.Empty:
+                        continue
+
+                # --- Phase 4: Insert caption chunks into DB ---
+                for page_no, im_i, caption, asset_name, emb in caption_results:
+                    insert_chunk(
+                        cur, doc_id, "image", page_no, None, caption, asset_name, emb,
+                        {"source": "pdf_image", "page": page_no, "image_index": im_i},
+                    )
+                stats["images"] = len(caption_results)
 
                 conn.commit()
+
             except Exception:
+                cancel_event.set()  # Tell caption workers to skip remaining images
                 conn.rollback()
                 for path in written_assets:
                     try:
@@ -507,7 +544,7 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                 raise
 
     elapsed = _time.monotonic() - t0
-    logger.info("Ingestion complete: %s — %d chunks, %d images in %.1fs",
+    logger.info("Ingestion complete: %s — %d text chunks, %d images in %.1fs",
                 filename, stats["text_chunks"], stats["images"], elapsed)
     return {"status": "ingested", **stats}
 
