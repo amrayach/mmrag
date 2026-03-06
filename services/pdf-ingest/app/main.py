@@ -54,6 +54,9 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 
 LOCK_FILE = os.getenv("LOCK_FILE", "/tmp/pdf_ingest.lock")
 
+CAPTION_TIMEOUT = 60  # seconds — skip image if vision model hangs
+ERROR_DIR = os.getenv("ERROR_DIR", "/kb/error")
+
 MIN_IMAGE_WIDTH = 150   # pixels — skip icons, logos
 MIN_IMAGE_HEIGHT = 150
 MIN_IMAGE_BYTES = 5120  # 5 KB — skip spacers, lines, tracking pixels
@@ -149,7 +152,7 @@ def sanitize_filename(name: str) -> str:
 
 
 def ensure_dirs():
-    for d in [INBOX_DIR, PROCESSED_DIR, ASSETS_DIR]:
+    for d in [INBOX_DIR, PROCESSED_DIR, ASSETS_DIR, ERROR_DIR]:
         os.makedirs(d, exist_ok=True)
 
 
@@ -278,9 +281,13 @@ def ollama_caption_image(image_bytes: bytes, lang: str = "de") -> str:
         ],
         "stream": False,
     }
-    resp = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=180)
-    resp.raise_for_status()
-    return (resp.json().get("message", {}) or {}).get("content", "").strip()
+    try:
+        resp = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=CAPTION_TIMEOUT)
+        resp.raise_for_status()
+        return (resp.json().get("message", {}) or {}).get("content", "").strip()
+    except requests.Timeout:
+        logger.warning("Caption timed out after %ds — skipping image", CAPTION_TIMEOUT)
+        return ""
 
 
 # ---------------------------------------------------------------------------
