@@ -54,6 +54,22 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 
 LOCK_FILE = os.getenv("LOCK_FILE", "/tmp/pdf_ingest.lock")
 
+MIN_IMAGE_WIDTH = 150   # pixels — skip icons, logos
+MIN_IMAGE_HEIGHT = 150
+MIN_IMAGE_BYTES = 5120  # 5 KB — skip spacers, lines, tracking pixels
+
+
+def _should_skip_image(base: dict, xref: int, seen_xrefs: set) -> bool:
+    """Return True if image should be skipped (junk, duplicate, too small)."""
+    if xref in seen_xrefs:
+        return True
+    if base["width"] < MIN_IMAGE_WIDTH or base["height"] < MIN_IMAGE_HEIGHT:
+        return True
+    if len(base["image"]) < MIN_IMAGE_BYTES:
+        return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Connection pool (initialized in lifespan)
 # ---------------------------------------------------------------------------
@@ -309,6 +325,7 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
             logger.info("Ingestion started: %s (%d pages)", filename, total_pages)
 
             written_assets: List[str] = []
+            seen_xrefs: set = set()
 
             try:
                 for pno in range(total_pages):
@@ -324,12 +341,17 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                         )
                     stats["text_chunks"] += len(text_chunks)
 
-                    images = (page.get_images(full=True) or [])[:MAX_IMAGES_PER_PAGE]
-                    for im_i, img in enumerate(images):
+                    images = page.get_images(full=True) or []
+                    img_count = 0
+                    for im_i, img in enumerate(images[:MAX_IMAGES_PER_PAGE]):
                         xref = img[0]
                         base = doc.extract_image(xref)
+                        if _should_skip_image(base, xref, seen_xrefs):
+                            continue
+                        seen_xrefs.add(xref)
                         img_bytes = base["image"]
                         ext = base.get("ext", "png")
+                        img_count += 1
 
                         asset_name = f"{doc_id}_p{pno+1}_i{im_i}.{ext}"
                         asset_path = os.path.join(ASSETS_DIR, asset_name)
@@ -346,7 +368,6 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                         )
                         stats["images"] += 1
 
-                    img_count = len(images)
                     logger.info("Page %d/%d: %d text chunks, %d images", pno + 1, total_pages, len(text_chunks), img_count)
 
                 conn.commit()
