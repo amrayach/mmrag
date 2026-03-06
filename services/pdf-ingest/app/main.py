@@ -70,6 +70,34 @@ def _should_skip_image(base: dict, xref: int, seen_xrefs: set) -> bool:
     return False
 
 
+MAX_IMAGE_DIM = 1024  # max pixels on longest side for vision model
+
+
+def downscale_image(img_bytes: bytes) -> tuple:
+    """Downscale image via shrink(n), convert CMYK→RGB, drop alpha.
+    Returns (jpeg_bytes, 'jpeg').
+    Uses pix.shrink(n) which divides dimensions by 2^n (in-place)."""
+    pix = fitz.Pixmap(img_bytes)
+
+    # CMYK or other non-RGB colorspace → convert to RGB
+    if pix.colorspace and pix.colorspace.n > 3:
+        pix = fitz.Pixmap(fitz.csRGB, pix)
+
+    # Drop alpha channel
+    if pix.alpha:
+        pix = fitz.Pixmap(pix, 0)
+
+    # Find smallest n where max(w,h) >> n <= MAX_IMAGE_DIM
+    w, h = pix.width, pix.height
+    if max(w, h) > MAX_IMAGE_DIM:
+        n = 1
+        while max(w, h) >> n > MAX_IMAGE_DIM and n < 4:
+            n += 1
+        pix.shrink(n)
+
+    return pix.tobytes(output="jpeg", jpg_quality=85), "jpeg"
+
+
 # ---------------------------------------------------------------------------
 # Connection pool (initialized in lifespan)
 # ---------------------------------------------------------------------------
@@ -349,8 +377,7 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                         if _should_skip_image(base, xref, seen_xrefs):
                             continue
                         seen_xrefs.add(xref)
-                        img_bytes = base["image"]
-                        ext = base.get("ext", "png")
+                        img_bytes, ext = downscale_image(base["image"])
                         img_count += 1
 
                         asset_name = f"{doc_id}_p{pno+1}_i{im_i}.{ext}"
