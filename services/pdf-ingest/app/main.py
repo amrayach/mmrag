@@ -561,7 +561,10 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
 
 def move_to_processed(pdf_path: str):
     dst = os.path.join(PROCESSED_DIR, os.path.basename(pdf_path))
-    shutil.move(pdf_path, dst)
+    # shutil.move uses os.rename first, which fails across Docker bind mounts
+    # (different filesystems → EXDEV). Copy + remove works reliably.
+    shutil.copy2(pdf_path, dst)
+    os.remove(pdf_path)
 
 
 def list_pdfs(folder: str) -> List[str]:
