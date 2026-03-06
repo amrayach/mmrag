@@ -488,41 +488,32 @@ def health_ready():
     return {"ok": ok, "checks": checks}
 
 
-@app.post("/ingest/upload")
+@app.post("/ingest/upload", status_code=202)
 async def ingest_upload(file: UploadFile = File(...), lang: str = "de"):
+    """Accept PDF upload, save to inbox for background processing."""
     ensure_dirs()
 
-    # Fast pre-check from Content-Length
     if file.size and file.size > MAX_UPLOAD_BYTES:
         return {"status": "error", "reason": f"file too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}
 
     safe_name = sanitize_filename(file.filename)
-
+    dst = os.path.join(INBOX_DIR, safe_name)
+    total = 0
     try:
-        with ingestion_lock():
-            tmp_path = os.path.join(INBOX_DIR, safe_name)
-            total = 0
-            try:
-                with open(tmp_path, "wb") as f:
-                    while chunk := await file.read(1024 * 1024):
-                        total += len(chunk)
-                        if total > MAX_UPLOAD_BYTES:
-                            raise ValueError("file too large")
-                        f.write(chunk)
-            except ValueError:
-                os.remove(tmp_path)
-                return {"status": "error", "reason": f"file too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}
+        with open(dst, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > MAX_UPLOAD_BYTES:
+                    raise ValueError("file too large")
+                f.write(chunk)
+    except ValueError:
+        if os.path.exists(dst):
+            os.remove(dst)
+        return {"status": "error", "reason": f"file too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}
 
-            doc_id = get_or_create_doc_id(safe_name)
-            res = extract_and_store(tmp_path, doc_id, lang)
-            if res.get("status") == "ingested":
-                move_to_processed(tmp_path)
-            return res
-    except RuntimeError as e:
-        if str(e) == "busy":
-            logger.info("Lock busy, returning busy status")
-            return {"status": "busy", "reason": "ingestion_in_progress"}
-        raise
+    logger.info("Upload accepted: %s (%d bytes) — queued in inbox", safe_name, total)
+    return {"status": "accepted", "filename": safe_name,
+            "message": "File saved to inbox, processing will start automatically"}
 
 
 @app.post("/ingest/scan", response_model=ScanResponse)
