@@ -10,7 +10,7 @@ import threading
 import time as _time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -20,7 +20,6 @@ import requests
 from fastapi import FastAPI, File, UploadFile
 from pgvector.psycopg import register_vector
 from psycopg_pool import ConnectionPool
-from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # Logging (structured JSON)
@@ -48,7 +47,7 @@ INBOX_DIR = os.getenv("INBOX_DIR", "/kb/inbox")
 PROCESSED_DIR = os.getenv("PROCESSED_DIR", "/kb/processed")
 ASSETS_DIR = os.getenv("ASSETS_DIR", "/kb/assets")
 
-MAX_DOCS_PER_SCAN = int(os.getenv("MAX_DOCS_PER_SCAN", "1"))
+MAX_DOCS_PER_SCAN = int(os.getenv("MAX_DOCS_PER_SCAN", "10"))
 MAX_PAGES = int(os.getenv("MAX_PAGES", "0"))
 MAX_IMAGES_PER_PAGE = int(os.getenv("MAX_IMAGES_PER_PAGE", "5"))
 CHUNK_CHARS = int(os.getenv("CHUNK_CHARS", "1500"))
@@ -151,26 +150,52 @@ pool: Optional[ConnectionPool] = None
 
 @asynccontextmanager
 async def lifespan(app):
-    global pool
-    # Startup: clean stale lock (container restart = previous worker is dead)
+    global pool, doc_executor
+    # Startup: clean stale lock (backward compat)
     if os.path.exists(LOCK_FILE):
         os.remove(LOCK_FILE)
         logger.info("Stale lock removed on startup")
 
-    # Init connection pool
+    ensure_dirs()
+
+    # Init DB connection pool (max=4: 2 doc workers + 1 health + 1 spare)
     conninfo = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASS}"
     pool = ConnectionPool(
-        conninfo, min_size=2, max_size=3, open=True,
+        conninfo, min_size=2, max_size=4, open=True,
         configure=lambda conn: register_vector(conn),
     )
-    logger.info("Connection pool initialized (min=2, max=3)")
-    logger.info("pdf-ingest starting")
+    logger.info("Connection pool initialized (min=2, max=4)")
+
+    # Start caption worker threads
+    caption_threads = []
+    for i in range(MAX_CAPTION_WORKERS):
+        t = threading.Thread(target=_caption_worker, name=f"caption-{i}", daemon=True)
+        t.start()
+        caption_threads.append(t)
+    logger.info("Started %d caption workers", MAX_CAPTION_WORKERS)
+
+    # Start doc executor
+    doc_executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_DOCS, thread_name_prefix="doc")
+
+    # Start file watcher
+    watcher_thread = threading.Thread(target=_inbox_watcher, name="watcher", daemon=True)
+    watcher_thread.start()
+
+    logger.info("pdf-ingest v0.5.0 starting (parallel: %d docs, %d caption workers, queue=%d)",
+                MAX_CONCURRENT_DOCS, MAX_CAPTION_WORKERS, CAPTION_QUEUE_SIZE)
     yield
+
+    # Shutdown: signal all threads, cancel queued docs, don't block on executor
+    shutdown_event.set()
+    doc_executor.shutdown(wait=False, cancel_futures=True)
+    watcher_thread.join(timeout=15)
+    for t in caption_threads:
+        t.join(timeout=5)
     pool.close()
     logger.info("pdf-ingest shutting down")
 
 
-app = FastAPI(title="pdf-ingest", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="pdf-ingest", version="0.5.0", lifespan=lifespan)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -193,21 +218,6 @@ def ensure_dirs():
     for d in [INBOX_DIR, PROCESSED_DIR, ASSETS_DIR, ERROR_DIR]:
         os.makedirs(d, exist_ok=True)
 
-
-@contextmanager
-def ingestion_lock():
-    ensure_dirs()
-    if os.path.exists(LOCK_FILE):
-        raise RuntimeError("busy")
-    try:
-        with open(LOCK_FILE, "w") as f:
-            f.write(str(os.getpid()))
-        yield
-    finally:
-        try:
-            os.remove(LOCK_FILE)
-        except OSError:
-            pass
 
 
 def _retry(fn, max_retries=3, backoff=(2, 4, 8)):
@@ -560,10 +570,66 @@ def list_pdfs(folder: str) -> List[str]:
     return [os.path.join(folder, fn) for fn in sorted(os.listdir(folder)) if fn.lower().endswith(".pdf")]
 
 
-class ScanResponse(BaseModel):
-    status: str
-    processed_count: int
-    processed: List[Dict[str, Any]]
+def _process_one(pdf_path: str, lang: str = "de"):
+    """Process a single PDF with error handling. Called by executor threads."""
+    filename = os.path.basename(pdf_path)
+    _inc("active_docs")
+    try:
+        doc_id = get_or_create_doc_id(filename)
+        result = extract_and_store(pdf_path, doc_id, lang)
+        if result.get("status") in ("ingested", "skipped"):
+            move_to_processed(pdf_path)
+        if result.get("status") == "ingested":
+            _inc("completed_docs")
+        logger.info("Result for %s: %s", filename, result.get("status"))
+    except Exception:
+        logger.exception("Fatal error processing %s — moving to error dir", filename)
+        os.makedirs(ERROR_DIR, exist_ok=True)
+        try:
+            shutil.move(pdf_path, os.path.join(ERROR_DIR, filename))
+        except Exception:
+            logger.exception("Failed to move %s to error dir", filename)
+        _inc("failed_docs")
+    finally:
+        _dec("active_docs")
+
+
+def _inbox_watcher():
+    """Poll inbox for new PDFs. Submit stable files (size unchanged for 2 polls) to executor."""
+    known: Dict[str, int] = {}  # path → file size at last poll
+    stable: set = set()         # paths already submitted to executor
+
+    logger.info("File watcher started (poll every %ds)", WATCHER_POLL_INTERVAL)
+
+    while not shutdown_event.is_set():
+        try:
+            ensure_dirs()
+            current: Dict[str, int] = {}
+            for p in list_pdfs(INBOX_DIR):
+                try:
+                    current[p] = os.path.getsize(p)
+                except OSError:
+                    continue
+
+            for path, size in current.items():
+                if path in stable:
+                    continue
+                prev_size = known.get(path)
+                if prev_size is not None and prev_size == size:
+                    # Size stable for 2 consecutive polls → submit
+                    stable.add(path)
+                    logger.info("New PDF detected (stable): %s", os.path.basename(path))
+                    doc_executor.submit(_process_one, path)
+
+            # Clean up: remove entries for files no longer in inbox (moved to processed/error)
+            known = {p: s for p, s in current.items() if p not in stable}
+            stable = {p for p in stable if p in current}
+        except Exception:
+            logger.exception("Watcher error")
+
+        shutdown_event.wait(WATCHER_POLL_INTERVAL)
+
+    logger.info("File watcher stopped")
 
 
 # ---------------------------------------------------------------------------
@@ -622,25 +688,32 @@ async def ingest_upload(file: UploadFile = File(...), lang: str = "de"):
             "message": "File saved to inbox, processing will start automatically"}
 
 
-@app.post("/ingest/scan", response_model=ScanResponse)
-def ingest_scan(max_docs: int = 1, lang: str = "de"):
+@app.post("/ingest/scan")
+def ingest_scan(max_docs: int = 10, lang: str = "de"):
+    """Submit inbox PDFs to the processing queue. Returns immediately.
+
+    Note: If the file watcher already submitted a file that is still processing
+    (file remains in inbox until move_to_processed), this will submit it again.
+    The SHA256 dedup in should_process will return "skipped" — benign but logged.
+    """
     ensure_dirs()
-    try:
-        with ingestion_lock():
-            max_docs = min(max_docs, MAX_DOCS_PER_SCAN)
-            pdfs = list_pdfs(INBOX_DIR)
+    pdfs = list_pdfs(INBOX_DIR)[:max_docs]
+    submitted = 0
+    for pdf_path in pdfs:
+        doc_executor.submit(_process_one, pdf_path, lang)
+        submitted += 1
+    return {"status": "ok", "submitted": submitted, "inbox_total": len(list_pdfs(INBOX_DIR))}
 
-            processed: List[Dict[str, Any]] = []
-            for pdf_path in pdfs[:max_docs]:
-                doc_id = get_or_create_doc_id(os.path.basename(pdf_path))
-                res = extract_and_store(pdf_path, doc_id, lang)
-                processed.append(res)
-                if res.get("status") == "ingested":
-                    move_to_processed(pdf_path)
 
-            return ScanResponse(status="ok", processed_count=len(processed), processed=processed)
-    except RuntimeError as e:
-        if str(e) == "busy":
-            logger.info("Lock busy, returning busy status")
-            return ScanResponse(status="busy", processed_count=0, processed=[])
-        raise
+@app.get("/ingest/status")
+def ingest_status():
+    """Return current ingestion status for monitoring/dashboard."""
+    with _status_lock:
+        s = dict(_status)
+    return {
+        **s,
+        "caption_queue_size": caption_q.qsize(),
+        "caption_queue_max": CAPTION_QUEUE_SIZE,
+        "inbox_files": len(list_pdfs(INBOX_DIR)),
+        "error_files": len([f for f in os.listdir(ERROR_DIR) if f.lower().endswith(".pdf")]) if os.path.isdir(ERROR_DIR) else 0,
+    }
