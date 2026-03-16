@@ -82,12 +82,27 @@ services:
       dockerfile: Dockerfile
     container_name: ammer_mmragv2_rag_gateway
     depends_on:
+      postgres:
+        condition: service_healthy
       n8n:
         condition: service_started
       ollama:
         condition: service_started
     environment:
+      # Context mode: "direct" (postgres+ollama) or "n8n" (webhook fallback)
+      CONTEXT_MODE: "direct"
+      # Direct mode: database connection
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${RAG_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL}
+      PUBLIC_ASSETS_BASE_URL: ${PUBLIC_ASSETS_BASE_URL}
+      VECTOR_DISTANCE_THRESHOLD: "0.5"
+      # n8n mode (fallback)
       N8N_CHAT_WEBHOOK_URL: ${N8N_CHAT_WEBHOOK_URL}
+      # Shared
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
       REQUEST_TIMEOUT_SECS: "120"
       DEFAULT_MODEL: ${OLLAMA_TEXT_MODEL}

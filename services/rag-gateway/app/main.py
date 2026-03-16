@@ -3,12 +3,15 @@ import logging
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
 from typing import List, Optional
 
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+from app import context
 
 # ---------------------------------------------------------------------------
 # Logging (structured JSON)
@@ -29,14 +32,30 @@ OLLAMA_TIMEOUT = 300
 FIRST_TOKEN_TIMEOUT = 20
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen2.5:7b-instruct")
 N8N_HEALTH_URL = N8N_WEBHOOK.rsplit("/webhook/", 1)[0] + "/healthz"
+CONTEXT_MODE = os.getenv("CONTEXT_MODE", "direct")  # "direct" or "n8n"
 
 
-class N8nUnavailableError(Exception):
-    """Raised when n8n health pre-check fails."""
+class ContextUnavailableError(Exception):
+    """Raised when context retrieval fails during streaming."""
     pass
 
 
-app = FastAPI(title="rag-gateway", version="0.5.0")
+# ---------------------------------------------------------------------------
+# Lifespan: init/close direct-context pool
+# ---------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    if CONTEXT_MODE == "direct":
+        await context.init_pool()
+    logger.info("rag-gateway started (context_mode=%s)", CONTEXT_MODE)
+    yield
+    if CONTEXT_MODE == "direct":
+        await context.close_pool()
+
+
+app = FastAPI(title="rag-gateway", version="0.6.0", lifespan=lifespan)
 
 
 class ChatMessage(BaseModel):
@@ -72,17 +91,32 @@ def health():
 @app.get("/health/ready")
 def health_ready():
     checks = {}
-    try:
-        r = requests.get(N8N_WEBHOOK.rsplit("/webhook/", 1)[0] + "/healthz", timeout=5)
-        checks["n8n"] = "ok" if r.ok else f"status {r.status_code}"
-    except Exception as e:
-        checks["n8n"] = str(e)
+    if CONTEXT_MODE == "n8n":
+        try:
+            r = requests.get(N8N_HEALTH_URL, timeout=5)
+            checks["n8n"] = "ok" if r.ok else f"status {r.status_code}"
+        except Exception as e:
+            checks["n8n"] = str(e)
+    else:
+        try:
+            import psycopg
+            conninfo = (
+                f"host={context.DATABASE_HOST} port={context.DATABASE_PORT} "
+                f"dbname={context.DATABASE_NAME} user={context.DATABASE_USER} "
+                f"password={context.DATABASE_PASSWORD}"
+            )
+            with psycopg.connect(conninfo, connect_timeout=5) as conn:
+                conn.execute("SELECT 1")
+            checks["postgres"] = "ok"
+        except Exception as e:
+            checks["postgres"] = str(e)
     try:
         r = requests.get(f"{OLLAMA_BASE_URL}/api/version", timeout=5)
         checks["ollama"] = "ok" if r.ok else f"status {r.status_code}"
     except Exception as e:
         checks["ollama"] = str(e)
-    ok = all(v == "ok" for v in checks.values())
+    checks["context_mode"] = CONTEXT_MODE
+    ok = all(v == "ok" for k, v in checks.items() if k != "context_mode")
     return {"ok": ok, "checks": checks}
 
 
@@ -115,7 +149,7 @@ def _get_context_from_n8n(req: ChatRequest, req_id: str, stream: bool = False) -
     except requests.RequestException:
         logger.warning("[%s] n8n health pre-check failed — fast-failing", req_id)
         if stream:
-            raise N8nUnavailableError()
+            raise ContextUnavailableError()
         raise HTTPException(
             status_code=503,
             detail="Das KI-System wird gerade initialisiert. Bitte in 30 Sekunden erneut versuchen.",
@@ -286,28 +320,63 @@ def _call_ollama_sync(chat_body: dict, req_id: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Step 1 (dispatch): Get context via direct path or n8n
+# ---------------------------------------------------------------------------
+
+
+async def _get_context(req: ChatRequest, req_id: str, stream: bool = False) -> dict:
+    """Dispatch context retrieval based on CONTEXT_MODE."""
+    if CONTEXT_MODE == "direct":
+        try:
+            query = last_user_text(req.messages)
+            result = await context.get_context_direct(
+                query=query,
+                messages=[m.model_dump() for m in req.messages],
+                model=req.model or DEFAULT_MODEL,
+                temperature=req.temperature if req.temperature is not None else 0.2,
+                max_tokens=req.max_tokens if req.max_tokens is not None else 800,
+            )
+            return {
+                "chat_body": result["chatRequestBody"],
+                "image_objects": result["imageObjects"],
+                "sources": result["sources"],
+            }
+        except Exception as e:
+            logger.error("[%s] Direct context error: %s", req_id, e)
+            if stream:
+                raise ContextUnavailableError()
+            raise HTTPException(
+                status_code=502,
+                detail="Fehler bei der Kontextabfrage. Bitte erneut versuchen.",
+            )
+    else:
+        # n8n mode — sync code, safe in FastAPI sync-compatible call
+        return _get_context_from_n8n(req, req_id, stream)
+
+
+# ---------------------------------------------------------------------------
 # OpenAI-compatible chat completions endpoint
 # ---------------------------------------------------------------------------
 
 
 @app.post("/v1/chat/completions")
-def chat_completions(req: ChatRequest):
+async def chat_completions(req: ChatRequest):
     req_id = uuid.uuid4().hex[:12]
     now = int(time.time())
     resp_id = f"chatcmpl-{uuid.uuid4().hex}"
     model = req.model or DEFAULT_MODEL
 
-    logger.info("[%s] Chat request: model=%s, messages=%d, stream=%s",
-                req_id, model, len(req.messages), req.stream)
+    logger.info("[%s] Chat request: model=%s, messages=%d, stream=%s, context_mode=%s",
+                req_id, model, len(req.messages), req.stream, CONTEXT_MODE)
 
-    # Step 1: Get context from n8n
+    # Step 1: Get context
     try:
-        ctx = _get_context_from_n8n(req, req_id, stream=bool(req.stream))
-    except N8nUnavailableError:
-        msg = "Das KI-System wird gerade initialisiert. Bitte in 30 Sekunden erneut versuchen."
-        logger.warning("[%s] Returning SSE n8n-unavailable error to streaming client", req_id)
+        ctx = await _get_context(req, req_id, stream=bool(req.stream))
+    except ContextUnavailableError:
+        msg = "Das KI-System ist vorübergehend nicht erreichbar. Bitte in 30 Sekunden erneut versuchen."
+        logger.warning("[%s] Returning SSE context-unavailable error to streaming client", req_id)
 
-        def _n8n_error():
+        def _ctx_error():
             chunk = {
                 "id": resp_id, "object": "chat.completion.chunk",
                 "created": now, "model": model,
@@ -324,7 +393,7 @@ def chat_completions(req: ChatRequest):
             yield f"data: {json.dumps(stop)}\n\n"
             yield "data: [DONE]\n\n"
 
-        return StreamingResponse(_n8n_error(), media_type="text/event-stream")
+        return StreamingResponse(_ctx_error(), media_type="text/event-stream")
 
     chat_body = ctx["chat_body"]
     suffix = _build_suffix(ctx["image_objects"], ctx["sources"])
