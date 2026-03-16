@@ -1,0 +1,117 @@
+{
+  "name": "MMRAG Chat Brain (Webhook)",
+  "nodes": [
+    {
+      "parameters": { "path": "rag-chat", "httpMethod": "POST", "responseMode": "lastNode" },
+      "id": "Webhook_Chat",
+      "name": "Webhook (rag-chat)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 200],
+      "webhookId": "69e2e6f5-fa2e-4d14-a206-950e172f6931"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const body = $json.body || $json;\nconst msgs = body.messages || [];\nlet q = body.query;\nif (!q && msgs.length) {\n  for (let i = msgs.length - 1; i >= 0; i--) {\n    if (msgs[i].role === 'user') { q = msgs[i].content; break; }\n  }\n}\nq = q || '';\nreturn [{ json: { query: q, embedRequestBody: { model: $env.OLLAMA_EMBED_MODEL || 'nomic-embed-text', prompt: q } } }];"
+      },
+      "id": "Fn_ExtractQuery",
+      "name": "Extract Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/embeddings",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.embedRequestBody) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "HTTP_Embed",
+      "name": "Embed Query (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const emb = $json.embedding || [];\nconst embVec = '[' + emb.join(',') + ']';\nreturn [{ json: { query: $('Extract Query').first().json.query, embedding_vec: embVec } }];"
+      },
+      "id": "Fn_VectorLiteral",
+      "name": "To Vector Literal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT chunk_type, page, content_text, caption, asset_path,\n       1 - (embedding <=> '{{$json.embedding_vec}}'::vector) AS score\nFROM rag_chunks\nWHERE embedding IS NOT NULL\nORDER BY embedding <=> '{{$json.embedding_vec}}'::vector\nLIMIT 4;"
+      },
+      "id": "PG_VectorSearch",
+      "name": "Vector Search (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1140, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const hits = ($('Vector Search (Postgres)').all() || []).map(it => it.json);\nconst base = $env.PUBLIC_ASSETS_BASE_URL || '';\nconst images = hits\n  .filter(h => h.chunk_type === 'image' && h.asset_path)\n  .map(h => `${base}/${h.asset_path}`);\nconst ctxLines = hits.map(h => {\n  if (h.chunk_type === 'image') {\n    const url = h.asset_path ? `${base}/${h.asset_path}` : '';\n    return `Bild (Seite ${h.page}): ${h.caption || ''} ${url}`.trim();\n  }\n  return `Text (Seite ${h.page}): ${h.content_text || ''}`;\n});\nconst sources = hits.map(h => `Seite ${h.page} (${h.chunk_type})`).slice(0, 8);\nconst query = $('Extract Query').first().json.query;\nconst context = ctxLines.join('\\n\\n');\nconst chatRequestBody = {\n  model: $env.OLLAMA_TEXT_MODEL || 'llama3.1:8b',\n  stream: false,\n  options: { num_predict: 400 },\n  messages: [\n    {role: 'system', content: 'Du bist ein präziser Assistent. Antworte auf Deutsch. Zitiere Seitenzahlen wenn möglich.'},\n    {role: 'user', content: 'Frage: ' + query + '\\n\\nKontext aus Dokumenten:\\n' + context + '\\n\\nAntworte kurz, korrekt und mit Seitenhinweisen.'}\n  ]\n};\nreturn [{ json: { query, context, images, sources, chatRequestBody } }];"
+      },
+      "id": "Fn_BuildContext",
+      "name": "Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.chatRequestBody) }}",
+        "options": { "timeout": 180000 }
+      },
+      "id": "HTTP_Generate",
+      "name": "Generate Answer (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1620, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const msg = $json.message?.content || '';\nconst ctx = $('Build Context').first().json;\nreturn [{ json: { answer: msg, images: ctx.images || [], sources: ctx.sources || [] } }];"
+      },
+      "id": "Fn_FormatResponse",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 200]
+    }
+  ],
+  "connections": {
+    "Webhook (rag-chat)": { "main": [[{ "node": "Extract Query", "type": "main", "index": 0 }]] },
+    "Extract Query": { "main": [[{ "node": "Embed Query (Ollama)", "type": "main", "index": 0 }]] },
+    "Embed Query (Ollama)": { "main": [[{ "node": "To Vector Literal", "type": "main", "index": 0 }]] },
+    "To Vector Literal": { "main": [[{ "node": "Vector Search (Postgres)", "type": "main", "index": 0 }]] },
+    "Vector Search (Postgres)": { "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]] },
+    "Build Context": { "main": [[{ "node": "Generate Answer (Ollama)", "type": "main", "index": 0 }]] },
+    "Generate Answer (Ollama)": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "frozen-v2.4"
+}

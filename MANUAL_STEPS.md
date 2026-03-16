@@ -49,6 +49,7 @@ tailscale serve --bg --https=8451 http://127.0.0.1:56151   # OpenWebUI
 tailscale serve --bg --https=8452 http://127.0.0.1:56152   # FileBrowser
 tailscale serve --bg --https=8453 http://127.0.0.1:56153   # Adminer
 tailscale serve --bg --https=8454 http://127.0.0.1:56157   # Assets
+tailscale serve --bg --https=8455 http://127.0.0.1:56156   # Control Center
 ```
 
 **Client prerequisites:** Tailscale must be running and connected on the accessing device. Verify with `tailscale status`.
@@ -61,7 +62,7 @@ tailscale serve --bg --https=8454 http://127.0.0.1:56157   # Assets
 tailscale serve status
 
 # Test all endpoints from the server
-for port in 8450 8451 8452 8453 8454; do
+for port in 8450 8451 8452 8453 8454 8455; do
   echo -n ":$port -> "
   curl -k -s -o /dev/null -w "%{http_code}" https://spark-e010.tail907fce.ts.net:$port
   echo
@@ -114,7 +115,7 @@ These starter questions are designed to showcase all four capabilities in the de
 
 ---
 
-## Deployment Deviations from Spec (v2.4) — 20 items
+## Deployment Deviations from Spec (v2.4) — 21 items
 
 | # | Spec Item | Deviation | Reason |
 |---|-----------|-----------|--------|
@@ -138,3 +139,4 @@ These starter questions are designed to showcase all four capabilities in the de
 | D18 | Serial PDF ingestion (`OLLAMA_NUM_PARALLEL=1`, lock file) | Parallel pipeline: `OLLAMA_NUM_PARALLEL=3`, `ThreadPoolExecutor(2)` for concurrent docs, 3 caption workers with bounded queue, batch embeddings (`/api/embed`, 10/batch), image filtering (<150px, <5KB, doc-scoped dedup), PyMuPDF shrink downscaling, auto file watcher | ~8-9x speedup for bulk PDF prep. See `docs/plans/2026-03-06-fast-pdf-ingestion-design.md` |
 | D18a | `/ingest/upload` blocks until ingestion complete | Returns `202 Accepted`, saves to inbox, defers to file watcher | Prevents upload timeouts and lock contention |
 | D18b | `/ingest/scan` blocks until all PDFs processed | Returns immediately after submitting to thread pool | Non-blocking; n8n cron acts as fallback to file watcher |
+| D19 | No unified control UI | Control Center (11th container) on port 56156/8455 | Single-pane-of-glass: dashboard, services, ingestion, demo mode, RAG playground, docs, system info |

@@ -223,6 +223,43 @@ services:
       - "127.0.0.1:${PORT_ADMINER}:8080"
     restart: unless-stopped
 
+  controlcenter:
+    build:
+      context: ./services/controlcenter
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_controlcenter
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${RAG_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      OLLAMA_TEXT_MODEL: ${OLLAMA_TEXT_MODEL}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL}
+      N8N_CHAT_WEBHOOK_URL: ${N8N_CHAT_WEBHOOK_URL}
+      PUBLIC_ASSETS_BASE_URL: ${PUBLIC_ASSETS_BASE_URL}
+      TAILNET_HOST: ${TAILSCALE_HOSTNAME}
+    ports:
+      - "127.0.0.1:${PORT_CONTROLCENTER}:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docs:/app/project-docs/docs:ro
+      - ./README.md:/app/project-docs/README.md:ro
+      - ./MANUAL_STEPS.md:/app/project-docs/MANUAL_STEPS.md:ro
+      - ./data:/app/project-data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
   assets:
     image: nginx:1.29-alpine
     container_name: ammer_mmragv2_assets

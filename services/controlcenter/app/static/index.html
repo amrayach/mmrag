@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MMRAG Control Center</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1 class="logo">MMRAG</h1>
+    <span class="logo-sub">Control Center</span>
+  </div>
+  <nav class="sidebar-nav" id="nav">
+    <a href="#/dashboard" class="nav-item active" data-page="dashboard" data-key="1">
+      <span class="nav-icon">&#9632;</span> Dashboard
+    </a>
+    <a href="#/services" class="nav-item" data-page="services" data-key="2">
+      <span class="nav-icon">&#9881;</span> Services
+    </a>
+    <a href="#/ingestion" class="nav-item" data-page="ingestion" data-key="3">
+      <span class="nav-icon">&#8615;</span> Ingestion
+    </a>
+    <a href="#/data_explorer" class="nav-item" data-page="data_explorer" data-key="4">
+      <span class="nav-icon">&#128269;</span> Data Explorer
+    </a>
+    <a href="#/demo" class="nav-item" data-page="demo" data-key="5">
+      <span class="nav-icon">&#9654;</span> Demo Mode
+    </a>
+    <a href="#/rag" class="nav-item" data-page="rag" data-key="6">
+      <span class="nav-icon">&#128172;</span> RAG Playground
+    </a>
+    <a href="#/timeline" class="nav-item" data-page="timeline" data-key="7">
+      <span class="nav-icon">&#128337;</span> Timeline
+    </a>
+    <a href="#/docs" class="nav-item" data-page="docs" data-key="8">
+      <span class="nav-icon">&#128196;</span> Docs
+    </a>
+    <a href="#/system" class="nav-item" data-page="system" data-key="9">
+      <span class="nav-icon">&#9881;</span> System
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="connection-status" id="connection-status">
+      <span class="status-dot status-unknown"></span>
+      <span class="status-text">Connecting...</span>
+    </div>
+  </div>
+</aside>
+
+<button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">&#9776;</button>
+
+<main class="main-content" id="main-content">
+  <div class="page-container" id="page-container">
+    <div class="page-placeholder">
+      <h2>Loading...</h2>
+    </div>
+  </div>
+</main>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/components.js"></script>
+<script src="/static/js/shared/service_graph.js"></script>
+<script src="/static/js/pages/dashboard.js"></script>
+<script src="/static/js/pages/services.js"></script>
+<script src="/static/js/pages/ingestion.js"></script>
+<script src="/static/js/pages/demo.js"></script>
+<script src="/static/js/pages/rag.js"></script>
+<script src="/static/js/pages/timeline.js"></script>
+<script src="/static/js/pages/docs.js"></script>
+<script src="/static/js/pages/data_explorer.js"></script>
+<script src="/static/js/pages/system.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>

@@ -8,6 +8,7 @@ Localhost binds:
 * 56153 Adminer
 * 56154 Postgres
 * 56155 RAG Gateway
+* 56156 Control Center
 * 56157 Assets (gallery)
 
 Tailnet-only (Tailscale Serve):
@@ -17,3 +18,4 @@ Tailnet-only (Tailscale Serve):
 * 8452 FileBrowser
 * 8453 Adminer
 * 8454 Assets
+* 8455 Control Center

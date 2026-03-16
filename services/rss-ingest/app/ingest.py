@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import time as _time
@@ -27,6 +28,135 @@ from app.scraper import (
 from app.text import split_text
 
 logger = logging.getLogger("rss-ingest")
+
+# ---------------------------------------------------------------------------
+# Image dedup helpers
+# ---------------------------------------------------------------------------
+_THUMB_SIZE = 16
+_VISUAL_THRESHOLD = 0.95
+
+# Global thumbnail cache: asset_name -> flat pixel list.
+# Populated lazily on first call to _save_deduped_image.
+_global_thumb_cache: dict = {}
+_cache_loaded = False
+
+
+def _thumb_from_bytes(img_bytes: bytes) -> list:
+    """Return a small grayscale thumbnail as a flat pixel list, or [] on error."""
+    try:
+        from io import BytesIO
+        from PIL import Image
+        img = Image.open(BytesIO(img_bytes)).convert("L").resize(
+            (_THUMB_SIZE, _THUMB_SIZE), Image.LANCZOS,
+        )
+        return list(img.getdata())
+    except Exception:
+        return []
+
+
+def _thumb_from_file(path: str) -> list:
+    """Return thumbnail from an on-disk image file."""
+    try:
+        from PIL import Image
+        img = Image.open(path).convert("L").resize(
+            (_THUMB_SIZE, _THUMB_SIZE), Image.LANCZOS,
+        )
+        return list(img.getdata())
+    except Exception:
+        return []
+
+
+def _cosine(a: list, b: list) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(x * x for x in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _load_thumb_cache():
+    """Scan all existing images in _shared/ and build the thumbnail cache."""
+    global _cache_loaded
+    shared_dir = os.path.join(ASSETS_DIR, "rss", "_shared")
+    if not os.path.isdir(shared_dir):
+        _cache_loaded = True
+        return
+    count = 0
+    for fname in os.listdir(shared_dir):
+        fpath = os.path.join(shared_dir, fname)
+        if not os.path.isfile(fpath):
+            continue
+        asset_name = f"rss/_shared/{fname}"
+        if asset_name not in _global_thumb_cache:
+            t = _thumb_from_file(fpath)
+            if t:
+                _global_thumb_cache[asset_name] = t
+                count += 1
+    _cache_loaded = True
+    logger.info("Global thumb cache loaded: %d images", count)
+
+
+def _find_visual_match(thumb: list) -> str | None:
+    """Return asset_name of a visually matching image, or None."""
+    for asset_name, cached_thumb in _global_thumb_cache.items():
+        if _cosine(thumb, cached_thumb) >= _VISUAL_THRESHOLD:
+            return asset_name
+    return None
+
+
+def _save_deduped_image(img_bytes: bytes, ext: str) -> str:
+    """Save image to shared dedup directory, returning relative asset_name.
+
+    Dedup layers:
+      1. SHA-256 content hash — exact byte match
+      2. Global visual similarity — catches CDN resize variants
+    """
+    global _cache_loaded
+
+    # Lazy-load the thumbnail cache on first call
+    if not _cache_loaded:
+        _load_thumb_cache()
+
+    # Layer 1: exact content hash
+    content_hash = hashlib.sha256(img_bytes).hexdigest()[:16]
+    asset_name = f"rss/_shared/{content_hash}.{ext}"
+    asset_path = os.path.join(ASSETS_DIR, asset_name)
+
+    if os.path.exists(asset_path):
+        logger.debug("Reusing exact-match image: %s", asset_name)
+        return asset_name
+
+    # Layer 2: visual similarity against all known images
+    thumb = _thumb_from_bytes(img_bytes)
+    if thumb:
+        match = _find_visual_match(thumb)
+        if match:
+            logger.debug("Reusing visually-matched image: %s (new was %s)", match, asset_name)
+            return match
+
+    # No match — save new file and register in cache
+    os.makedirs(os.path.dirname(asset_path), exist_ok=True)
+    with open(asset_path, "wb") as f:
+        f.write(img_bytes)
+    if thumb:
+        _global_thumb_cache[asset_name] = thumb
+    logger.debug("Saved new image: %s", asset_name)
+    return asset_name
+
+
+def _is_visual_dup(img_bytes: bytes, seen_thumbs: list, threshold: float = 0.95) -> bool:
+    """Check if img_bytes is a visual duplicate of any image in seen_thumbs.
+
+    Uses cosine similarity of 16x16 grayscale thumbnails.  Only used to compare
+    images within the SAME article (max 3), so the cost is negligible.
+    """
+    thumb = _thumb_from_bytes(img_bytes)
+    if not thumb:
+        return False
+    for prev in seen_thumbs:
+        if _cosine(thumb, prev) >= threshold:
+            return True
+    seen_thumbs.append(thumb)
+    return False
 
 
 def ingest_all_feeds(
@@ -192,7 +322,6 @@ def ingest_article(
                 return "skipped"
 
             # Begin transactional ingestion
-            written_assets = []
             chunk_count = 0
             try:
                 delete_doc_chunks(cur, doc_id)
@@ -218,9 +347,7 @@ def ingest_article(
 
                 # Optionally process images
                 if CAPTION_IMAGES and image_urls:
-                    rss_assets_dir = os.path.join(ASSETS_DIR, "rss", str(doc_id)[:8])
-                    os.makedirs(rss_assets_dir, exist_ok=True)
-
+                    article_thumbs = []  # for within-article visual dedup
                     for im_i, img_url in enumerate(image_urls[:MAX_IMAGES_PER_ARTICLE]):
                         try:
                             img_resp = requests.get(img_url, timeout=30)
@@ -231,13 +358,14 @@ def ingest_article(
                                 logger.debug("Skipping tiny image (%d bytes): %s", len(img_bytes), img_url)
                                 continue
 
+                            # Skip if visually same as another image from this article
+                            if _is_visual_dup(img_bytes, article_thumbs):
+                                logger.debug("Skipping visual duplicate within article: %s", img_url)
+                                continue
+
                             clean_path = urllib.parse.urlparse(img_url).path
                             ext = clean_path.rsplit(".", 1)[-1][:4] if "." in clean_path else "jpg"
-                            asset_name = f"rss/{str(doc_id)[:8]}/{im_i}.{ext}"
-                            asset_path = os.path.join(ASSETS_DIR, asset_name)
-                            with open(asset_path, "wb") as f:
-                                f.write(img_bytes)
-                            written_assets.append(asset_path)
+                            asset_name = _save_deduped_image(img_bytes, ext)
 
                             caption = _retry(
                                 lambda ib=img_bytes, t=title, fn=feed_config.name, la=lang:
@@ -267,12 +395,6 @@ def ingest_article(
 
             except Exception:
                 conn.rollback()
-                # Clean orphan assets
-                for path in written_assets:
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
                 logger.warning("Ingestion failed for %s, rolled back", url)
                 raise
 
@@ -318,12 +440,10 @@ def backfill_images_for_doc(pool, doc_id, url: str, lang: str = "de") -> dict:
             row = cur.fetchone()
             title = row[0] if row else ""
 
-            rss_assets_dir = os.path.join(ASSETS_DIR, "rss", str(doc_id)[:8])
-            os.makedirs(rss_assets_dir, exist_ok=True)
-            written_assets = []
             image_count = 0
 
             try:
+                article_thumbs = []  # for within-article visual dedup
                 for im_i, img_url in enumerate(image_urls[:MAX_IMAGES_PER_ARTICLE]):
                     try:
                         img_resp = requests.get(img_url, timeout=30)
@@ -334,13 +454,13 @@ def backfill_images_for_doc(pool, doc_id, url: str, lang: str = "de") -> dict:
                             logger.debug("Skipping tiny image (%d bytes): %s", len(img_bytes), img_url)
                             continue
 
+                        if _is_visual_dup(img_bytes, article_thumbs):
+                            logger.debug("Skipping visual duplicate within article: %s", img_url)
+                            continue
+
                         clean_path = urllib.parse.urlparse(img_url).path
                         ext = clean_path.rsplit(".", 1)[-1][:4] if "." in clean_path else "jpg"
-                        asset_name = f"rss/{str(doc_id)[:8]}/{im_i}.{ext}"
-                        asset_path = os.path.join(ASSETS_DIR, asset_name)
-                        with open(asset_path, "wb") as f:
-                            f.write(img_bytes)
-                        written_assets.append(asset_path)
+                        asset_name = _save_deduped_image(img_bytes, ext)
 
                         caption = _retry(
                             lambda ib=img_bytes, t=title, fn=feed_config.name, la=lang:
@@ -367,11 +487,6 @@ def backfill_images_for_doc(pool, doc_id, url: str, lang: str = "de") -> dict:
 
             except Exception:
                 conn.rollback()
-                for path in written_assets:
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
                 logger.warning("Backfill failed for %s, rolled back", url)
                 raise
 

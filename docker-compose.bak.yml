@@ -1,0 +1,274 @@
+name: ammer-mmragv2
+services:
+  adminer:
+    container_name: ammer_mmragv2_adminer
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    image: adminer:latest
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 8080
+        published: "56153"
+        protocol: tcp
+    restart: unless-stopped
+  assets:
+    container_name: ammer_mmragv2_assets
+    image: nginx:alpine
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 80
+        published: "56157"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/data/assets
+        target: /usr/share/nginx/html
+        read_only: true
+        bind:
+          create_host_path: true
+  filebrowser:
+    command:
+      - --database
+      - /database/filebrowser.db
+      - --root
+      - /srv
+      - --port
+      - "80"
+      - --address
+      - 0.0.0.0
+    container_name: ammer_mmragv2_filebrowser
+    image: filebrowser/filebrowser:latest
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 80
+        published: "56152"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/data
+        target: /srv
+        bind:
+          create_host_path: true
+      - type: volume
+        source: filebrowser_db
+        target: /database
+        volume: {}
+      - type: volume
+        source: filebrowser_config
+        target: /config
+        volume: {}
+  n8n:
+    container_name: ammer_mmragv2_n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+    environment:
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PASSWORD: ckq7Laso/xGIIiKYPjXivtiqaxD6V/rG
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_USER: rag_user
+      DB_TYPE: postgresdb
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_ENCRYPTION_KEY: 42ee0dd70c751d7e6173e65e25d3b0ee8cc904e6d0f05493fff72b75477598e4
+      N8N_HOST: 0.0.0.0
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      OLLAMA_TEXT_MODEL: qwen2.5:7b-instruct
+      OLLAMA_VISION_MODEL: qwen2.5vl:7b
+      PUBLIC_ASSETS_BASE_URL: https://spark-e010.tail907fce.ts.net:8454
+    image: n8nio/n8n:latest-arm64
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5678
+        published: "56150"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: n8n_data
+        target: /home/node/.n8n
+        volume: {}
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/n8n/workflows
+        target: /workflows
+        read_only: true
+        bind:
+          create_host_path: true
+  ollama:
+    container_name: ammer_mmragv2_ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_MAX_LOADED_MODELS: "3"
+      OLLAMA_NUM_PARALLEL: "4"
+    gpus:
+      - count: -1
+    image: ollama/ollama:latest
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: ollama_data
+        target: /root/.ollama
+        volume: {}
+  openwebui:
+    container_name: ammer_mmragv2_openwebui
+    depends_on:
+      rag-gateway:
+        condition: service_started
+        required: true
+    environment:
+      WEBUI_NAME: MMRAG Demo (Tailnet Only)
+    image: ghcr.io/open-webui/open-webui:main
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 8080
+        published: "56151"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: openwebui_data
+        target: /app/backend/data
+        volume: {}
+  pdf-ingest:
+    build:
+      context: /srv/projects/ammer/mmrag-n8n-demo-v2/services/pdf-ingest
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_pdf_ingest
+    depends_on:
+      ollama:
+        condition: service_started
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+    environment:
+      ASSETS_DIR: /kb/assets
+      CHUNK_CHARS: "1500"
+      CHUNK_OVERLAP_CHARS: "200"
+      DATABASE_HOST: postgres
+      DATABASE_NAME: rag
+      DATABASE_PASSWORD: ckq7Laso/xGIIiKYPjXivtiqaxD6V/rG
+      DATABASE_PORT: "5432"
+      DATABASE_USER: rag_user
+      INBOX_DIR: /kb/inbox
+      LOCK_FILE: /tmp/pdf_ingest.lock
+      MAX_DOCS_PER_SCAN: "1"
+      MAX_IMAGES_PER_PAGE: "5"
+      MAX_PAGES: "0"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      OLLAMA_VISION_MODEL: qwen2.5vl:7b
+      PROCESSED_DIR: /kb/processed
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/data/inbox
+        target: /kb/inbox
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/data/processed
+        target: /kb/processed
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/data/assets
+        target: /kb/assets
+        bind:
+          create_host_path: true
+  postgres:
+    container_name: ammer_mmragv2_postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ckq7Laso/xGIIiKYPjXivtiqaxD6V/rG
+      POSTGRES_USER: rag_user
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U rag_user -d postgres
+      timeout: 3s
+      interval: 5s
+      retries: 30
+    image: supabase/postgres:15.14.1.081
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5432
+        published: "56154"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: /srv/projects/ammer/mmrag-n8n-demo-v2/db/init
+        target: /docker-entrypoint-initdb.d
+        read_only: true
+        bind:
+          create_host_path: true
+  rag-gateway:
+    build:
+      context: /srv/projects/ammer/mmrag-n8n-demo-v2/services/rag-gateway
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_rag_gateway
+    depends_on:
+      n8n:
+        condition: service_started
+        required: true
+    environment:
+      DEFAULT_MODEL: qwen2.5:7b-instruct
+      N8N_CHAT_WEBHOOK_URL: http://n8n:5678/webhook/rag-chat
+      REQUEST_TIMEOUT_SECS: "120"
+    networks:
+      default: null
+    restart: unless-stopped
+networks:
+  default:
+    name: ammer-mmragv2_default
+volumes:
+  filebrowser_config:
+    name: ammer-mmragv2_filebrowser_config
+  filebrowser_db:
+    name: ammer-mmragv2_filebrowser_db
+  n8n_data:
+    name: ammer-mmragv2_n8n_data
+  ollama_data:
+    name: ammer-mmragv2_ollama_data
+  openwebui_data:
+    name: ammer-mmragv2_openwebui_data
+  postgres_data:
+    name: ammer-mmragv2_postgres_data

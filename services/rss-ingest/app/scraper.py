@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import feedparser
 from bs4 import BeautifulSoup
@@ -60,8 +60,7 @@ def fetch_article(url: str, feed_config: FeedConfig) -> Optional[object]:
     """Fetch article page. Returns a Scrapling Response or BeautifulSoup object."""
     try:
         if _USE_SCRAPLING:
-            fetcher = StealthyFetcher(headless=True, timeout=FETCH_TIMEOUT)
-            page = fetcher.get(url)
+            page = StealthyFetcher.fetch(url, headless=True, timeout=FETCH_TIMEOUT * 1000)
             if page.status == 200:
                 return page
             logger.warning("Fetch %s returned status %s", url, page.status)
@@ -190,6 +189,59 @@ def _is_junk_image_url(url: str) -> bool:
     return any(p in lower for p in _JUNK_URL_PATTERNS)
 
 
+import re
+
+# CDN resize patterns to strip for URL normalization
+_CDN_SIZE_RE = re.compile(
+    r'_w\d+'           # _w520, _w960
+    r'|_r[\d.]+'       # _r1.5, _r1.33
+    r'|_fpx[\d.]+'     # _fpx29
+    r'|_fpy[\d.]+'     # _fpy46
+)
+_CDN_WIDTH_RE = re.compile(r'_w(\d+)')
+
+
+def _normalize_image_url(url: str) -> str:
+    """Strip CDN resize/crop parameters to get the base image identity."""
+    from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+    parsed = urlparse(url)
+    # Strip size-related path components (SPIEGEL pattern)
+    clean_path = _CDN_SIZE_RE.sub('', parsed.path)
+    # Strip common query params for width/height
+    if parsed.query:
+        params = parse_qs(parsed.query)
+        for key in ('w', 'h', 'width', 'height', 'resize', 'size', 'q'):
+            params.pop(key, None)
+        clean_query = urlencode(params, doseq=True)
+    else:
+        clean_query = ''
+    return urlunparse((parsed.scheme, parsed.netloc, clean_path, '', clean_query, ''))
+
+
+def _extract_cdn_width(url: str) -> int:
+    """Extract width from CDN URL, or 0 if not found."""
+    m = _CDN_WIDTH_RE.search(url)
+    return int(m.group(1)) if m else 0
+
+
+def _dedup_image_urls(urls: List[str]) -> List[str]:
+    """Deduplicate image URLs that are the same image at different sizes.
+
+    Groups by normalized URL, keeps the widest version per group.
+    """
+    groups: Dict[str, List[str]] = {}
+    for url in urls:
+        key = _normalize_image_url(url)
+        groups.setdefault(key, []).append(url)
+
+    result = []
+    for key, group in groups.items():
+        # Pick the URL with the largest width, or the first one
+        best = max(group, key=lambda u: _extract_cdn_width(u))
+        result.append(best)
+    return result
+
+
 def _extract_image_urls(page, feed_config: FeedConfig) -> List[str]:
     """Extract image URLs from the page using feed-specific selector."""
     urls: List[str] = []
@@ -208,7 +260,7 @@ def _extract_image_urls(page, feed_config: FeedConfig) -> List[str]:
                     urls.append(src)
     except Exception as e:
         logger.debug("Image extraction failed: %s", e)
-    return urls
+    return _dedup_image_urls(urls)
 
 
 def _clean_html_to_text(html: str) -> str:

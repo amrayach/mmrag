@@ -1,13 +1,18 @@
-# Environment (contains secrets)
+# Environment and credentials (contain secrets)
 .env
+CREDENTIALS.md
 
 # Runtime data directories
 data/inbox/*
 data/processed/*
 data/assets/*
+data/tmp_test/
 !data/inbox/.gitkeep
 !data/processed/.gitkeep
 !data/assets/.gitkeep
+
+# Screenshots
+*.png
 
 # Machine-specific admin docs
 DGX_Docker_Guidelines_for_Ammer_EN.pdf
