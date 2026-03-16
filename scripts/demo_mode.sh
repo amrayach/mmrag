@@ -21,6 +21,31 @@ case "${1:-}" in
     docker compose stop rss-ingest
     echo "    rss-ingest stopped."
 
+    # 1b. Wait for pdf-ingest to finish any active processing
+    echo "    Checking pdf-ingest status..."
+    WAITED=0
+    while [ "$WAITED" -lt 60 ]; do
+      ACTIVE=$(docker compose -p ammer-mmragv2 exec -T pdf-ingest \
+        curl -sf http://localhost:8001/ingest/status 2>/dev/null \
+        | python3 -c "import json,sys; print(json.load(sys.stdin).get('active_docs',0))" 2>/dev/null || echo "0")
+      if [ "$ACTIVE" -eq 0 ] 2>/dev/null; then
+        break
+      fi
+      if [ "$WAITED" -eq 0 ]; then
+        echo "    WARNING: pdf-ingest has $ACTIVE active doc(s) — waiting up to 60s..."
+      fi
+      sleep 5
+      WAITED=$((WAITED + 5))
+    done
+    if [ "$WAITED" -ge 60 ]; then
+      echo "    WARNING: pdf-ingest still busy after 60s — proceeding anyway"
+    elif [ "$WAITED" -gt 0 ]; then
+      echo "    pdf-ingest drained after ${WAITED}s."
+    else
+      echo "    pdf-ingest idle."
+    fi
+    echo ""
+
     # 2. Pre-warm all Ollama models
     echo "2/3 Pre-warming Ollama models..."
     bash scripts/prewarm.sh

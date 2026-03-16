@@ -57,7 +57,7 @@ services:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:5678/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5678/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

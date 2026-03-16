@@ -178,7 +178,7 @@ bash reset_demo.sh
 **Option A — Über n8n (visuell, für die Demo empfohlen):**
 
 1. n8n öffnen: **https://spark-e010.tail907fce.ts.net:8450**
-2. Einloggen mit: `admin@mmrag.local` / `MmragAdmin2024x`
+2. Einloggen (siehe CREDENTIALS.md — nicht in Git verfolgt)
 3. Workflow **„Ingestion Factory"** öffnen
 4. Oben auf **„Test Workflow"** klicken
 5. Die Ausführung verfolgen — jeder Knoten wird grün, wenn erfolgreich
@@ -336,7 +336,7 @@ In OpenWebUI eine Frage stellen, die sowohl PDF- als auch RSS-Inhalte betreffen 
 ### 6.1 n8n-Workflows zeigen
 
 1. n8n öffnen: **https://spark-e010.tail907fce.ts.net:8450**
-2. Einloggen mit: `admin@mmrag.local` / `MmragAdmin2024x`
+2. Einloggen (siehe CREDENTIALS.md — nicht in Git verfolgt)
 
 **Chat Brain Workflow zeigen:**
 1. Workflow **„Chat Brain"** öffnen
@@ -468,16 +468,9 @@ bash reset_demo.sh --rss-only
 
 ---
 
-## Anhang: Zugangsdaten (Schnellreferenz)
+## Anhang: Zugangsdaten
 
-| Dienst | Benutzer | Passwort | Hinweis |
-|--------|----------|----------|---------|
-| n8n | `admin@mmrag.local` | `MmragAdmin2024x` | Admin-Zugang |
-| FileBrowser | *beim Admin erfragen* | *beim Admin erfragen* | Standard wurde geändert |
-| Adminer | `rag_user` | *aus .env-Datei* | PostgreSQL-Zugang |
-| OpenWebUI | *eigener Account* | *selbst erstellt* | Bei Erstbesuch registrieren |
-
-> **Sicherheitshinweis:** Zugangsdaten niemals in Präsentationsfolien oder geteilten Dokumenten zeigen. Dieses Dokument nur intern verwenden.
+Siehe **CREDENTIALS.md** (nicht in Git verfolgt) für alle Service-Logins und Passwörter.
 
 ---
 

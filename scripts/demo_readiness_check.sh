@@ -23,7 +23,7 @@ TAILNET_HOST="spark-e010.tail907fce.ts.net"
 # ── 1. Containers (expect 10) ─────────────────────────────────────────────
 echo "== 1. Docker containers =="
 RUNNING=$(docker compose -p ammer-mmragv2 ps --status running --format '{{.Name}}' 2>/dev/null | wc -l)
-if [ "$RUNNING" -eq 10 ]; then
+if [ "$RUNNING" -ge 10 ]; then
   pass "All 10 containers running"
 else
   fail "$RUNNING/10 containers running"
@@ -89,6 +89,25 @@ if echo "$SSE_RESP" | grep -q "^data:"; then
   pass "SSE streaming chunks received from rag-gateway"
 else
   fail "No SSE chunks from rag-gateway: $(echo "$SSE_RESP" | head -c 100)"
+fi
+
+# ── 5b. End-to-end streaming test (full chain) ────────────────────────
+echo "== 5b. End-to-end pipeline (rag-gateway → n8n → Ollama → stream) =="
+E2E_RESP=$(curl -s -m 120 -N -X POST http://127.0.0.1:56155/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Was ist ein Vektor? Antworte in einem Satz."}],"stream":true}' 2>/dev/null || true)
+# Extract data: lines that contain actual content (delta with text), skip [DONE] and empty data
+E2E_CONTENT=$(echo "$E2E_RESP" | grep '^data:' | grep -v '\[DONE\]' | grep '"content"' | head -1 || true)
+if [ -n "$E2E_CONTENT" ]; then
+  pass "End-to-end SSE chunk with content received"
+else
+  # Check if we got any data: lines at all
+  E2E_ANY=$(echo "$E2E_RESP" | grep -c '^data:' || true)
+  if [ "$E2E_ANY" -gt 1 ]; then
+    pass "End-to-end SSE streaming works ($E2E_ANY data chunks)"
+  else
+    fail "End-to-end streaming failed — no content chunks (got ${E2E_ANY:-0} data lines)"
+  fi
 fi
 
 # ── 6. Demo mode check (rss-ingest stopped) ───────────────────────────

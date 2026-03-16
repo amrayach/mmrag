@@ -178,7 +178,7 @@ bash reset_demo.sh
 **Option A — Via n8n (visual, recommended for the demo):**
 
 1. Open n8n: **https://spark-e010.tail907fce.ts.net:8450**
-2. Log in with: `admin@mmrag.local` / `MmragAdmin2024x`
+2. Log in (see CREDENTIALS.md — not tracked in git)
 3. Open the **"Ingestion Factory"** workflow
 4. Click **"Test Workflow"** at the top
 5. Watch the execution — each node turns green when successful
@@ -351,7 +351,7 @@ In OpenWebUI, ask a question that could involve both PDF and RSS content:
 ### 6.1 Show n8n Workflows
 
 1. Open n8n: **https://spark-e010.tail907fce.ts.net:8450**
-2. Log in with: `admin@mmrag.local` / `MmragAdmin2024x`
+2. Log in (see CREDENTIALS.md — not tracked in git)
 
 **Show the Chat Brain workflow:**
 1. Open the **"Chat Brain"** workflow
@@ -484,16 +484,9 @@ bash reset_demo.sh --rss-only
 
 ---
 
-## Appendix: Credentials (Quick Reference)
+## Appendix: Credentials
 
-| Service | Username | Password | Note |
-|---------|----------|----------|------|
-| n8n | `admin@mmrag.local` | `MmragAdmin2024x` | Admin access |
-| FileBrowser | *ask administrator* | *ask administrator* | Default was changed |
-| Adminer | `rag_user` | *from .env file* | PostgreSQL access |
-| OpenWebUI | *own account* | *self-created* | Register on first visit |
-
-> **Security note:** Never show credentials in presentation slides or shared documents. This document is for internal use only.
+See **CREDENTIALS.md** (not tracked in git) for all service logins and passwords.
 
 ---
 
