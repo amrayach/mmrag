@@ -26,9 +26,17 @@ N8N_WEBHOOK = os.getenv("N8N_CHAT_WEBHOOK_URL", "http://n8n:5678/webhook/rag-cha
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 TIMEOUT = int(os.getenv("REQUEST_TIMEOUT_SECS", "120"))
 OLLAMA_TIMEOUT = 300
+FIRST_TOKEN_TIMEOUT = 20
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen2.5:7b-instruct")
+N8N_HEALTH_URL = N8N_WEBHOOK.rsplit("/webhook/", 1)[0] + "/healthz"
 
-app = FastAPI(title="rag-gateway", version="0.4.0")
+
+class N8nUnavailableError(Exception):
+    """Raised when n8n health pre-check fails."""
+    pass
+
+
+app = FastAPI(title="rag-gateway", version="0.5.0")
 
 
 class ChatMessage(BaseModel):
@@ -98,7 +106,21 @@ def list_models():
 # ---------------------------------------------------------------------------
 
 
-def _get_context_from_n8n(req: ChatRequest, req_id: str) -> dict:
+def _get_context_from_n8n(req: ChatRequest, req_id: str, stream: bool = False) -> dict:
+    # Pre-check: fast-fail if n8n is not ready (3s timeout)
+    try:
+        h = requests.get(N8N_HEALTH_URL, timeout=3)
+        if h.status_code != 200:
+            raise requests.ConnectionError(f"n8n health returned {h.status_code}")
+    except requests.RequestException:
+        logger.warning("[%s] n8n health pre-check failed — fast-failing", req_id)
+        if stream:
+            raise N8nUnavailableError()
+        raise HTTPException(
+            status_code=503,
+            detail="Das KI-System wird gerade initialisiert. Bitte in 30 Sekunden erneut versuchen.",
+        )
+
     query = last_user_text(req.messages)
     payload = {
         "query": query,
@@ -117,14 +139,14 @@ def _get_context_from_n8n(req: ChatRequest, req_id: str) -> dict:
         r.raise_for_status()
         data = r.json()
     except requests.Timeout:
-        logger.warning("[%s] n8n timeout after %ds", req_id, TIMEOUT)
-        raise HTTPException(status_code=504, detail="The AI model is busy. Please try again in a moment.")
+        logger.warning("[%s] n8n context timeout after %ds", req_id, TIMEOUT)
+        raise HTTPException(status_code=504, detail="Das Sprachmodell ist ausgelastet. Bitte in einem Moment erneut versuchen.")
     except requests.ConnectionError:
         logger.error("[%s] n8n unreachable", req_id)
-        raise HTTPException(status_code=503, detail="RAG service temporarily unavailable.")
+        raise HTTPException(status_code=503, detail="Der RAG-Dienst ist vorübergehend nicht verfügbar.")
     except Exception as e:
         logger.error("[%s] n8n error: %s", req_id, e)
-        raise HTTPException(status_code=502, detail="An error occurred processing your request.")
+        raise HTTPException(status_code=502, detail="Bei der Verarbeitung ist ein Fehler aufgetreten.")
 
     image_objects = data.get("imageObjects") or []
     sources = data.get("sources") or []
@@ -171,6 +193,7 @@ def _stream_from_ollama(chat_body: dict, suffix: str,
     chat_body = {**chat_body, "stream": True}
 
     first_chunk = True
+    got_first_content = False
 
     def make_chunk(delta, finish_reason=None):
         return {
@@ -185,7 +208,7 @@ def _stream_from_ollama(chat_body: dict, suffix: str,
     try:
         with requests.post(
             f"{OLLAMA_BASE_URL}/api/chat",
-            json=chat_body, stream=True, timeout=OLLAMA_TIMEOUT
+            json=chat_body, stream=True, timeout=(10, FIRST_TOKEN_TIMEOUT)
         ) as r:
             r.raise_for_status()
             for line in r.iter_lines():
@@ -200,6 +223,7 @@ def _stream_from_ollama(chat_body: dict, suffix: str,
                 content = data.get("message", {}).get("content", "")
                 if not content:
                     continue
+                got_first_content = True
                 delta = {"content": content}
                 if first_chunk:
                     delta["role"] = "assistant"
@@ -207,8 +231,12 @@ def _stream_from_ollama(chat_body: dict, suffix: str,
                 yield f"data: {json.dumps(make_chunk(delta))}\n\n"
 
     except requests.Timeout:
-        logger.warning("[%s] Ollama stream timeout after %ds", req_id, OLLAMA_TIMEOUT)
-        err = make_chunk({"content": "\n\n[Fehler: Zeitüberschreitung bei der Antwortgenerierung]"})
+        if not got_first_content:
+            logger.warning("[%s] Ollama first-token timeout after %ds", req_id, FIRST_TOKEN_TIMEOUT)
+            err = make_chunk({"content": "\n\n[Das Sprachmodell ist gerade beschäftigt. Bitte kurz warten und erneut versuchen.]"})
+        else:
+            logger.warning("[%s] Ollama stream timeout", req_id)
+            err = make_chunk({"content": "\n\n[Das Sprachmodell antwortet nicht — bitte erneut versuchen.]"})
         yield f"data: {json.dumps(err)}\n\n"
     except requests.ConnectionError:
         logger.error("[%s] Ollama unreachable during streaming", req_id)
@@ -216,7 +244,7 @@ def _stream_from_ollama(chat_body: dict, suffix: str,
         yield f"data: {json.dumps(err)}\n\n"
     except Exception as e:
         logger.error("[%s] Ollama stream error: %s", req_id, e)
-        err = make_chunk({"content": "\n\n[Fehler bei der Antwortgenerierung]"})
+        err = make_chunk({"content": f"\n\n[Fehler bei der Antwortgenerierung: {e}]"})
         yield f"data: {json.dumps(err)}\n\n"
 
     # Step 4: Yield suffix chunk with images and sources
@@ -273,7 +301,31 @@ def chat_completions(req: ChatRequest):
                 req_id, model, len(req.messages), req.stream)
 
     # Step 1: Get context from n8n
-    ctx = _get_context_from_n8n(req, req_id)
+    try:
+        ctx = _get_context_from_n8n(req, req_id, stream=bool(req.stream))
+    except N8nUnavailableError:
+        msg = "Das KI-System wird gerade initialisiert. Bitte in 30 Sekunden erneut versuchen."
+        logger.warning("[%s] Returning SSE n8n-unavailable error to streaming client", req_id)
+
+        def _n8n_error():
+            chunk = {
+                "id": resp_id, "object": "chat.completion.chunk",
+                "created": now, "model": model,
+                "choices": [{"index": 0,
+                             "delta": {"role": "assistant", "content": f"\n\n[{msg}]"},
+                             "finish_reason": None}],
+            }
+            yield f"data: {json.dumps(chunk)}\n\n"
+            stop = {
+                "id": resp_id, "object": "chat.completion.chunk",
+                "created": now, "model": model,
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            }
+            yield f"data: {json.dumps(stop)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(_n8n_error(), media_type="text/event-stream")
+
     chat_body = ctx["chat_body"]
     suffix = _build_suffix(ctx["image_objects"], ctx["sources"])
 
