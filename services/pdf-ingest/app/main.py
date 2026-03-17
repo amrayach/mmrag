@@ -41,7 +41,7 @@ DB_PASS = os.getenv("DATABASE_PASSWORD", "")
 
 OLLAMA_BASE = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "qwen2.5vl:7b")
-EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "bge-m3")
 
 INBOX_DIR = os.getenv("INBOX_DIR", "/kb/inbox")
 PROCESSED_DIR = os.getenv("PROCESSED_DIR", "/kb/processed")

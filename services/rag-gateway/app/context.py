@@ -23,10 +23,10 @@ DATABASE_USER = os.getenv("DATABASE_USER", "rag_user")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "")
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
-OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "bge-m3")
 PUBLIC_ASSETS_BASE_URL = os.getenv("PUBLIC_ASSETS_BASE_URL", "").rstrip("/")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen2.5:7b-instruct")
-VECTOR_DISTANCE_THRESHOLD = float(os.getenv("VECTOR_DISTANCE_THRESHOLD", "0.5"))
+VECTOR_DISTANCE_THRESHOLD = float(os.getenv("VECTOR_DISTANCE_THRESHOLD", "0.6"))
 
 SYSTEM_PROMPT = (
     "Du bist ein intelligenter Multimodal-Assistent. "
@@ -223,7 +223,7 @@ def _build_context(
     # Image relevance: thresholds MUST be above VECTOR_DISTANCE_THRESHOLD (0.50)
     # because the SQL pre-filter guarantees all results have score > 0.50.
     query_wants_images = bool(_IMAGE_QUERY_RE.search(query))
-    image_score_min = 0.55 if query_wants_images else 0.65
+    image_score_min = 0.45 if query_wants_images else 0.55
     max_images = 3 if query_wants_images else 2
 
     # Cross-doc-id guard: non-image queries only show images from docs with text hits

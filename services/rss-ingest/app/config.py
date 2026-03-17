@@ -13,7 +13,7 @@ DB_PASS = os.getenv("DATABASE_PASSWORD", "")
 # Ollama
 # ---------------------------------------------------------------------------
 OLLAMA_BASE = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
-EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "bge-m3")
 VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "qwen2.5vl:7b")
 
 # ---------------------------------------------------------------------------

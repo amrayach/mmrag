@@ -33,7 +33,7 @@ fi
 # ── 2. Ollama responds + models loaded ────────────────────────────────────
 echo "== 2. Ollama models =="
 if MODELS=$(docker compose -p ammer-mmragv2 exec -T ollama ollama list 2>/dev/null); then
-  for m in "${OLLAMA_TEXT_MODEL}" "nomic-embed-text" "qwen2.5vl:7b"; do
+  for m in "${OLLAMA_TEXT_MODEL}" "bge-m3" "qwen2.5vl:7b"; do
     if echo "$MODELS" | grep -q "$m"; then
       pass "Model $m present"
     else

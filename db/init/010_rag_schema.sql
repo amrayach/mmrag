@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
   content_text TEXT,
   caption TEXT,
   asset_path TEXT,
-  embedding VECTOR(768),
+  embedding VECTOR(1024),
   meta JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
