@@ -33,12 +33,12 @@ _add(FeedConfig(
 ))
 
 _add(FeedConfig(
-    key="tagesspiegel",
-    name="Tagesspiegel",
-    feed_url="https://www.tagesspiegel.de/contentexport/feed/home",
-    article_selector="article .article-body, .ts-article-body",
-    strip_selectors=["aside", ".ad", ".related-articles"],
-    img_selector="article img",
+    key="tagesschau",
+    name="Tagesschau",
+    feed_url="https://www.tagesschau.de/index~rss2.xml",
+    article_selector="article .textabsatz, article .m-ten",
+    strip_selectors=[".modul", ".infobox", ".social-media"],
+    img_selector="article picture img",
 ))
 
 _add(FeedConfig(
@@ -51,60 +51,6 @@ _add(FeedConfig(
 ))
 
 _add(FeedConfig(
-    key="golem",
-    name="Golem.de",
-    feed_url="https://rss.golem.de/rss.php?feed=RSS2.0",
-    article_selector="article .formatted, .article-content",
-    strip_selectors=[".ad", "aside"],
-    img_selector="article img",
-))
-
-_add(FeedConfig(
-    key="t3n",
-    name="t3n",
-    feed_url="https://t3n.de/rss.xml",
-    article_selector=".article-content, article .c-entry__content",
-    strip_selectors=[".ad", "aside", ".related"],
-    img_selector=".article-content img",
-))
-
-_add(FeedConfig(
-    key="wiwo",
-    name="WirtschaftsWoche",
-    feed_url="https://www.wiwo.de/contentexport/feed/rss/schlagzeilen",
-    article_selector=".c-leadtext + .c-richText, .article__body",
-    strip_selectors=[".ad", "aside"],
-    img_selector="article img",
-))
-
-_add(FeedConfig(
-    key="handelsblatt",
-    name="Handelsblatt",
-    feed_url="https://www.handelsblatt.com/contentexport/feed/schlagzeilen",
-    article_selector=".vhb-article-area--text, .article__body",
-    strip_selectors=[".ad", "aside"],
-    img_selector="article img",
-))
-
-_add(FeedConfig(
-    key="wissenschaft_de",
-    name="wissenschaft.de",
-    feed_url="https://www.wissenschaft.de/feed/",
-    article_selector=".entry-content, .post-content",
-    strip_selectors=[".ad", "aside", ".sharedaddy"],
-    img_selector=".entry-content img",
-))
-
-_add(FeedConfig(
-    key="scinexx",
-    name="scinexx",
-    feed_url="https://www.scinexx.de/feed/",
-    article_selector=".entry-content, .post-content",
-    strip_selectors=[".ad", "aside"],
-    img_selector=".entry-content img",
-))
-
-_add(FeedConfig(
     key="spektrum",
     name="Spektrum der Wissenschaft",
     feed_url="https://www.spektrum.de/alias/rss/spektrum-de-rss-feed/996406",
@@ -114,39 +60,30 @@ _add(FeedConfig(
 ))
 
 _add(FeedConfig(
-    key="netzpolitik",
-    name="Netzpolitik",
-    feed_url="https://netzpolitik.org/feed/",
-    article_selector="article .entry-content",
-    strip_selectors=["aside", ".vgwort", ".donate-box"],
-    img_selector="article img.attachment-large, .entry-content img",
+    key="zdf",
+    name="ZDF heute",
+    feed_url="https://www.zdfheute.de/rss/zdf/nachrichten",
+    article_selector="article .paragraph, .article-section",
+    strip_selectors=["aside", ".ad", ".teaser", ".related"],
+    img_selector="article picture img, article figure img",
 ))
 
 _add(FeedConfig(
-    key="tagesschau",
-    name="Tagesschau",
-    feed_url="https://www.tagesschau.de/xml/rss2/",
-    article_selector="article .textabsatz, article .m-ten",
-    strip_selectors=[".modul", ".infobox", ".social-media"],
-    img_selector="article picture img",
+    key="dw",
+    name="Deutsche Welle",
+    feed_url="https://rss.dw.com/xml/rss-de-all",
+    article_selector="article .longText, .rich-text",
+    strip_selectors=["aside", ".ad", ".related"],
+    img_selector="article img",
 ))
 
 _add(FeedConfig(
-    key="caschys_blog",
-    name="Caschys Blog",
-    feed_url="https://stadt-bremerhaven.de/feed/",
-    article_selector="article .entry-content",
-    strip_selectors=[".ad", ".ez-toc-container", ".post-meta"],
-    img_selector=".entry-content img",
-))
-
-_add(FeedConfig(
-    key="computerbase",
-    name="ComputerBase",
-    feed_url="https://www.computerbase.de/rss/news.xml",
-    article_selector="article .article-main, article .text",
-    strip_selectors=["aside", ".ad", ".recommendations", ".related-links"],
-    img_selector="article figure img, .article-main img",
+    key="faz",
+    name="FAZ",
+    feed_url="https://www.faz.net/rss/aktuell/",
+    article_selector="article .atc-Text, .body-elements",
+    strip_selectors=["aside", ".ad", ".related", ".paywall"],
+    img_selector="article figure img, article picture img",
 ))
 
 # Fallback config used when no site-specific selector matches

@@ -33,11 +33,21 @@ SYSTEM_PROMPT = (
     "Antworte auf Deutsch und beziehe dich auf den bereitgestellten Kontext. "
     "Wenn der Kontext Bildbeschreibungen (Captions) enthält, weise den Nutzer aktiv darauf hin, "
     "was auf den Bildern zu sehen ist. Zitiere immer deine Quellen "
-    "(z.B. 'Laut Seite 4...' oder 'Wie im Bild auf Seite 2 zu sehen ist...')."
+    "(z.B. 'Laut Seite 4...' oder 'Wie im Bild auf Seite 2 zu sehen ist...'). "
+    "Zeige Bilder nur, wenn sie direkt zur Frage des Nutzers passen. "
+    "Zeige keine generischen oder thematisch unpassenden Bilder."
 )
 
-_PREAMBLE_RE = re.compile(
-    r"^(Basierend auf|Laut den Dokumenten|Gemäß|Auf Grundlage|Den Dokumenten zufolge)",
+_IMAGE_QUERY_RE = re.compile(
+    r"\b(bild|bilder|zeige|foto|abbildung|grafik|diagramm|image|show)\b",
+    re.IGNORECASE,
+)
+
+# Deictic/anaphoric words that signal a follow-up referencing prior context
+_DEICTIC_RE = re.compile(
+    r"\b(dabei|dazu|davon|hierzu|hierbei|hierauf|hierin|"
+    r"darüber|darin|darunter|daneben|"
+    r"deren|dessen|diesem|diesen|dieser)\b",
     re.IGNORECASE,
 )
 
@@ -89,28 +99,37 @@ async def close_pool() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _preprocess_query(query: str, messages: list[dict]) -> tuple[str, str | None]:
-    """Return (processed_query, doc_filter_or_None)."""
-    # Follow-up rewriting: append hint from last assistant message
-    assistant_msgs = [m for m in messages if m.get("role") == "assistant"]
-    if assistant_msgs and len(query) < 100:
-        hint = assistant_msgs[-1].get("content", "")
-        if _PREAMBLE_RE.match(hint):
-            end = re.search(r"[.!?:]\s", hint)
-            if end and end.start() < 150:
-                hint = hint[end.end():]
-        hint = hint[:150].strip()
-        query = f"{query} {hint}"
+def _preprocess_query(
+    query: str, messages: list[dict],
+) -> tuple[str, str | None, str | None]:
+    """Return (processed_query, doc_filter_or_None, source_type_or_None)."""
+    # Follow-up rewriting: prepend prior user query for context continuity.
+    # Triggers on short queries OR queries with deictic/anaphoric references
+    # (dabei, dazu, davon, hierzu, diesem, etc.) that reference prior context.
+    user_msgs = [m for m in messages if m.get("role") == "user"]
+    if len(user_msgs) >= 2:
+        needs_rewrite = len(query) < 50 or bool(_DEICTIC_RE.search(query))
+        if needs_rewrite:
+            prev = user_msgs[-2].get("content", "")[:120].strip()
+            if prev:
+                query = f"Bezugnehmend auf: {prev} — {query}"
 
-    # @filename document filter
+    # @rss / @pdf → source_type filter; other @tokens → doc_filter
     doc_filter = None
+    source_type = None
     if query.startswith("@"):
         space_idx = query.find(" ")
         if space_idx > 0:
-            doc_filter = re.sub(r"[^\w.\-]", "_", query[1:space_idx])
+            token = query[1:space_idx].lower()
+            if token == "rss":
+                source_type = "rss"
+            elif token == "pdf":
+                source_type = "pdf"
+            else:
+                doc_filter = re.sub(r"[^\w.\-]", "_", query[1:space_idx])
             query = query[space_idx + 1:].strip()
 
-    return query, doc_filter
+    return query, doc_filter, source_type
 
 
 # ---------------------------------------------------------------------------
@@ -144,23 +163,44 @@ _SEARCH_SQL_DOC_FILTER = """
     WHERE filename ILIKE '%%' || %(doc_filter)s || '%%'
   )"""
 
+_SEARCH_SQL_CHUNK_TYPE = """
+  AND chunk_type = %(chunk_type)s"""
+
 _SEARCH_SQL_ORDER = """
 ORDER BY embedding <=> %(emb)s
-LIMIT 8"""
+LIMIT %(limit)s"""
+
+_SEARCH_SQL_SOURCE_RSS = """
+  AND doc_id IN (SELECT doc_id FROM rag_docs WHERE filename LIKE 'http%%')"""
+
+_SEARCH_SQL_SOURCE_PDF = """
+  AND doc_id IN (SELECT doc_id FROM rag_docs WHERE filename NOT LIKE 'http%%')"""
 
 
 async def _vector_search(
-    embedding: list[float], doc_filter: str | None,
+    embedding: list[float],
+    doc_filter: str | None,
+    source_type: str | None = None,
+    chunk_type: str | None = None,
+    limit: int = 8,
 ) -> list[dict]:
     emb = np.array(embedding, dtype=np.float32)
     sql = _SEARCH_SQL_BASE
     params: dict[str, Any] = {
         "emb": emb,
         "threshold": VECTOR_DISTANCE_THRESHOLD,
+        "limit": limit,
     }
     if doc_filter:
         sql += _SEARCH_SQL_DOC_FILTER
         params["doc_filter"] = doc_filter
+    if source_type == "rss":
+        sql += _SEARCH_SQL_SOURCE_RSS
+    elif source_type == "pdf":
+        sql += _SEARCH_SQL_SOURCE_PDF
+    if chunk_type:
+        sql += _SEARCH_SQL_CHUNK_TYPE
+        params["chunk_type"] = chunk_type
     sql += _SEARCH_SQL_ORDER
 
     async with _pool.connection() as conn:
@@ -180,27 +220,45 @@ def _build_context(
 ) -> dict:
     base = PUBLIC_ASSETS_BASE_URL
 
-    text_hits = [h for h in hits if h["chunk_type"] == "text"]
-    image_hits = [h for h in hits if h["chunk_type"] == "image"]
-    image_dominant = len(image_hits) > len(text_hits)
-    text_doc_ids = {h["doc_id"] for h in text_hits}
+    # Image relevance: thresholds MUST be above VECTOR_DISTANCE_THRESHOLD (0.50)
+    # because the SQL pre-filter guarantees all results have score > 0.50.
+    query_wants_images = bool(_IMAGE_QUERY_RE.search(query))
+    image_score_min = 0.55 if query_wants_images else 0.65
+    max_images = 3 if query_wants_images else 2
 
-    best_text_score = max((h["score"] for h in text_hits), default=0)
-    image_score_threshold = best_text_score * 0.6
+    # Cross-doc-id guard: non-image queries only show images from docs with text hits
+    text_doc_ids = {h["doc_id"] for h in hits if h["chunk_type"] == "text"}
+
+    # Pre-select approved images (hits ordered by score desc)
+    _approved_images: set[int] = set()
+    _img_count = 0
+    for h in hits:
+        if h["chunk_type"] != "image" or not h.get("asset_path"):
+            continue
+        if h["score"] < image_score_min:
+            continue
+        if not query_wants_images and h["doc_id"] not in text_doc_ids:
+            continue
+        if _img_count >= max_images:
+            break
+        _approved_images.add(id(h))
+        _img_count += 1
 
     def show_image(h: dict) -> bool:
-        if h["chunk_type"] != "image" or not h.get("asset_path"):
-            return False
-        if h["score"] < image_score_threshold:
-            return False
-        return image_dominant or h["doc_id"] in text_doc_ids
+        return id(h) in _approved_images
 
-    # Image objects for suffix
-    image_objects = [
-        {"url": f"{base}/{h['asset_path']}", "caption": h.get("caption") or "Bild"}
-        for h in hits
-        if h["chunk_type"] == "image" and show_image(h) and h.get("asset_path")
-    ]
+    # Image objects for suffix (deduplicated by asset_path)
+    _seen_assets: set[str] = set()
+    image_objects: list[dict] = []
+    for h in hits:
+        if h["chunk_type"] != "image" or not show_image(h) or not h.get("asset_path"):
+            continue
+        if h["asset_path"] in _seen_assets:
+            continue
+        _seen_assets.add(h["asset_path"])
+        image_objects.append(
+            {"url": f"{base}/{h['asset_path']}", "caption": h.get("caption") or "Bild"}
+        )
 
     # Context lines
     ctx_lines: list[str] = []
@@ -225,17 +283,23 @@ def _build_context(
         else:
             ctx_lines.append(f"Text (Seite {h['page']}): {h.get('content_text') or ''}")
 
-    # Sources (max 8, markdown links for RSS)
+    # Sources (max 8, markdown links for RSS, deduplicated by URL)
     sources: list[str] = []
+    _seen_urls: set[str] = set()
     for h in hits:
         if h["chunk_type"] == "image" and not show_image(h):
             continue
         meta = h.get("meta") or {}
         if meta.get("content_type") == "rss_article":
+            url = meta.get("url", "")
+            if url and url in _seen_urls:
+                continue
+            if url:
+                _seen_urls.add(url)
             title = (meta.get("title") or "")[:60]
-            if meta.get("url"):
+            if url:
                 sources.append(
-                    f"[{meta.get('feed_name') or 'RSS'}: {title}]({meta['url']})"
+                    f"[{meta.get('feed_name') or 'RSS'}: {title}]({url})"
                 )
             else:
                 sources.append(f"{meta.get('feed_name') or 'RSS'}: {title}")
@@ -283,12 +347,33 @@ async def get_context_direct(
     temperature: float,
     max_tokens: int,
 ) -> dict:
-    """Full direct context pipeline: preprocess -> embed -> search -> build."""
-    processed_query, doc_filter = _preprocess_query(query, messages)
+    """Full direct context pipeline: preprocess -> embed -> dual search -> build."""
+    processed_query, doc_filter, source_type = _preprocess_query(query, messages)
     embedding = await _embed_query(processed_query)
-    hits = await _vector_search(embedding, doc_filter)
+
+    # Dual retrieval: reserve slots for both text and images
+    query_wants_images = bool(_IMAGE_QUERY_RE.search(processed_query))
+    text_limit = 4 if query_wants_images else 6
+    image_limit = 4 if query_wants_images else 2
+
+    text_hits = await _vector_search(
+        embedding, doc_filter, source_type, chunk_type="text", limit=text_limit,
+    )
+    image_hits = await _vector_search(
+        embedding, doc_filter, source_type, chunk_type="image", limit=image_limit,
+    )
+
+    # Boost image scores when doc_filter narrows to a specific document —
+    # images from that document are topically relevant even if captions
+    # don't match the query embedding perfectly.
+    if doc_filter:
+        for h in image_hits:
+            h["score"] = h["score"] + 0.10
+
+    hits = sorted(text_hits + image_hits, key=lambda h: h["score"], reverse=True)
+
     logger.info(
-        "Direct context: %d hits (query=%r, doc_filter=%s)",
-        len(hits), query[:80], doc_filter,
+        "Direct context: %d text + %d image hits (query=%r, doc_filter=%s, source_type=%s)",
+        len(text_hits), len(image_hits), query[:80], doc_filter, source_type,
     )
     return _build_context(hits, processed_query, model, temperature, max_tokens)
