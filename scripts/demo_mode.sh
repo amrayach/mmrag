@@ -64,7 +64,7 @@ case "${1:-}" in
     echo ""
     echo "  Services:"
     echo "    rag-gateway : $GW_OK"
-    echo "    n8n         : $N8N_OK"
+    echo "    n8n         : $N8N_OK (ingestion only)"
     echo "    OpenWebUI   : HTTP $OW_OK"
     echo "    rss-ingest  : STOPPED (GPU freed)"
     echo ""

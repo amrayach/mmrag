@@ -44,21 +44,23 @@ else
   fail "Ollama not responding"
 fi
 
-# ── 3. n8n webhooks (both workflows active) ───────────────────────────────
-echo "== 3. n8n webhooks =="
+# ── 3. n8n webhooks (ingestion readiness) ─────────────────────────────────
+# n8n is optional for chat since CONTEXT_MODE=direct.
+# These checks verify ingestion workflow readiness only.
+echo "== 3. n8n webhooks (ingestion — optional for chat) =="
 CHAT_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:56150/webhook/rag-chat \
   -H "Content-Type: application/json" -d '{"messages":[]}' 2>/dev/null || echo "000")
 if [ "$CHAT_CODE" != "404" ] && [ "$CHAT_CODE" != "000" ]; then
   pass "Chat Brain webhook reachable (HTTP $CHAT_CODE)"
 else
-  fail "Chat Brain webhook not found (HTTP $CHAT_CODE)"
+  warn "Chat Brain webhook not found (HTTP $CHAT_CODE) — not needed for chat (direct mode)"
 fi
 
 INGEST_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:56150/webhook/ingest-now 2>/dev/null || echo "000")
 if [ "$INGEST_CODE" != "404" ] && [ "$INGEST_CODE" != "000" ]; then
   pass "Ingestion Factory webhook reachable (HTTP $INGEST_CODE)"
 else
-  fail "Ingestion Factory webhook not found (HTTP $INGEST_CODE)"
+  warn "Ingestion Factory webhook not found (HTTP $INGEST_CODE) — ingestion won't auto-trigger"
 fi
 
 RSS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:56150/webhook/rss-ingest-now 2>/dev/null || echo "000")
@@ -68,8 +70,9 @@ else
   warn "RSS Ingestion webhook not found (HTTP $RSS_CODE) — import workflow 03"
 fi
 
-# ── 4. n8n context pipeline (proves embedding + vector search work) ───────
-echo "== 4. n8n context pipeline =="
+# ── 4. n8n context pipeline (optional — direct mode bypasses this) ────────
+# n8n is optional for chat since CONTEXT_MODE=direct.
+echo "== 4. n8n context pipeline (optional) =="
 CHAT_RESP=$(curl -s -m 120 -X POST http://127.0.0.1:56150/webhook/rag-chat \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Antworte nur mit OK."}]}' 2>/dev/null)
@@ -77,7 +80,7 @@ if echo "$CHAT_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); asse
   pass "n8n returned context with chatRequestBody"
 else
   HTTP_ERR=$(echo "$CHAT_RESP" | head -c 200)
-  fail "n8n did not return valid context: $HTTP_ERR"
+  warn "n8n did not return valid context (chat works without it): $HTTP_ERR"
 fi
 
 # ── 5. RAG Gateway SSE streaming ────────────────────────────────────────
@@ -92,7 +95,7 @@ else
 fi
 
 # ── 5b. End-to-end streaming test (full chain) ────────────────────────
-echo "== 5b. End-to-end pipeline (rag-gateway → n8n → Ollama → stream) =="
+echo "== 5b. End-to-end pipeline (rag-gateway → Ollama → stream) =="
 E2E_RESP=$(curl -s -m 120 -N -X POST http://127.0.0.1:56155/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Was ist ein Vektor? Antworte in einem Satz."}],"stream":true}' 2>/dev/null || true)
