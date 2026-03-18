@@ -328,6 +328,7 @@ def ollama_caption_image(image_bytes: bytes, lang: str = "de") -> str:
             }
         ],
         "stream": False,
+        "options": {"num_ctx": 8192},
     }
     try:
         resp = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=CAPTION_TIMEOUT)
