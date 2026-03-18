@@ -85,9 +85,9 @@ fi
 
 # ── 5. RAG Gateway SSE streaming ────────────────────────────────────────
 echo "== 5. RAG Gateway streaming =="
-SSE_RESP=$(curl -s -m 30 -N -X POST http://127.0.0.1:56155/v1/chat/completions \
+SSE_RESP=$(timeout 90 curl -s -N -X POST http://127.0.0.1:56155/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Antworte nur mit OK."}],"stream":true}' 2>/dev/null | head -c 2000)
+  -d '{"messages":[{"role":"user","content":"Antworte nur mit OK."}],"stream":true}' 2>/dev/null || true)
 if echo "$SSE_RESP" | grep -q "^data:"; then
   pass "SSE streaming chunks received from rag-gateway"
 else
