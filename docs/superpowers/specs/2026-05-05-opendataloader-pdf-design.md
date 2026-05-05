@@ -28,18 +28,20 @@ inbox/foo.pdf
     │
     ▼
 ┌──────────────────────────────────────────────┐
-│  Step 1 — extractor.parse(pdf_path)           │
+│  Step 1 — extractor.parse(pdf_path, doc_id)   │
+│   • out_dir = mkdtemp(prefix=doc_id+"_",     │
+│                       dir=OPENDATALOADER_TMP)│
+│   • Open pdf_path with fitz to harvest       │
+│     per-page sizes (PyMuPDF Rect.width/.height)│
 │   • Acquire OPENDATALOADER semaphore         │
-│   • opendataloader_pdf.convert(...)          │
-│       output_dir = /tmp/odl/<doc_id>/        │
-│       format    = "json"                     │
-│       image_output = "external"              │
-│       reading_order = "xycut"                │
-│       use_struct_tree = True                 │
-│   • Read /tmp/odl/<doc_id>/<stem>.json       │
-│   • Recursively flatten `kids` tree          │
-│   • Normalize element types via map          │
-│   • Return List[ParsedElement]               │
+│   • subprocess.run(["java","-jar",JAR_PATH,  │
+│       *cli_args], timeout=...)               │
+│   • Read out_dir/<stem>.json                 │
+│   • DFS the kids tree; for tables walk        │
+│     rows→cells; for lists walk list items;   │
+│     normalize types; resolve image source    │
+│     paths via os.path.join(out_dir, source)  │
+│   • Return (List[ParsedElement], out_dir)    │
 └──────────────────────────────────────────────┘
     │
     ▼
@@ -92,7 +94,9 @@ PyMuPDF (`fitz`) stays as a dependency: still used for `downscale_image()` (CMYK
 
 ## 3. Adapter Contract — `extractor.py`
 
-### 3.1 `parse(pdf_path) -> list[ParsedElement]`
+### 3.1 `parse(pdf_path, doc_id) -> tuple[list[ParsedElement], str]`
+
+Returns the flattened element list AND the temp `out_dir` (caller is responsible for cleanup once images have been copied to `ASSETS_DIR`).
 
 ```python
 @dataclass
@@ -100,7 +104,7 @@ class ParsedElement:
     element_type: str          # "heading" | "text" | "table" | "list" | "image" | "caption"
     page: int                  # 1-indexed
     bbox: tuple[float, float, float, float]  # (left, bottom, right, top), pdf points
-    page_size: tuple[float, float]            # (width, height), pdf points
+    page_size: tuple[float, float]            # (width, height), pdf points (from PyMuPDF)
     content: str | None        # Markdown text for text/table/list/heading; None for image
     image_path: str | None     # absolute path on disk for image elements
     heading_level: int | None  # 1..6 for headings, else None
@@ -111,17 +115,20 @@ class ParsedElement:
 
 ```python
 import json, os, subprocess, tempfile, threading
+from importlib.resources import files
 from pathlib import Path
-import opendataloader_pdf
+import fitz  # PyMuPDF, already a dep
 
 OPENDATALOADER_SEMAPHORE = threading.Semaphore(
     int(os.getenv("OPENDATALOADER_MAX_PARALLEL", "1"))
 )
 OPENDATALOADER_TIMEOUT = int(os.getenv("OPENDATALOADER_TIMEOUT", "300"))
 OPENDATALOADER_TMP = os.getenv("OPENDATALOADER_TMP_DIR", "/tmp/odl")
+JAR_PATH = str(files("opendataloader_pdf").joinpath("jar", "opendataloader-pdf-cli.jar"))
+JAVA_OPTS = os.getenv("OPENDATALOADER_JAVA_OPTS", "-Xmx2g").split()
 
 ELEMENT_TYPE_MAP = {
-    # images (handle both observed and documented variants)
+    # images — schema canonically uses "image"; png/jpeg/picture handled defensively
     "image": "image", "picture": "image",
     "png": "image", "jpeg": "image", "jpg": "image",
     # tables
@@ -132,13 +139,12 @@ ELEMENT_TYPE_MAP = {
     "h4": "heading", "h5": "heading", "h6": "heading",
     # text-like
     "paragraph": "text", "text": "text", "p": "text", "textbox": "text",
-    # lists
-    "list": "list", "ul": "list", "ol": "list", "li": "text",
-    # structural noise
-    "header": "_skip", "footer": "_skip",
+    # lists — schema fields below ("list items", "items") drive traversal, type just classifies
+    "list": "list", "ul": "list", "ol": "list",
+    "list item": "text", "li": "text",
+    # structural noise (opendataloader filters by default; double-guard)
+    "header": "_skip", "footer": "_skip", "table row": "_skip", "table cell": "_skip",
     "caption": "caption",
-    # page wrapper — used to harvest page_size, then descended
-    "page": "_page",
 }
 
 def _normalize_type(raw: str) -> str:
@@ -150,115 +156,115 @@ def _bbox(node) -> tuple[float, float, float, float] | None:
         return None
     return tuple(float(x) for x in bb)
 
-def parse(pdf_path: str) -> list[ParsedElement]:
-    stem = Path(pdf_path).stem
-    out_dir = Path(OPENDATALOADER_TMP) / stem
-    out_dir.mkdir(parents=True, exist_ok=True)
+def _harvest_page_sizes(pdf_path: str) -> dict[int, tuple[float, float]]:
+    """Read page dimensions from PyMuPDF — schema does not expose them."""
+    sizes: dict[int, tuple[float, float]] = {}
+    with fitz.open(pdf_path) as doc:
+        for i in range(doc.page_count):
+            r = doc.load_page(i).rect
+            sizes[i + 1] = (float(r.width), float(r.height))
+    return sizes
+
+def _run_opendataloader(pdf_path: str, out_dir: str) -> None:
+    """Invoke the bundled JAR directly so we get a real subprocess timeout."""
+    args = [
+        "java", *JAVA_OPTS, "-jar", JAR_PATH,
+        pdf_path,
+        "--output-dir", out_dir,
+        "--format", "json",
+        "--image-output", "external",
+        "--image-format", "png",
+        "--reading-order", "xycut",
+        "--use-struct-tree",
+        "--quiet",
+        # sanitize=False (default) — keep emails/phones/URLs in content
+        # content-safety-off=None (default) — keep hidden/off-page filtering ON
+    ]
+    subprocess.run(args, check=True, timeout=OPENDATALOADER_TIMEOUT,
+                   capture_output=True, text=True)
+
+def parse(pdf_path: str, doc_id: str) -> tuple[list[ParsedElement], str]:
+    os.makedirs(OPENDATALOADER_TMP, exist_ok=True)
+    out_dir = tempfile.mkdtemp(prefix=f"{doc_id}_", dir=OPENDATALOADER_TMP)
+    page_sizes = _harvest_page_sizes(pdf_path)
 
     with OPENDATALOADER_SEMAPHORE:
-        # convert() returns None; output goes to <out_dir>/<stem>.json + <out_dir>/images/...
-        opendataloader_pdf.convert(
-            input_path=pdf_path,
-            output_dir=str(out_dir),
-            format="json",
-            image_output="external",
-            image_format="png",
-            reading_order="xycut",
-            use_struct_tree=True,
-            sanitize=False,            # do NOT redact emails/phones/URLs — we want full content
-            content_safety_off=None,   # leave hidden/off-page/tiny filters ON (prompt-injection defense)
-            quiet=True,
-        )
+        _run_opendataloader(pdf_path, out_dir)
 
-    json_path = out_dir / f"{stem}.json"
+    stem = Path(pdf_path).stem
+    json_path = Path(out_dir) / f"{stem}.json"
     if not json_path.exists():
         raise FileNotFoundError(f"opendataloader produced no JSON at {json_path}")
     doc = json.loads(json_path.read_text(encoding="utf-8"))
 
-    # Walk the recursive `kids` tree depth-first, preserving reading order
     elements: list[ParsedElement] = []
-    current_page = 1
-    current_page_size = (612.0, 792.0)  # US Letter fallback
+
+    def page_size_for(p: int) -> tuple[float, float]:
+        return page_sizes.get(p, (612.0, 792.0))
 
     def walk(node):
-        nonlocal current_page, current_page_size
         norm = _normalize_type(node.get("type", ""))
-        page = int(node.get("page number") or current_page)
-
-        if norm == "_page":
-            current_page = page
-            bb = _bbox(node)
-            if bb:
-                current_page_size = (bb[2] - bb[0], bb[3] - bb[1])
-            for kid in node.get("kids") or []:
-                walk(kid)
-            return
-
         if norm == "_skip":
-            return  # opendataloader filters these by default; double-guard
-
+            return
+        page = int(node.get("page number") or 1)
         bbox = _bbox(node) or (0.0, 0.0, 0.0, 0.0)
 
         if norm == "image":
+            rel = node.get("source")
+            img_path = os.path.join(out_dir, rel) if rel else None
             elements.append(ParsedElement(
-                element_type="image",
-                page=page,
-                bbox=bbox,
-                page_size=current_page_size,
-                content=None,
-                image_path=node.get("source") or node.get("path"),
-                heading_level=None,
-                raw_id=node.get("id"),
+                element_type="image", page=page, bbox=bbox,
+                page_size=page_size_for(page),
+                content=None, image_path=img_path,
+                heading_level=None, raw_id=node.get("id"),
             ))
             return
 
         if norm == "table":
-            content = _render_table_markdown(node)  # walk kids recursively
+            content = _render_table_markdown(node)  # walks rows→cells, NOT kids
             elements.append(ParsedElement(
-                element_type="table",
-                page=page,
-                bbox=bbox,
-                page_size=current_page_size,
-                content=content,
-                image_path=None,
-                heading_level=None,
-                raw_id=node.get("id"),
+                element_type="table", page=page, bbox=bbox,
+                page_size=page_size_for(page),
+                content=content, image_path=None,
+                heading_level=None, raw_id=node.get("id"),
+            ))
+            return
+
+        if norm == "list":
+            content = _render_list_markdown(node)  # walks "list items" / "items"
+            elements.append(ParsedElement(
+                element_type="list", page=page, bbox=bbox,
+                page_size=page_size_for(page),
+                content=content, image_path=None,
+                heading_level=None, raw_id=node.get("id"),
             ))
             return
 
         if norm == "heading":
-            # `heading level` field, then `level`, then trailing digit on type ("h2" → 2)
             raw_type = (node.get("type") or "").lower()
             digit_suffix = next((c for c in raw_type if c.isdigit()), None)
             level = (node.get("heading level")
                      or node.get("level")
                      or (int(digit_suffix) if digit_suffix else 1))
             elements.append(ParsedElement(
-                element_type="heading",
-                page=page,
-                bbox=bbox,
-                page_size=current_page_size,
+                element_type="heading", page=page, bbox=bbox,
+                page_size=page_size_for(page),
                 content=(node.get("content") or "").strip(),
-                image_path=None,
-                heading_level=int(level),
+                image_path=None, heading_level=int(level),
                 raw_id=node.get("id"),
             ))
             for kid in node.get("kids") or []:
                 walk(kid)
             return
 
-        # text / list / caption — collect content if present, then descend
+        # text / caption / unknown — emit content if present, then descend
         text = (node.get("content") or "").strip()
         if text:
             elements.append(ParsedElement(
-                element_type=norm if norm != "caption" else "text",
-                page=page,
-                bbox=bbox,
-                page_size=current_page_size,
-                content=text,
-                image_path=None,
-                heading_level=None,
-                raw_id=node.get("id"),
+                element_type="text", page=page, bbox=bbox,
+                page_size=page_size_for(page),
+                content=text, image_path=None,
+                heading_level=None, raw_id=node.get("id"),
             ))
         for kid in node.get("kids") or []:
             walk(kid)
@@ -266,7 +272,39 @@ def parse(pdf_path: str) -> list[ParsedElement]:
     for kid in doc.get("kids") or []:
         walk(kid)
 
-    return elements
+    return elements, out_dir
+```
+
+#### Table renderer (`_render_table_markdown`)
+
+Per schema (`$defs/table.rows[].cells[]`), tables expose `rows` (array of `tableRow`), each with `cells` (array of `tableCell`):
+
+```python
+def _render_table_markdown(node) -> str:
+    rows = node.get("rows") or []
+    if not rows:
+        return ""
+    md_rows: list[str] = []
+    header_cells = None
+    for i, row in enumerate(rows):
+        cells = row.get("cells") or []
+        cell_texts = [(c.get("content") or "").replace("|", r"\|").replace("\n", " ").strip()
+                      for c in cells]
+        md_rows.append("| " + " | ".join(cell_texts) + " |")
+        if i == 0:
+            header_cells = len(cell_texts)
+            md_rows.append("| " + " | ".join(["---"] * header_cells) + " |")
+    return "\n".join(md_rows)
+```
+
+#### List renderer (`_render_list_markdown`)
+
+Per schema (`$defs/list."list items"[]`), lists expose `list items` (array of `listItem`). Some emitters use the camelCase `items` synonym; handle both:
+
+```python
+def _render_list_markdown(node) -> str:
+    items = node.get("list items") or node.get("items") or []
+    return "\n".join(f"- {(it.get('content') or '').strip()}" for it in items if it.get("content"))
 ```
 
 ### 3.2 `layout_to_chunks(elements) -> list[Chunk]`
@@ -370,7 +408,7 @@ def layout_to_chunks(elements: list[ParsedElement]) -> list[Chunk]:
 
 ### 3.3 Table Splitting (`_make_table_chunks`)
 
-`_render_table_markdown(node)`, `_parse_md_table(md)`, and `_table_chunk(...)` are private helpers in `extractor.py`. The first walks a `table` node's `kids` (rows → cells) and emits a GitHub-flavored Markdown table; the second is its inverse for re-splitting; the third is a small constructor mirroring the section-flush logic with `element_type="table"`. They are noted here for shape only — exact implementation lives in the file.
+`_render_table_markdown(node)` is defined in §3.1 — it walks `rows`/`cells` from the schema. `_parse_md_table(md)` is its inverse for the row-group split path: it splits on `\n` and treats lines `2..N` as rows (line 1 = header, line 2 = `--|--|...` separator). `_table_chunk(...)` is a small constructor mirroring the section-flush logic with `element_type="table"` and the appropriate `split_strategy` value. Implementation details live in `extractor.py`.
 
 
 ```python
@@ -426,15 +464,15 @@ def _make_table_chunks(el, heading_stack):
 
 ### 4.1 Flow
 
-1. opendataloader writes images to `/tmp/odl/<stem>/images/*.png`.
+1. opendataloader writes images into the per-run temp dir (`out_dir/...`); each `ParsedElement.image_path` is already an absolute path (joined with `out_dir`).
 2. For each `ParsedElement(element_type="image")`:
-   a. Run `_should_skip_external_image(image_path)` filter.
-   b. Run existing `downscale_image()` on the file bytes.
+   a. Run `_should_skip_external_image(image_path, seen_hashes)` filter (returns `(skip, sha256)`).
+   b. Read the file bytes; run existing `downscale_image()` on them.
    c. Save to `ASSETS_DIR/<doc_id>_p<page>_i<idx>.<ext>` (existing naming preserved).
-   d. Hash file bytes (SHA-256); if hash already seen for this doc, skip captioning (dedup).
-   e. Enqueue tuple onto `caption_q`.
+   d. Enqueue tuple onto `caption_q` with `meta_extra` carrying the SHA-256 + bbox + heading_path.
 3. Caption worker captions + embeds; result tuple flows back with `meta_extra`.
 4. Main thread inserts the image chunk, merging `meta_extra` into the meta dict.
+5. After all images are persisted to ASSETS_DIR (i.e., after Phase 4 of `extract_and_store`), `shutil.rmtree(out_dir, ignore_errors=True)` in a `finally` block.
 
 ### 4.2 New External-Image Filter
 
@@ -559,8 +597,9 @@ Fail-fast at container startup; the container won't reach ready state without Ja
 Added to `pdf-ingest` service in `docker-compose.yml`:
 ```yaml
 OPENDATALOADER_MAX_PARALLEL: "1"
-OPENDATALOADER_TIMEOUT: "300"
-OPENDATALOADER_TMP_DIR: "/tmp/odl"
+OPENDATALOADER_TIMEOUT: "300"          # subprocess.run timeout — kills JVM on hang
+OPENDATALOADER_TMP_DIR: "/tmp/odl"     # parent of per-run tempfile.mkdtemp() dirs
+OPENDATALOADER_JAVA_OPTS: "-Xmx2g"     # heap cap so JVM doesn't OOM the host
 ```
 
 ## 7. Re-processing the 4 Demo PDFs
@@ -571,51 +610,67 @@ Existing chunks were produced by 1500-char sliding window over PyMuPDF text. New
 
 ### 7.2 `scripts/reprocess_pdfs.sh`
 
+Follows the existing `scripts/snapshot.sh` patterns: sources `.env`, uses `docker compose -p ammer-mmragv2 exec -T -e PGPASSWORD=... postgres psql -h 127.0.0.1`, and calls pdf-ingest's status endpoint via container exec since pdf-ingest is internal-only (no host port).
+
+doc_ids are computed deterministically from the filenames in `data/processed/*.pdf` using the same `uuid5(NAMESPACE_URL, "mmrag:" + filename)` scheme as `services/pdf-ingest/app/main.py::get_or_create_doc_id` — exactly the four PDFs being re-processed, no broad WHERE clause.
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" != "--confirm" ]]; then
-  echo "Refusing to run without --confirm. This deletes chunks + assets for all processed PDFs."
+  echo "Refusing to run without --confirm. Deletes chunks + assets for the four processed PDFs."
   exit 1
 fi
 
-# 1. Active-work guard
-status=$(curl -sf http://127.0.0.1:8001/ingest/status)
+[[ -f .env ]] || { echo "ERROR: .env not found"; exit 1; }
+set -a; source .env; set +a
+
+PROJECT="ammer-mmragv2"
+PSQL=(docker compose -p "$PROJECT" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres
+      psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$RAG_DB" -At)
+
+# 1. Active-work guard via the pdf-ingest container itself
+status=$(docker compose -p "$PROJECT" exec -T pdf-ingest \
+           curl -sf http://localhost:8001/ingest/status)
 active=$(echo "$status" | jq '.active_docs')
-qsize=$(echo "$status" | jq '.caption_queue_size')
-if [[ "$active" -gt 0 || "$qsize" -gt 0 ]]; then
-  echo "Refusing — active_docs=$active caption_queue_size=$qsize"
-  exit 1
+qsize=$(echo "$status"  | jq '.caption_queue_size')
+if (( active > 0 || qsize > 0 )); then
+  echo "Refusing — active_docs=$active caption_queue_size=$qsize"; exit 1
 fi
 
-# 2. Timestamped snapshot
+# 2. Timestamped snapshot (rag_docs + rag_chunks)
 ts=$(date +%Y%m%d_%H%M%S)
 snap="data/demo_snapshot_pre_opendataloader_${ts}.sql"
-docker compose exec -T postgres pg_dump -U rag_user rag > "$snap"
-test -s "$snap" || { echo "Snapshot empty — abort"; exit 1; }
+docker compose -p "$PROJECT" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
+  pg_dump -h 127.0.0.1 -U "$POSTGRES_USER" -d "$RAG_DB" \
+    --table=rag_docs --table=rag_chunks --no-owner --no-privileges \
+  > "$snap"
+[[ -s "$snap" ]] || { echo "Snapshot empty — abort"; exit 1; }
+echo "Snapshot: $snap ($(du -h "$snap" | cut -f1))"
 
-# 3. Identify doc_ids to drop, then chunk + asset cleanup
-doc_ids=$(docker compose exec -T postgres psql -U rag_user -d rag -At -c \
-  "SELECT doc_id FROM rag_docs WHERE doc_id NOT IN (
-     SELECT DISTINCT doc_id FROM rag_chunks
-     WHERE meta->>'content_type' = 'rss_article'
-   );")
-
-for did in $doc_ids; do
-  docker compose exec -T postgres psql -U rag_user -d rag -c \
-    "DELETE FROM rag_chunks WHERE doc_id='$did';"
-  docker compose exec -T pdf-ingest find /kb/assets -maxdepth 1 \
-    -name "${did}_p*_i*.*" -delete || true
+# 3. Compute doc_ids deterministically from filenames in data/processed/
+mapfile -t pdfs < <(find data/processed -maxdepth 1 -name '*.pdf' -printf '%f\n')
+[[ ${#pdfs[@]} -gt 0 ]] || { echo "No PDFs in data/processed/"; exit 1; }
+doc_ids=()
+for fn in "${pdfs[@]}"; do
+  did=$(python3 -c "import uuid,sys; print(uuid.uuid5(uuid.NAMESPACE_URL, 'mmrag:' + sys.argv[1]))" "$fn")
+  doc_ids+=("$did")
+  echo "  will reprocess: $fn  doc_id=$did"
 done
-docker compose exec -T postgres psql -U rag_user -d rag -c \
-  "DELETE FROM rag_docs WHERE doc_id NOT IN (
-     SELECT DISTINCT doc_id FROM rag_chunks
-   );"
 
-# 4. Move processed PDFs back to inbox; watcher will pick them up
-mv data/processed/*.pdf data/inbox/ 2>/dev/null || true
-echo "Done. Watch logs: docker compose logs -f pdf-ingest"
+# 4. Delete chunks + asset files for those doc_ids only
+for did in "${doc_ids[@]}"; do
+  "${PSQL[@]}" -c "DELETE FROM rag_chunks WHERE doc_id='$did';" >/dev/null
+  "${PSQL[@]}" -c "DELETE FROM rag_docs   WHERE doc_id='$did';" >/dev/null
+  docker compose -p "$PROJECT" exec -T pdf-ingest \
+    find /kb/assets -maxdepth 1 -name "${did}_p*_i*.*" -delete || true
+done
+
+# 5. Move PDFs back to inbox; watcher picks them up
+mv data/processed/*.pdf data/inbox/
+echo "Reprocess queued. Watch: docker compose -p $PROJECT logs -f pdf-ingest"
 ```
 
 ### 7.3 Order of Operations on the Day
@@ -633,8 +688,10 @@ echo "Done. Watch logs: docker compose logs -f pdf-ingest"
 | Failure | Behavior |
 |---|---|
 | `java` missing at startup | `lifespan()` raises; container restart loop with clear log |
-| `opendataloader_pdf.convert` raises | Catch in `extract_and_store`; log; fall back to current PyMuPDF flow for this file; flag `meta.extractor = "pymupdf-fallback"` |
-| `convert` produces no JSON file | Same fallback path; log warning |
+| `subprocess.run(["java","-jar",...])` returns non-zero | Catch in `extract_and_store`; log stderr; fall back to current PyMuPDF flow for this file; flag `meta.extractor = "pymupdf-fallback"` |
+| `subprocess.TimeoutExpired` (JVM hangs past `OPENDATALOADER_TIMEOUT`) | Subprocess is killed automatically; same fallback path; release temp dir |
+| Java not installed at runtime (subprocess raises `FileNotFoundError`) | Same fallback for the file; container is also caught at lifespan startup so this is rare |
+| Convert produces no JSON file | Same fallback path; log warning with `out_dir` listing |
 | JSON has unexpected element types | Map to `"text"` and log unknown type once per ingest |
 | Section chunking produces zero chunks | Fall back to per-page text + sentence splitter (current behavior) |
 | Caption worker failure | Unchanged — empty caption, no embedding, image still inserted |
@@ -671,16 +728,24 @@ Fixture: `tests/fixtures/sample_layout.json` — hand-crafted minimal opendatalo
 
 ### 9.3 Demo Readiness Check #16
 
-Append to `scripts/demo_readiness_check.sh`:
+Append to `scripts/demo_readiness_check.sh`, using its existing `pass`/`fail` helpers and the same `-p ammer-mmragv2 exec -T -e PGPASSWORD` Postgres pattern as the other DB checks in the project:
+
 ```bash
-echo "Check #16 — opendataloader integration"
-docker compose exec -T pdf-ingest java -version >/dev/null 2>&1 \
-  && echo "  ✓ Java present" || echo "  ✗ Java missing"
-bbox_count=$(docker compose exec -T postgres psql -U rag_user -d rag -At -c \
-  "SELECT count(*) FROM rag_chunks WHERE meta ? 'bbox';")
-[[ "$bbox_count" -gt 0 ]] \
-  && echo "  ✓ $bbox_count chunks have meta.bbox" \
-  || echo "  ✗ no chunks have meta.bbox"
+echo "== 16. opendataloader integration =="
+if docker compose -p ammer-mmragv2 exec -T pdf-ingest java -version >/dev/null 2>&1; then
+  pass "Java runtime present in pdf-ingest"
+else
+  fail "Java runtime not available in pdf-ingest"
+fi
+BBOX_COUNT=$(docker compose -p ammer-mmragv2 exec -T \
+  -e PGPASSWORD="${POSTGRES_PASSWORD}" postgres \
+  psql -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${RAG_DB}" -At \
+  -c "SELECT count(*) FROM rag_chunks WHERE meta ? 'bbox';" 2>/dev/null || echo "0")
+if [ "${BBOX_COUNT:-0}" -gt 0 ]; then
+  pass "$BBOX_COUNT chunks carry meta.bbox"
+else
+  fail "no chunks carry meta.bbox — pipeline did not produce structure metadata"
+fi
 ```
 
 ## 10. Rollout & Rollback
