@@ -41,7 +41,10 @@ async def rag_models():
     """Proxy to rag-gateway /v1/models."""
     async with httpx.AsyncClient(timeout=config.TIMEOUT_SHORT) as client:
         resp = await client.get(f"{config.RAG_GATEWAY_URL}/v1/models")
-        return resp.json()
+        data = resp.json()
+        if isinstance(data, dict):
+            data["default_model"] = config.OLLAMA_TEXT_MODEL
+        return data
 
 
 def _sse(event: str, data) -> str:

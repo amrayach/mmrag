@@ -88,15 +88,17 @@ Pages.rag = function(container) {
     try {
       const data = await API.get('/api/rag/models');
       const models = data.data || data.models || [];
+      const defaultModel = data.default_model || 'qwen2.5:7b-instruct';
       select.innerHTML = models.map(m => {
         const name = m.id || m.name || m;
-        const isDefault = name.includes('qwen2.5:7b-instruct');
+        const isDefault = name === defaultModel || name.includes(defaultModel);
         return `<option value="${name}"${isDefault ? ' selected' : ''}>${name}</option>`;
       }).join('');
       selectedModel = select.value;
     } catch {
-      select.innerHTML = '<option value="qwen2.5:7b-instruct">qwen2.5:7b-instruct</option>';
-      selectedModel = 'qwen2.5:7b-instruct';
+      const fallback = 'qwen2.5:7b-instruct';
+      select.innerHTML = `<option value="${fallback}">${fallback}</option>`;
+      selectedModel = fallback;
       Components.toast('Could not load models — using default', 'warning');
     }
     select.addEventListener('change', () => { selectedModel = select.value; });

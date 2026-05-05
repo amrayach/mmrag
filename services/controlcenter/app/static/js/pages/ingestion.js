@@ -21,6 +21,7 @@ Pages.ingestion = function(container) {
             Browse <input type="file" id="ing-pdf-file" accept=".pdf" style="display:none">
           </label></p>
           <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.3rem">Max 100 MB</p>
+          <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.25rem">OpenDataLoader PDF layout extraction with page-level bounding boxes; captions still use qwen2.5vl:7b.</p>
         </div>
         <div id="ing-pdf-upload-status" style="margin-top:0.5rem;font-size:0.82rem"></div>
         <div style="margin-top:0.8rem;display:flex;gap:0.5rem">

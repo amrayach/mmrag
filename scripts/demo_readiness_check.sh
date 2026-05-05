@@ -142,6 +142,23 @@ for port in 8450 8451 8452 8453 8454; do
   fi
 done
 
+# ── 16. opendataloader integration ───────────────────────────────────────
+echo "== 16. opendataloader integration =="
+if docker compose -p ammer-mmragv2 exec -T pdf-ingest java -version >/dev/null 2>&1; then
+  pass "Java runtime present in pdf-ingest"
+else
+  fail "Java runtime not available in pdf-ingest"
+fi
+BBOX_COUNT=$(docker compose -p ammer-mmragv2 exec -T \
+  -e PGPASSWORD="${POSTGRES_PASSWORD}" postgres \
+  psql -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${RAG_DB}" -At \
+  -c "SELECT count(*) FROM rag_chunks WHERE meta ? 'bbox';" 2>/dev/null || echo "0")
+if [ "${BBOX_COUNT:-0}" -gt 0 ]; then
+  pass "$BBOX_COUNT chunks carry meta.bbox"
+else
+  fail "no chunks carry meta.bbox — pipeline did not produce structure metadata"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────
 echo ""
 echo "========================================"

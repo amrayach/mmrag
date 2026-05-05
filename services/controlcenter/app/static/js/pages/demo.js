@@ -180,7 +180,7 @@ Pages.demo = function(container) {
         <span style="color:var(--success)">PASS: ${pass}</span> &nbsp;|&nbsp;
         <span style="color:var(--error)">FAIL: ${fail}</span> &nbsp;|&nbsp;
         <span style="color:var(--warning)">WARN: ${warn}</span>
-        &nbsp;&mdash;&nbsp; ${fail === 0 ? 'Demo is ready!' : 'Fix failures above.'}
+        &nbsp;&mdash;&nbsp; ${fail > 0 ? 'Fix failures above.' : warn > 0 ? 'Ready with warnings.' : 'Demo is ready!'}
       </div>`;
     });
     es.onerror = () => {

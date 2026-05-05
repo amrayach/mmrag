@@ -113,7 +113,7 @@ async def demo_stop():
 
 @router.get("/readiness")
 async def demo_readiness():
-    """SSE stream: 15-point readiness checklist (reimplements demo_readiness_check.sh)."""
+    """SSE stream: readiness checklist aligned with demo_readiness_check.sh plus PDF rollout checks."""
     async def _generate():
         async with httpx.AsyncClient(timeout=config.TIMEOUT_SHORT) as short_client:
             # 1. Containers
@@ -150,8 +150,12 @@ async def demo_readiness():
                     json={"messages": []},
                 )
                 ok = resp.status_code != 404
+                detail = (
+                    "registered (empty probe returned HTTP 500)"
+                    if resp.status_code == 500 else f"HTTP {resp.status_code}"
+                )
                 yield _check(6, "Chat Brain webhook",
-                             f"HTTP {resp.status_code}",
+                             detail,
                              "pass" if ok else "fail")
             except Exception as e:
                 yield _check(6, "Chat Brain webhook", str(e), "fail")
@@ -245,6 +249,35 @@ async def demo_readiness():
             else:
                 yield _check(15, "Tailscale host configured",
                              "TAILNET_HOST not set", "warn")
+
+            # 16. OpenDataLoader PDF rollout
+            try:
+                ready_resp = await short_client.get(f"{config.PDF_INGEST_URL}/health/ready")
+                ready_data = ready_resp.json()
+                pdf_ready = ready_resp.status_code == 200 and bool(ready_data.get("ok"))
+            except Exception:
+                pdf_ready = False
+
+            try:
+                row = await db.fetch_one("SELECT COUNT(*) FROM rag_chunks WHERE meta ? 'bbox'")
+                bbox_count = row[0] if row else 0
+                yield _check(16, "OpenDataLoader PDF metadata",
+                             f"pdf-ingest {'ready' if pdf_ready else 'not ready'}; {bbox_count} chunks with meta.bbox",
+                             "pass" if pdf_ready and bbox_count > 0 else "fail")
+            except Exception as e:
+                yield _check(16, "OpenDataLoader PDF metadata", str(e), "fail")
+
+            # 17. Known PDF embedding caveat
+            try:
+                row = await db.fetch_one(
+                    "SELECT COUNT(*) FROM rag_chunks WHERE meta ? 'embedding_error'"
+                )
+                error_count = row[0] if row else 0
+                yield _check(17, "PDF embedding-error chunks",
+                             f"{error_count} flagged chunks" if error_count else "none",
+                             "warn" if error_count else "pass")
+            except Exception as e:
+                yield _check(17, "PDF embedding-error chunks", str(e), "warn")
 
         # Summary
         yield {"event": "done", "data": ""}

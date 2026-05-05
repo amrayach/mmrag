@@ -150,7 +150,14 @@ async def ingestion_history():
             SELECT d.doc_id, d.filename, d.pages, d.created_at,
                    COUNT(c.id) AS chunks,
                    COUNT(c.id) FILTER (WHERE c.chunk_type = 'image') AS images,
-                   MAX(c.meta->>'content_type') AS source_type
+                   CASE
+                       WHEN LOWER(d.filename) LIKE '%%.pdf' THEN 'pdf'
+                       ELSE COALESCE(
+                           MAX(c.meta->>'content_type'),
+                           MAX(c.meta->>'source'),
+                           'unknown'
+                       )
+                   END AS source_type
             FROM rag_docs d
             LEFT JOIN rag_chunks c ON d.doc_id = c.doc_id
             GROUP BY d.doc_id

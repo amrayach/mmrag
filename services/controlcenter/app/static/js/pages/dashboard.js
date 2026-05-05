@@ -2,8 +2,6 @@
    dashboard.js — Metrics, topology, quick actions, activity feed
    --------------------------------------------------------------------------- */
 
-const Pages = window.Pages || {};
-
 Pages.dashboard = function(container) {
   container.innerHTML = `
     <div class="page-header">

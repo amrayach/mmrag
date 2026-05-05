@@ -7,6 +7,7 @@ const App = {
   currentCleanup: null,
 
   pages: {
+    overview:      { render: Pages.overview,       title: 'System Overview' },
     dashboard:     { render: Pages.dashboard,      title: 'Dashboard' },
     services:      { render: Pages.services,       title: 'Services' },
     ingestion:     { render: Pages.ingestion,      title: 'Ingestion' },
@@ -79,10 +80,17 @@ const App = {
     // Don't handle if typing in an input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-    // Number keys 1-8 for page navigation
+    // Key 0 for overview page
+    if (e.key === '0' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      location.hash = '#/overview';
+      e.preventDefault();
+      return;
+    }
+
+    // Number keys 1-9 for page navigation (skip overview, which is key 0)
     const keyNum = parseInt(e.key);
     if (keyNum >= 1 && keyNum <= 9 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const pageNames = Object.keys(App.pages);
+      const pageNames = Object.keys(App.pages).filter(p => p !== 'overview');
       if (pageNames[keyNum - 1]) {
         location.hash = '#/' + pageNames[keyNum - 1];
         e.preventDefault();
