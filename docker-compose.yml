@@ -106,6 +106,7 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
       REQUEST_TIMEOUT_SECS: "120"
       DEFAULT_MODEL: ${OLLAMA_TEXT_MODEL}
+      OLLAMA_THINK: ${OLLAMA_THINK:-false}
     ports:
       - "127.0.0.1:56155:8000"
     healthcheck:

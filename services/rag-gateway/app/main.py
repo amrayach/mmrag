@@ -34,6 +34,32 @@ DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen2.5:7b-instruct")
 N8N_HEALTH_URL = N8N_WEBHOOK.rsplit("/webhook/", 1)[0] + "/healthz"
 CONTEXT_MODE = os.getenv("CONTEXT_MODE", "direct")  # "direct" or "n8n"
 
+_VALID_THINK_LEVELS = {"low", "medium", "high"}
+
+
+def _parse_think_env() -> bool | str:
+    """Parse OLLAMA_THINK into the value Ollama's /api/chat `think` field expects.
+
+    - "false" / "0" / "no" / "" / unset → False (default; reasoning suppressed)
+    - "true" / "1" / "yes"              → True (allow reasoning before content)
+    - "low" / "medium" / "high"         → passed through (gpt-oss-style levels)
+
+    Anything else logs a warning and falls back to False so a typo cannot
+    poison every /api/chat request.
+    """
+    raw = os.getenv("OLLAMA_THINK", "false").strip().lower()
+    if raw in ("true", "1", "yes"):
+        return True
+    if raw in ("false", "0", "no", ""):
+        return False
+    if raw in _VALID_THINK_LEVELS:
+        return raw
+    logger.warning("Invalid OLLAMA_THINK=%r; falling back to False", raw)
+    return False
+
+
+OLLAMA_THINK_VALUE = _parse_think_env()
+
 
 class ContextUnavailableError(Exception):
     """Raised when context retrieval fails during streaming."""
@@ -55,7 +81,7 @@ async def lifespan(app_instance: FastAPI):
         await context.close_pool()
 
 
-app = FastAPI(title="rag-gateway", version="0.6.0", lifespan=lifespan)
+app = FastAPI(title="rag-gateway", version="0.7.0", lifespan=lifespan)
 
 
 class ChatMessage(BaseModel):
@@ -224,7 +250,7 @@ def _build_suffix(image_objects: list, sources: list) -> str:
 
 def _stream_from_ollama(chat_body: dict, suffix: str,
                         resp_id: str, model: str, now: int, req_id: str):
-    chat_body = {**chat_body, "stream": True}
+    chat_body = {**chat_body, "stream": True, "think": OLLAMA_THINK_VALUE}
 
     first_chunk = True
     got_first_content = False
@@ -300,7 +326,7 @@ def _stream_from_ollama(chat_body: dict, suffix: str,
 
 
 def _call_ollama_sync(chat_body: dict, req_id: str) -> str:
-    chat_body = {**chat_body, "stream": False}
+    chat_body = {**chat_body, "stream": False, "think": OLLAMA_THINK_VALUE}
     try:
         r = requests.post(
             f"{OLLAMA_BASE_URL}/api/chat",
