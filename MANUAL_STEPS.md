@@ -115,7 +115,7 @@ These starter questions are designed to showcase all four capabilities in the de
 
 ---
 
-## Deployment Deviations from Spec (v2.4) — 21 items
+## Deployment Deviations from Spec (v2.4)
 
 | # | Spec Item | Deviation | Reason |
 |---|-----------|-----------|--------|
@@ -140,3 +140,22 @@ These starter questions are designed to showcase all four capabilities in the de
 | D18a | `/ingest/upload` blocks until ingestion complete | Returns `202 Accepted`, saves to inbox, defers to file watcher | Prevents upload timeouts and lock contention |
 | D18b | `/ingest/scan` blocks until all PDFs processed | Returns immediately after submitting to thread pool | Non-blocking; n8n cron acts as fallback to file watcher |
 | D19 | No unified control UI | Control Center (11th container) on port 56156/8455 | Single-pane-of-glass: dashboard, services, ingestion, demo mode, RAG playground, docs, system info |
+| D24 | PyMuPDF text extraction in pdf-ingest | Replaced with `opendataloader-pdf==2.4.1` local mode; section-based chunking with heading breadcrumbs replaces flat 1500-char page chunks | OpenJDK 17 JRE runs in pdf-ingest. Bounding boxes, page sizes, heading paths, element ids, element types, extractor provenance, and split strategy are stored in `rag_chunks.meta`. PyMuPDF remains for image post-processing, dimension checks, and fallback. Reprocessing uses `scripts/reprocess_pdfs.sh --confirm` after a DB snapshot and `data/assets/_pre_opendataloader_<ts>/` asset quarantine. The May 5, 2026 rollout reprocessed all five PDFs and produced 1,648 PDF chunks with `meta.bbox`; snapshot `data/demo_snapshot_pre_opendataloader_20260505_172446.sql`, asset quarantine `data/assets/_pre_opendataloader_20260505_172446/`. Embedding (`bge-m3`) and vision captioning (`qwen2.5vl:7b`) unchanged. BMW Group has 486 noisy text chunks stored without embeddings and flagged with `meta.embedding_error`. |
+
+### Post-ODL Baseline & BMW Assessment (2026-05-05)
+
+A 12-prompt fixed eval was run against the post-ODL corpus with the current text model (`qwen2.5:7b-instruct`, temp=0.2, prewarmed). Run dir: `data/eval/runs/20260505_190437__baseline_post_odl/`. Harness: `scripts/eval_run.py` + `data/eval/prompts.json`.
+
+Headline numbers: 13/13 turns succeeded, avg TTFT 877 ms, avg total latency 9.8 s, avg 6 sources / 2 images per response.
+
+**BMW unembedded-chunks decision: accepted as documented limitation, no fix planned.**
+Evidence:
+- p01 (BMW Kennzahlen) retrieved €29.689 Mio Bruttoergebnis and €18.482 Mio Ergebnis vor Finanzergebnis from page 57 with 8 BMW sources.
+- p05 (BMW Tabellenzahlen) retrieved 5 distinct table rows from page 10 with concrete numerical content.
+- p04 (BMW list-completeness) returned a short list (4 items) — that is a 7B-model ceiling, not a retrieval problem; defer to the text-model upgrade phase.
+
+The 486 unembedded chunks mostly correspond to table/index/layout regions that BMW's PDF structure produces with high `�` density. They retain `meta.bbox` and remain inspectable; their information is also reachable via embedded text chunks and image captions. If a future eval surfaces a BMW question that fails specifically because of unembedded content, revisit by adding a `�`-density text-cleanup pre-filter or routing affected pages through the PyMuPDF fallback.
+
+**RSS-vs-PDF retrieval (p07):** the unfiltered prompt "Was sagen die deutschen Quellen zum Thema Nachhaltigkeit?" returned BMW page 78 + Siemens Nachhaltigkeit page 28 as the top-2 sources. The earlier project-truth note that "unfiltered PDF queries get outscored by RSS text chunks" may be stale post-ODL and should be re-verified before being relied on for demo guidance.
+
+**Deferred next phase:** text-model A/B against the same harness. Spec for the prerequisite `rag-gateway` change is at `docs/superpowers/specs/2026-05-05-rag-gateway-think-false-design.md`.

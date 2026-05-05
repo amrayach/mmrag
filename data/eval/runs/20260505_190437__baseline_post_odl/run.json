@@ -1,0 +1,11 @@
+{
+  "label": "baseline_post_odl",
+  "started_at": "2026-05-05T17:04:37+00:00",
+  "model": "qwen2.5:7b-instruct",
+  "gateway": "http://127.0.0.1:56155",
+  "stream": true,
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "repeat": 1,
+  "prompts_file": "data/eval/prompts.json"
+}

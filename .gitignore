@@ -38,5 +38,10 @@ venv/
 .DS_Store
 Thumbs.db
 data/demo_snapshot*.sql
+
+# Eval per-prompt outputs (keep summary.json, scorecard.md, run.json, prompts.json)
+data/eval/runs/*/p[0-9]*.json
+data/eval/runs/_latest_progress.log
+
 # Added by code-review-graph
 .code-review-graph/

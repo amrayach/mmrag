@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "default_model": "qwen2.5:7b-instruct",
+  "default_temperature": 0.2,
+  "default_max_tokens": 800,
+  "default_stream": true,
+  "rubric": {
+    "scale": "1-5 (1 = unusable, 3 = acceptable, 5 = excellent)",
+    "axes": [
+      "faithfulness  — every claim is supported by retrieved context",
+      "completeness  — covers everything the context contains for the question",
+      "citation      — sources/images are correct and useful",
+      "language      — output language matches user language; German fluent",
+      "repetition    — no looping or duplicate bullets",
+      "structure     — sensible structure, lists where lists belong"
+    ]
+  },
+  "prompts": [
+    {
+      "id": "p01_bmw_kennzahlen",
+      "category": "pdf_factual_de",
+      "intent": "Single-doc German PDF factual extraction with @filename filter (BMW 2023 annual report).",
+      "expects_filter": "@BMWGroup",
+      "expects_sources_from": ["BMWGroup_Bericht2023.pdf"],
+      "rubric_focus": ["faithfulness", "completeness", "language"],
+      "turns": [
+        {"user": "@BMWGroup Welche zentralen finanziellen Kennzahlen (Umsatz, Ergebnis, Marge) nennt der BMW Group Bericht 2023? Bitte mit konkreten Zahlen und Quellenangaben."}
+      ]
+    },
+    {
+      "id": "p02_siemens_nachhaltigkeit_ziele",
+      "category": "pdf_factual_de",
+      "intent": "Single-doc German PDF factual extraction (Siemens Sustainability).",
+      "expects_filter": "@Nachhaltigkeit",
+      "expects_sources_from": ["Nachhaltigkeit-bei-Siemens.pdf"],
+      "rubric_focus": ["faithfulness", "language", "citation"],
+      "turns": [
+        {"user": "@Nachhaltigkeit Welche konkreten Nachhaltigkeitsziele und Maßnahmen werden im Siemens-Bericht zur Nachhaltigkeit beschrieben? Bitte mit Quellenangabe."}
+      ]
+    },
+    {
+      "id": "p03_techvision_bereiche",
+      "category": "pdf_factual_de",
+      "intent": "Single-doc German PDF factual extraction (TechVision 2025 — small synthetic demo PDF).",
+      "expects_filter": "@TechVision",
+      "expects_sources_from": ["TechVision_AG_Jahresbericht_2025.pdf"],
+      "rubric_focus": ["faithfulness", "completeness", "language"],
+      "turns": [
+        {"user": "@TechVision Was sind die Hauptgeschäftsbereiche der TechVision AG laut Jahresbericht 2025? Liste sie vollständig auf."}
+      ]
+    },
+    {
+      "id": "p04_bmw_list_completeness",
+      "category": "pdf_list_completeness",
+      "intent": "List-completeness pressure: model should not stop at 3-5 items.",
+      "expects_filter": "@BMWGroup",
+      "expects_sources_from": ["BMWGroup_Bericht2023.pdf"],
+      "rubric_focus": ["completeness", "repetition", "structure"],
+      "turns": [
+        {"user": "@BMWGroup Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören."}
+      ]
+    },
+    {
+      "id": "p05_bmw_table_numbers",
+      "category": "pdf_table_extraction",
+      "intent": "Tests OpenDataLoader table preservation: numbers from tables should be retrievable.",
+      "expects_filter": "@BMWGroup",
+      "expects_sources_from": ["BMWGroup_Bericht2023.pdf"],
+      "rubric_focus": ["faithfulness", "completeness"],
+      "turns": [
+        {"user": "@BMWGroup Welche konkreten Zahlen, Beträge oder Prozentwerte stehen in den Finanztabellen des Berichts? Nenne mindestens fünf Zahlenwerte mit Kontext."}
+      ]
+    },
+    {
+      "id": "p06_pdf_image_relevance",
+      "category": "pdf_image_caption",
+      "intent": "Image retrieval/caption test for PDF — checks image_score thresholds and caption quality.",
+      "expects_filter": "@BMWGroup",
+      "expects_sources_from": ["BMWGroup_Bericht2023.pdf"],
+      "rubric_focus": ["citation"],
+      "turns": [
+        {"user": "@BMWGroup Welche Bilder oder Grafiken zeigen Produktionsstandorte, Fahrzeuge oder Personen? Beschreibe sie kurz und nenne die Seitenzahl wenn möglich."}
+      ]
+    },
+    {
+      "id": "p07_no_filter_german",
+      "category": "no_filter_de",
+      "intent": "Unfiltered German query — known weakness: RSS dominates PDF in retrieval. Documents the issue, not a pass/fail test.",
+      "expects_filter": null,
+      "expects_sources_from": null,
+      "rubric_focus": ["citation", "structure"],
+      "turns": [
+        {"user": "Was sagen die deutschen Quellen zum Thema Nachhaltigkeit?"}
+      ]
+    },
+    {
+      "id": "p08_rss_summary_de",
+      "category": "rss_summary_de",
+      "intent": "RSS-only summarization with @rss filter.",
+      "expects_filter": "@rss",
+      "expects_sources_from": null,
+      "rubric_focus": ["completeness", "repetition", "language"],
+      "turns": [
+        {"user": "@rss Fasse die wichtigsten politischen Nachrichten der letzten Tage in maximal fünf Stichpunkten zusammen, jeweils mit Quelle."}
+      ]
+    },
+    {
+      "id": "p09_rss_entity_de",
+      "category": "rss_entity_de",
+      "intent": "RSS entity question; tests retrieval recall for a specific topic.",
+      "expects_filter": "@rss",
+      "expects_sources_from": null,
+      "rubric_focus": ["faithfulness", "citation"],
+      "turns": [
+        {"user": "@rss Was berichten die deutschen Nachrichten in letzter Zeit über die Ukraine? Bitte nenne mehrere Berichte mit Quelle."}
+      ]
+    },
+    {
+      "id": "p10_siemens_english",
+      "category": "pdf_factual_en",
+      "intent": "English question on a partly-English PDF (Siemens annual report).",
+      "expects_filter": "@Siemens",
+      "expects_sources_from": ["Siemens-Annual-Report-2024.pdf"],
+      "rubric_focus": ["faithfulness", "language"],
+      "turns": [
+        {"user": "@Siemens Based on the Siemens Annual Report 2024, what were the key revenue drivers and which business segments contributed most? Answer in English with source citations."}
+      ]
+    },
+    {
+      "id": "p11_followup_deictic",
+      "category": "followup_de",
+      "intent": "Two-turn German conversation; second turn is short and deictic ('davon' / 'dazu') to exercise follow-up rewriting.",
+      "expects_filter": "@Siemens",
+      "expects_sources_from": ["Siemens-Annual-Report-2024.pdf"],
+      "rubric_focus": ["faithfulness", "structure"],
+      "turns": [
+        {"user": "@Siemens Welche Geschäftsbereiche hat Siemens laut Jahresbericht 2024?"},
+        {"user": "Welche davon sind am profitabelsten?"}
+      ]
+    },
+    {
+      "id": "p12_repeat_for_stability",
+      "category": "stability",
+      "intent": "Re-runs p01 to measure determinism / repetition across calls. Run with --repeat 3.",
+      "expects_filter": "@BMWGroup",
+      "expects_sources_from": ["BMWGroup_Bericht2023.pdf"],
+      "rubric_focus": ["repetition"],
+      "turns": [
+        {"user": "@BMWGroup Welche zentralen finanziellen Kennzahlen (Umsatz, Ergebnis, Marge) nennt der BMW Group Bericht 2023? Bitte mit konkreten Zahlen und Quellenangaben."}
+      ]
+    }
+  ]
+}
