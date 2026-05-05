@@ -296,7 +296,9 @@ def _collect_text(node) -> str:
 
 #### Table renderer (`_render_table_markdown`)
 
-Per schema (`$defs/table.rows[].cells[]`), tables expose `rows` (array of `tableRow`), each with `cells` (array of `tableCell` whose text is in nested `kids`). Cells with `row span` / `column span` > 1 emit blank cells in the spanned positions so column counts stay consistent:
+Per schema (`$defs/table.rows[].cells[]`), tables expose `rows` (array of `tableRow`), each with `cells` (array of `tableCell` whose text is in nested `kids`).
+
+`column span > 1` is handled by emitting empty padding cells so column counts stay rectangular. **`row span > 1` is intentionally not modeled** — implementing vertical occupancy would mean tracking a 2-D grid and skipping positions filled by spans from earlier rows. Demo-corpus tables (annual-report financial summaries) are dominated by horizontal category spans; vertical merges are rare. The fallback behavior is acceptable: a row-spanning cell appears in its first row only, and subsequent rows have an empty cell in that column. Splitting this into a follow-up if the demo surfaces a problem table.
 
 ```python
 def _render_table_markdown(node) -> str:
@@ -649,7 +651,7 @@ Follows the existing `scripts/snapshot.sh` patterns: sources `.env`, uses `docke
 
 doc_ids are computed deterministically from `data/processed/*.pdf` filenames using the same `uuid5(NAMESPACE_URL, "mmrag:" + filename)` scheme as `services/pdf-ingest/app/main.py::get_or_create_doc_id` — exactly the PDFs being re-processed, no broad WHERE clause.
 
-**Asset handling.** Old asset files are *moved into a timestamped quarantine directory* (`data/assets/_pre_opendataloader_${ts}/`), not deleted. This makes restore atomic: `pg_restore` on the snapshot brings back rag_chunks rows whose `asset_path` strings still resolve, because the original files are still on disk one directory deeper. New ingestion writes fresh files alongside (siblings to the quarantine dir) using the deterministic `<doc_id>_p<page>_i<idx>.<ext>` naming, so no name collisions with the quarantine.
+**Asset handling.** Old asset files are *moved into a timestamped quarantine directory* (`data/assets/_pre_opendataloader_${ts}/`), not deleted. The original bytes are preserved for rollback: rag_chunks rows reference flat names like `<doc_id>_p<page>_i<idx>.png` which only resolve at `data/assets/<name>`, so the rollback procedure (§10) explicitly moves files back out of the quarantine before assets are reachable again. New ingestion writes fresh files into `data/assets/` directly using the same deterministic naming — the quarantine subdirectory is sibling-nested, so no name collisions with new ingestion.
 
 ```bash
 #!/usr/bin/env bash
@@ -801,21 +803,34 @@ fi
 6. Smoke test the four production demo prompts (BMW Group, Siemens × 2, TechVision).
 
 ### Rollback
-Restore is atomic because both DB and asset state are preserved alongside each other:
+Both DB and asset state are preserved by reprocess (`data/demo_snapshot_pre_opendataloader_<ts>.sql` + `data/assets/_pre_opendataloader_<ts>/`). Restore must mirror the existing `scripts/restore_snapshot.sh` pattern — TRUNCATE before psql-restore, otherwise post-merge rows collide with the snapshot's primary keys.
+
 1. `git revert` the merge commit, rebuild pdf-ingest, `docker compose -p ammer-mmragv2 up -d pdf-ingest`.
-2. Restore DB:
+2. Halt ingestion before restoring (avoid in-flight writes racing the truncate):
    ```bash
+   docker compose -p ammer-mmragv2 stop pdf-ingest
+   ```
+3. Truncate, then restore — same pattern as `scripts/restore_snapshot.sh`:
+   ```bash
+   docker compose -p ammer-mmragv2 exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
+     psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$RAG_DB" \
+     -c "TRUNCATE rag_chunks, rag_docs CASCADE;"
+
    docker compose -p ammer-mmragv2 exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
      psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$RAG_DB" \
      < data/demo_snapshot_pre_opendataloader_<ts>.sql
    ```
-3. Restore quarantined assets:
+4. Restore quarantined assets back to the live directory (asset_path values now resolve):
    ```bash
    docker compose -p ammer-mmragv2 exec -T pdf-ingest sh -c \
      "mv /kb/assets/_pre_opendataloader_<ts>/* /kb/assets/ && rmdir /kb/assets/_pre_opendataloader_<ts>"
    ```
-4. Move PDFs from `data/inbox/` (if any are still there) back to `data/processed/`. New post-revert chunks for the same doc_ids should also be cleaned up first to avoid duplicates with the restored snapshot — easiest is `DELETE FROM rag_chunks WHERE meta->>'extractor' LIKE 'opendataloader%';` before step 2.
-5. Keep both the snapshot file and the quarantine dir for at least one demo cycle before final cleanup.
+5. Restart pdf-ingest:
+   ```bash
+   docker compose -p ammer-mmragv2 start pdf-ingest
+   ```
+6. Move any PDFs still sitting in `data/inbox/` back to `data/processed/` so the watcher doesn't re-trigger ingestion of the snapshot's documents.
+7. Keep both the snapshot file and the quarantine dir for at least one demo cycle before final cleanup. (After cleanup: `rm data/demo_snapshot_pre_opendataloader_<ts>.sql` and `docker compose -p ammer-mmragv2 exec -T pdf-ingest rm -rf /kb/assets/_pre_opendataloader_<ts>`.)
 
 ## 11. Out of Scope (Future Work)
 
