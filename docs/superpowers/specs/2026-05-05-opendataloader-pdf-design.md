@@ -275,36 +275,69 @@ def parse(pdf_path: str, doc_id: str) -> tuple[list[ParsedElement], str]:
     return elements, out_dir
 ```
 
+#### Text-collection helper (`_collect_text`)
+
+Schema (`$defs/tableCell`, `$defs/listItem`) makes `kids` required and does **not** define a direct `content` field on cells or list items. Cell/item text lives in nested `kids` (paragraphs, runs, sometimes nested lists). `_collect_text` walks the subtree DFS and concatenates whatever leaf-level `content` strings it finds:
+
+```python
+def _collect_text(node) -> str:
+    """Recursively gather visible text from a node's content + descendants."""
+    if not isinstance(node, dict):
+        return ""
+    parts: list[str] = []
+    if isinstance(node.get("content"), str) and node["content"].strip():
+        parts.append(node["content"].strip())
+    for kid in node.get("kids") or []:
+        sub = _collect_text(kid)
+        if sub:
+            parts.append(sub)
+    return " ".join(parts).strip()
+```
+
 #### Table renderer (`_render_table_markdown`)
 
-Per schema (`$defs/table.rows[].cells[]`), tables expose `rows` (array of `tableRow`), each with `cells` (array of `tableCell`):
+Per schema (`$defs/table.rows[].cells[]`), tables expose `rows` (array of `tableRow`), each with `cells` (array of `tableCell` whose text is in nested `kids`). Cells with `row span` / `column span` > 1 emit blank cells in the spanned positions so column counts stay consistent:
 
 ```python
 def _render_table_markdown(node) -> str:
     rows = node.get("rows") or []
     if not rows:
         return ""
-    md_rows: list[str] = []
-    header_cells = None
-    for i, row in enumerate(rows):
-        cells = row.get("cells") or []
-        cell_texts = [(c.get("content") or "").replace("|", r"\|").replace("\n", " ").strip()
-                      for c in cells]
-        md_rows.append("| " + " | ".join(cell_texts) + " |")
-        if i == 0:
-            header_cells = len(cell_texts)
-            md_rows.append("| " + " | ".join(["---"] * header_cells) + " |")
-    return "\n".join(md_rows)
+    grid: list[list[str]] = []
+    max_cols = 0
+    for row in rows:
+        line: list[str] = []
+        for cell in row.get("cells") or []:
+            text = _collect_text(cell).replace("|", r"\|").replace("\n", " ").strip()
+            line.append(text)
+            cspan = int(cell.get("column span") or 1)
+            for _ in range(cspan - 1):
+                line.append("")
+        grid.append(line)
+        max_cols = max(max_cols, len(line))
+    # Pad short rows so the table is rectangular
+    for line in grid:
+        line.extend([""] * (max_cols - len(line)))
+    md = ["| " + " | ".join(grid[0]) + " |",
+          "| " + " | ".join(["---"] * max_cols) + " |"]
+    for line in grid[1:]:
+        md.append("| " + " | ".join(line) + " |")
+    return "\n".join(md)
 ```
 
 #### List renderer (`_render_list_markdown`)
 
-Per schema (`$defs/list."list items"[]`), lists expose `list items` (array of `listItem`). Some emitters use the camelCase `items` synonym; handle both:
+Per schema (`$defs/list."list items"[]`), lists expose `list items` (array of `listItem` whose text is also in nested `kids`). Some emitters use the camelCase `items` synonym; handle both:
 
 ```python
 def _render_list_markdown(node) -> str:
     items = node.get("list items") or node.get("items") or []
-    return "\n".join(f"- {(it.get('content') or '').strip()}" for it in items if it.get("content"))
+    lines = []
+    for it in items:
+        text = _collect_text(it)
+        if text:
+            lines.append(f"- {text}")
+    return "\n".join(lines)
 ```
 
 ### 3.2 `layout_to_chunks(elements) -> list[Chunk]`
@@ -608,11 +641,15 @@ OPENDATALOADER_JAVA_OPTS: "-Xmx2g"     # heap cap so JVM doesn't OOM the host
 
 Existing chunks were produced by 1500-char sliding window over PyMuPDF text. New chunks are section-based with breadcrumbs and bounding boxes. Mixing both for the same `doc_id` confuses retrieval (duplicate near-identical text, conflicting metadata semantics). One-time, controlled re-processing brings the demo corpus onto the new pipeline.
 
+Scope: **all PDFs in `data/processed/`** (five at time of writing — `BMWGroup_Bericht2023.pdf`, `Nachhaltigkeit-bei-Siemens.pdf`, `Siemens-Annual-Report-2024.pdf`, `TechVision_AG_Jahresbericht_2025.pdf`, `watcher_test.pdf`). The small `watcher_test.pdf` doubles as a fast canary that the new pipeline is end-to-end working before the four production demo PDFs run.
+
 ### 7.2 `scripts/reprocess_pdfs.sh`
 
-Follows the existing `scripts/snapshot.sh` patterns: sources `.env`, uses `docker compose -p ammer-mmragv2 exec -T -e PGPASSWORD=... postgres psql -h 127.0.0.1`, and calls pdf-ingest's status endpoint via container exec since pdf-ingest is internal-only (no host port).
+Follows the existing `scripts/snapshot.sh` patterns: sources `.env`, uses `docker compose -p ammer-mmragv2 exec -T -e PGPASSWORD=... postgres psql -h 127.0.0.1`, calls pdf-ingest's status endpoint via container exec (no host port), and uses `python3 -c` for JSON parsing (no `jq` host dep — `python3` is already required for the uuid5 lookup below).
 
-doc_ids are computed deterministically from the filenames in `data/processed/*.pdf` using the same `uuid5(NAMESPACE_URL, "mmrag:" + filename)` scheme as `services/pdf-ingest/app/main.py::get_or_create_doc_id` — exactly the four PDFs being re-processed, no broad WHERE clause.
+doc_ids are computed deterministically from `data/processed/*.pdf` filenames using the same `uuid5(NAMESPACE_URL, "mmrag:" + filename)` scheme as `services/pdf-ingest/app/main.py::get_or_create_doc_id` — exactly the PDFs being re-processed, no broad WHERE clause.
+
+**Asset handling.** Old asset files are *moved into a timestamped quarantine directory* (`data/assets/_pre_opendataloader_${ts}/`), not deleted. This makes restore atomic: `pg_restore` on the snapshot brings back rag_chunks rows whose `asset_path` strings still resolve, because the original files are still on disk one directory deeper. New ingestion writes fresh files alongside (siblings to the quarantine dir) using the deterministic `<doc_id>_p<page>_i<idx>.<ext>` naming, so no name collisions with the quarantine.
 
 ```bash
 #!/usr/bin/env bash
@@ -620,7 +657,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" != "--confirm" ]]; then
-  echo "Refusing to run without --confirm. Deletes chunks + assets for the four processed PDFs."
+  echo "Refusing to run without --confirm. Quarantines assets + deletes chunks/docs for all PDFs in data/processed/."
   exit 1
 fi
 
@@ -631,16 +668,16 @@ PROJECT="ammer-mmragv2"
 PSQL=(docker compose -p "$PROJECT" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres
       psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$RAG_DB" -At)
 
-# 1. Active-work guard via the pdf-ingest container itself
+# 1. Active-work guard via the pdf-ingest container (no host port → use exec)
 status=$(docker compose -p "$PROJECT" exec -T pdf-ingest \
            curl -sf http://localhost:8001/ingest/status)
-active=$(echo "$status" | jq '.active_docs')
-qsize=$(echo "$status"  | jq '.caption_queue_size')
+active=$(echo "$status" | python3 -c "import json,sys;print(json.load(sys.stdin)['active_docs'])")
+qsize=$(echo "$status"  | python3 -c "import json,sys;print(json.load(sys.stdin)['caption_queue_size'])")
 if (( active > 0 || qsize > 0 )); then
   echo "Refusing — active_docs=$active caption_queue_size=$qsize"; exit 1
 fi
 
-# 2. Timestamped snapshot (rag_docs + rag_chunks)
+# 2. Timestamped DB snapshot (rag_docs + rag_chunks)
 ts=$(date +%Y%m%d_%H%M%S)
 snap="data/demo_snapshot_pre_opendataloader_${ts}.sql"
 docker compose -p "$PROJECT" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
@@ -660,27 +697,31 @@ for fn in "${pdfs[@]}"; do
   echo "  will reprocess: $fn  doc_id=$did"
 done
 
-# 4. Delete chunks + asset files for those doc_ids only
+# 4. Quarantine assets (NOT delete) and remove DB rows for those doc_ids
+quarantine="_pre_opendataloader_${ts}"
+docker compose -p "$PROJECT" exec -T pdf-ingest mkdir -p "/kb/assets/${quarantine}"
 for did in "${doc_ids[@]}"; do
+  docker compose -p "$PROJECT" exec -T pdf-ingest sh -c \
+    "find /kb/assets -maxdepth 1 -name '${did}_p*_i*.*' -exec mv -t /kb/assets/${quarantine} {} +" \
+    || true
   "${PSQL[@]}" -c "DELETE FROM rag_chunks WHERE doc_id='$did';" >/dev/null
   "${PSQL[@]}" -c "DELETE FROM rag_docs   WHERE doc_id='$did';" >/dev/null
-  docker compose -p "$PROJECT" exec -T pdf-ingest \
-    find /kb/assets -maxdepth 1 -name "${did}_p*_i*.*" -delete || true
 done
 
 # 5. Move PDFs back to inbox; watcher picks them up
 mv data/processed/*.pdf data/inbox/
-echo "Reprocess queued. Watch: docker compose -p $PROJECT logs -f pdf-ingest"
+echo "Reprocess queued. Quarantine: data/assets/${quarantine}/"
+echo "Watch: docker compose -p $PROJECT logs -f pdf-ingest"
 ```
 
 ### 7.3 Order of Operations on the Day
 
 1. Ensure pdf-ingest is healthy and idle.
 2. Build new pdf-ingest image.
-3. `docker compose up -d pdf-ingest`.
+3. `docker compose -p ammer-mmragv2 up -d pdf-ingest`.
 4. Wait for `/health/ready` → `{"ok": true}`.
 5. `bash scripts/reprocess_pdfs.sh --confirm`.
-6. Watch logs; verify completion via `/ingest/status` (`active_docs=0`, `completed_docs=4`).
+6. Watch logs; verify completion via `/ingest/status` — `active_docs=0` and `completed_docs` matches the count of PDFs queued (5 at time of writing).
 7. Run `scripts/demo_readiness_check.sh`.
 
 ## 8. Error Handling
@@ -753,14 +794,28 @@ fi
 ### Rollout
 1. PR with all changes (extractor, Dockerfile, compose env, scripts, tests).
 2. Merge during a quiet window — mid-week, not before Sven's demo.
-3. Build + restart pdf-ingest only (no other services touched).
-4. Run reprocess script.
-5. Run readiness check.
-6. Smoke test the 4 known demo prompts.
+3. Build + restart pdf-ingest only (no other services touched):
+   `docker compose -p ammer-mmragv2 build pdf-ingest && docker compose -p ammer-mmragv2 up -d pdf-ingest`
+4. Run `scripts/reprocess_pdfs.sh --confirm`.
+5. Run `scripts/demo_readiness_check.sh`.
+6. Smoke test the four production demo prompts (BMW Group, Siemens × 2, TechVision).
 
 ### Rollback
-- Keep `data/demo_snapshot_pre_opendataloader_<ts>.sql` for at least one demo cycle.
-- To revert: `git revert`, rebuild pdf-ingest, restore snapshot via `psql < snapshot.sql`, move PDFs back to `processed/`.
+Restore is atomic because both DB and asset state are preserved alongside each other:
+1. `git revert` the merge commit, rebuild pdf-ingest, `docker compose -p ammer-mmragv2 up -d pdf-ingest`.
+2. Restore DB:
+   ```bash
+   docker compose -p ammer-mmragv2 exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
+     psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$RAG_DB" \
+     < data/demo_snapshot_pre_opendataloader_<ts>.sql
+   ```
+3. Restore quarantined assets:
+   ```bash
+   docker compose -p ammer-mmragv2 exec -T pdf-ingest sh -c \
+     "mv /kb/assets/_pre_opendataloader_<ts>/* /kb/assets/ && rmdir /kb/assets/_pre_opendataloader_<ts>"
+   ```
+4. Move PDFs from `data/inbox/` (if any are still there) back to `data/processed/`. New post-revert chunks for the same doc_ids should also be cleaned up first to avoid duplicates with the restored snapshot — easiest is `DELETE FROM rag_chunks WHERE meta->>'extractor' LIKE 'opendataloader%';` before step 2.
+5. Keep both the snapshot file and the quarantine dir for at least one demo cycle before final cleanup.
 
 ## 11. Out of Scope (Future Work)
 
@@ -773,4 +828,4 @@ fi
 
 Append to `MANUAL_STEPS.md`:
 
-> **D24** — PDF text/image extraction switched from PyMuPDF to opendataloader-pdf 2.4.1 (local mode, OpenJDK 17 JRE in pdf-ingest container). Section-based chunking with heading-path breadcrumbs replaces the 1500-char sliding window. Bounding boxes, page sizes, heading paths, element ids, and split-strategy provenance are stored in `rag_chunks.meta` (JSONB; no schema migration). PyMuPDF retained for `downscale_image()` and external-image dimension reads. Re-processing of all four demo PDFs performed via `scripts/reprocess_pdfs.sh --confirm` after `data/demo_snapshot_pre_opendataloader_<ts>.sql` snapshot. Embedding model (`bge-m3`, 1024d) and vision model (`qwen2.5vl:7b`) unchanged.
+> **D24** — PDF text/image extraction switched from PyMuPDF to opendataloader-pdf 2.4.1 (local mode, OpenJDK 17 JRE in pdf-ingest container). Section-based chunking with heading-path breadcrumbs replaces the 1500-char sliding window. Bounding boxes, page sizes, heading paths, element ids, and split-strategy provenance are stored in `rag_chunks.meta` (JSONB; no schema migration). PyMuPDF retained for `downscale_image()` and external-image dimension reads. Re-processing of all PDFs in `data/processed/` (five at time of writing — four production demo PDFs plus `watcher_test.pdf`) performed via `scripts/reprocess_pdfs.sh --confirm` after `data/demo_snapshot_pre_opendataloader_<ts>.sql` snapshot and `data/assets/_pre_opendataloader_<ts>/` asset quarantine. Embedding model (`bge-m3`, 1024d) and vision model (`qwen2.5vl:7b`) unchanged.
