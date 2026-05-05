@@ -151,30 +151,29 @@ async def _embed_query(query: str) -> list[float]:
 # ---------------------------------------------------------------------------
 
 _SEARCH_SQL_BASE = """\
-SELECT doc_id, chunk_type, page, content_text, caption, asset_path, meta,
-       1 - (embedding <=> %(emb)s) AS score
-FROM rag_chunks
-WHERE embedding IS NOT NULL
-  AND embedding <=> %(emb)s < %(threshold)s"""
+SELECT c.doc_id, c.chunk_type, c.page, c.content_text, c.caption,
+       c.asset_path, c.meta, d.filename AS doc_filename,
+       1 - (c.embedding <=> %(emb)s) AS score
+FROM rag_chunks c
+JOIN rag_docs d ON c.doc_id = d.doc_id
+WHERE c.embedding IS NOT NULL
+  AND c.embedding <=> %(emb)s < %(threshold)s"""
 
 _SEARCH_SQL_DOC_FILTER = """
-  AND doc_id IN (
-    SELECT doc_id FROM rag_docs
-    WHERE filename ILIKE '%%' || %(doc_filter)s || '%%'
-  )"""
+  AND d.filename ILIKE '%%' || %(doc_filter)s || '%%'"""
 
 _SEARCH_SQL_CHUNK_TYPE = """
-  AND chunk_type = %(chunk_type)s"""
+  AND c.chunk_type = %(chunk_type)s"""
 
 _SEARCH_SQL_ORDER = """
-ORDER BY embedding <=> %(emb)s
+ORDER BY c.embedding <=> %(emb)s
 LIMIT %(limit)s"""
 
 _SEARCH_SQL_SOURCE_RSS = """
-  AND doc_id IN (SELECT doc_id FROM rag_docs WHERE filename LIKE 'http%%')"""
+  AND d.filename LIKE 'http%%'"""
 
 _SEARCH_SQL_SOURCE_PDF = """
-  AND doc_id IN (SELECT doc_id FROM rag_docs WHERE filename NOT LIKE 'http%%')"""
+  AND d.filename NOT LIKE 'http%%'"""
 
 
 async def _vector_search(
@@ -220,8 +219,8 @@ def _build_context(
 ) -> dict:
     base = PUBLIC_ASSETS_BASE_URL
 
-    # Image relevance: thresholds MUST be above VECTOR_DISTANCE_THRESHOLD (0.50)
-    # because the SQL pre-filter guarantees all results have score > 0.50.
+    # Image relevance thresholds must stay above the SQL score floor:
+    # score > 1 - VECTOR_DISTANCE_THRESHOLD (0.4 when threshold is 0.6).
     query_wants_images = bool(_IMAGE_QUERY_RE.search(query))
     image_score_min = 0.45 if query_wants_images else 0.55
     max_images = 3 if query_wants_images else 2
@@ -283,9 +282,10 @@ def _build_context(
         else:
             ctx_lines.append(f"Text (Seite {h['page']}): {h.get('content_text') or ''}")
 
-    # Sources (max 8, markdown links for RSS, deduplicated by URL)
+    # Sources (max 8, markdown links for both RSS and PDF)
     sources: list[str] = []
     _seen_urls: set[str] = set()
+    _seen_pdf_pages: set[str] = set()  # "filename:page" dedup
     for h in hits:
         if h["chunk_type"] == "image" and not show_image(h):
             continue
@@ -304,7 +304,18 @@ def _build_context(
             else:
                 sources.append(f"{meta.get('feed_name') or 'RSS'}: {title}")
         else:
-            sources.append(f"Seite {h['page']} ({h['chunk_type']})")
+            doc_fn = h.get("doc_filename") or ""
+            page_key = f"{doc_fn}:{h['page']}"
+            if page_key in _seen_pdf_pages:
+                continue
+            _seen_pdf_pages.add(page_key)
+            if doc_fn and PUBLIC_ASSETS_BASE_URL:
+                from urllib.parse import quote
+                pdf_url = f"{PUBLIC_ASSETS_BASE_URL}/pdf/{quote(doc_fn)}#page={h['page']}"
+                label = doc_fn.replace(".pdf", "").replace("_", " ")
+                sources.append(f"[{label} — Seite {h['page']}]({pdf_url})")
+            else:
+                sources.append(f"Seite {h['page']} ({h['chunk_type']})")
     sources = sources[:8]
 
     context_text = "\n\n".join(ctx_lines)
@@ -313,6 +324,7 @@ def _build_context(
         "stream": False,
         "options": {
             "num_predict": max_tokens,
+            "num_ctx": 4096,
             "temperature": temperature,
         },
         "messages": [
