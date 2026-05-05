@@ -37,4 +37,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
-data/demo_snapshot.sql
+data/demo_snapshot*.sql
+# Added by code-review-graph
+.code-review-graph/

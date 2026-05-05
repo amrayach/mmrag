@@ -6,6 +6,7 @@ import os
 import queue
 import re
 import shutil
+import subprocess
 import threading
 import time as _time
 import uuid
@@ -20,6 +21,9 @@ import requests
 from fastapi import FastAPI, File, UploadFile
 from pgvector.psycopg import register_vector
 from psycopg_pool import ConnectionPool
+
+from .extractor import layout_to_chunks, parse as parse_layout
+from .splitter import split_text
 
 # ---------------------------------------------------------------------------
 # Logging (structured JSON)
@@ -71,6 +75,8 @@ DOC_TIMEOUT = int(os.getenv("DOC_TIMEOUT", "1800"))  # 30 min per document
 shutdown_event = threading.Event()
 caption_q: queue.Queue = queue.Queue(maxsize=CAPTION_QUEUE_SIZE)
 doc_executor: Optional[ThreadPoolExecutor] = None
+_submit_lock = threading.Lock()
+_submitted_paths: set[str] = set()
 
 # Thread-safe status counters
 _status_lock = threading.Lock()
@@ -108,6 +114,26 @@ def _should_skip_image(base: dict, xref: int, seen_xrefs: set) -> bool:
     if len(base["image"]) < MIN_IMAGE_BYTES:
         return True
     return False
+
+
+def _should_skip_external_image(path: str, seen_hashes: set) -> tuple[bool, Optional[str]]:
+    """Return (skip, sha256) for an image file emitted by opendataloader."""
+    if not path or not os.path.isfile(path):
+        return True, None
+    if os.path.getsize(path) < MIN_IMAGE_BYTES:
+        return True, None
+    try:
+        pix = fitz.Pixmap(path)
+    except Exception:
+        return True, None
+    if pix.width < MIN_IMAGE_WIDTH or pix.height < MIN_IMAGE_HEIGHT:
+        return True, None
+    with open(path, "rb") as f:
+        raw = f.read()
+    sha = hashlib.sha256(raw).hexdigest()
+    if sha in seen_hashes:
+        return True, sha
+    return False, sha
 
 
 MAX_IMAGE_DIM = 1024  # max pixels on longest side for vision model
@@ -157,6 +183,13 @@ async def lifespan(app):
         logger.info("Stale lock removed on startup")
 
     ensure_dirs()
+
+    try:
+        subprocess.run(["java", "-version"], check=True, capture_output=True, timeout=5)
+        logger.info("Java runtime verified")
+    except Exception as e:
+        logger.error("Java runtime not available: %s", e)
+        raise RuntimeError("Java 11+ required for opendataloader-pdf") from e
 
     # Init DB connection pool (max=4: 2 doc workers + 1 health + 1 spare)
     conninfo = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASS}"
@@ -240,51 +273,6 @@ def sha256_file(path: str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-
-def split_text(text: str, chunk_chars: int, overlap: int) -> List[str]:
-    if not text or not text.strip():
-        return []
-
-    # Collapse horizontal whitespace but PRESERVE newlines for paragraph detection
-    text = re.sub(r'[^\S\n]+', ' ', text)
-
-    # Split on paragraph breaks first, then on sentence boundaries
-    # (period/!/? followed by space + capital letter — avoids breaking "z.B." or "Nr.")
-    paragraphs = re.split(r'\n\s*\n+', text)
-    sentences: List[str] = []
-    for para in paragraphs:
-        para = para.strip()
-        if not para:
-            continue
-        parts = re.split(r'(?<=[.!?])\s+(?=[A-ZÄÖÜ])', para)
-        sentences.extend(p.strip() for p in parts if p.strip())
-
-    # Merge sentences into chunks up to chunk_chars
-    chunks: List[str] = []
-    current = ""
-    for sent in sentences:
-        if current and len(current) + len(sent) + 1 > chunk_chars:
-            chunks.append(current)
-            tail = current[-overlap:] if overlap else ""
-            current = (tail + " " + sent).strip() if tail else sent
-        else:
-            current = (current + " " + sent).strip() if current else sent
-    if current:
-        chunks.append(current)
-
-    # Fallback: hard-split any oversized chunks (single huge sentence)
-    result: List[str] = []
-    for c in chunks:
-        if len(c) <= chunk_chars:
-            result.append(c)
-        else:
-            start = 0
-            while start < len(c):
-                result.append(c[start:start + chunk_chars])
-                start += chunk_chars - overlap
-    return result
-
-
 def ollama_embeddings(text: str) -> List[float]:
     resp = requests.post(
         f"{OLLAMA_BASE}/api/embeddings",
@@ -298,20 +286,89 @@ def ollama_embeddings(text: str) -> List[float]:
 EMBED_BATCH_SIZE = 10
 
 
+def _embedding_input(text: str) -> Optional[str]:
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+    cleaned = re.sub(r"\ufffd+", " ", stripped)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return None
+    cleaned_alnum = sum(1 for c in cleaned if c.isalnum())
+    if len(cleaned) > 40 and cleaned_alnum / len(cleaned) < 0.20:
+        return None
+    return cleaned
+
+
+def _post_embed(batch: list[str]) -> list:
+    resp = requests.post(
+        f"{OLLAMA_BASE}/api/embed",
+        json={"model": EMBED_MODEL, "input": batch},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    embeddings = resp.json().get("embeddings") or []
+    if len(embeddings) != len(batch):
+        raise RuntimeError(
+            f"Ollama returned {len(embeddings)} embeddings for {len(batch)} inputs"
+        )
+    return embeddings
+
+
+def _embed_batch_resilient(batch: list[str]) -> list:
+    try:
+        return _post_embed(batch)
+    except Exception as e:
+        if len(batch) <= 1:
+            sample = re.sub(r"\s+", " ", batch[0] if batch else "").strip()[:160]
+            logger.warning(
+                "Embedding failed for one chunk; storing without embedding: %s (%s)",
+                sample,
+                e,
+            )
+            return [None]
+
+        mid = len(batch) // 2
+        logger.warning(
+            "Embedding batch failed for %d chunks; retrying as %d + %d chunks: %s",
+            len(batch),
+            mid,
+            len(batch) - mid,
+            e,
+        )
+        return _embed_batch_resilient(batch[:mid]) + _embed_batch_resilient(batch[mid:])
+
+
 def ollama_embed_batch(texts: list) -> list:
     """Embed multiple texts in batches via /api/embed. Returns list of embedding vectors."""
     if not texts:
         return []
-    all_embeddings = []
-    for i in range(0, len(texts), EMBED_BATCH_SIZE):
-        batch = texts[i:i + EMBED_BATCH_SIZE]
-        resp = _retry(lambda b=batch: requests.post(
-            f"{OLLAMA_BASE}/api/embed",
-            json={"model": EMBED_MODEL, "input": b},
-            timeout=120,
-        ))
-        resp.raise_for_status()
-        all_embeddings.extend(resp.json()["embeddings"])
+    all_embeddings = [None] * len(texts)
+    batch: list[str] = []
+    batch_indexes: list[int] = []
+
+    def flush_batch():
+        nonlocal batch, batch_indexes
+        if not batch:
+            return
+        embeddings = _embed_batch_resilient(batch)
+        for idx, emb in zip(batch_indexes, embeddings):
+            all_embeddings[idx] = emb
+        batch = []
+        batch_indexes = []
+
+    for idx, text in enumerate(texts):
+        embed_text = _embedding_input(text)
+        if embed_text is None:
+            sample = re.sub(r"\s+", " ", text or "").strip()[:160]
+            logger.warning("Skipping embedding for non-text/gibberish chunk: %s", sample)
+            continue
+        batch.append(embed_text)
+        batch_indexes.append(idx)
+        if len(batch) >= EMBED_BATCH_SIZE:
+            flush_batch()
+
+    flush_batch()
     return all_embeddings
 
 
@@ -342,7 +399,7 @@ def ollama_caption_image(image_bytes: bytes, lang: str = "de") -> str:
 # ---------------------------------------------------------------------------
 # Caption worker (consumer thread for caption_q)
 # ---------------------------------------------------------------------------
-# Queue items: (doc_id, page, im_i, img_bytes, lang, asset_name, cancel_event, result_q)
+# Queue items: (doc_id, page, im_i, img_bytes, lang, asset_name, meta_extra, cancel_event, result_q)
 
 
 def _caption_worker():
@@ -353,7 +410,7 @@ def _caption_worker():
         except queue.Empty:
             continue
 
-        doc_id, page, im_i, img_bytes, lang, asset_name, cancel_event, result_q = item
+        doc_id, page, im_i, img_bytes, lang, asset_name, meta_extra, cancel_event, result_q = item
         try:
             if cancel_event.is_set():
                 caption_q.task_done()
@@ -361,11 +418,11 @@ def _caption_worker():
 
             caption = _retry(lambda ib=img_bytes, la=lang: ollama_caption_image(ib, la))
             emb = ollama_embed_batch([caption])[0] if caption else None
-            result_q.put((page, im_i, caption, asset_name, emb))
+            result_q.put((page, im_i, caption, asset_name, emb, meta_extra))
             _inc("completed_images")
         except Exception:
             logger.exception("Caption failed for %s page %d", doc_id, page)
-            result_q.put((page, im_i, "", asset_name, None))
+            result_q.put((page, im_i, "", asset_name, None, meta_extra))
         finally:
             caption_q.task_done()
 
@@ -433,6 +490,161 @@ def should_process(cur, doc_id: uuid.UUID, sha: str) -> Tuple[bool, Optional[str
 # ---------------------------------------------------------------------------
 
 
+def _queue_legacy_pymupdf(
+    cur,
+    pdf_path: str,
+    doc_id: uuid.UUID,
+    lang: str,
+    total_pages: int,
+    cancel_event: threading.Event,
+    result_q: queue.Queue,
+    written_assets: List[str],
+    stats: Dict[str, Any],
+) -> int:
+    """Legacy PyMuPDF path used as a fallback when opendataloader fails."""
+    images_queued = 0
+    seen_xrefs: set = set()
+    with fitz.open(pdf_path) as doc:
+        for pno in range(total_pages):
+            page = doc.load_page(pno)
+            text = page.get_text("text") or ""
+            text_chunks = split_text(text, CHUNK_CHARS, CHUNK_OVERLAP)
+
+            if text_chunks:
+                text_embeddings = ollama_embed_batch(text_chunks)
+                for idx, (chunk, emb) in enumerate(zip(text_chunks, text_embeddings)):
+                    meta = {
+                        "source": "pdf_text",
+                        "page": pno + 1,
+                        "chunk_index": idx,
+                        "extractor": "pymupdf-fallback",
+                    }
+                    if emb is None:
+                        meta["embedding_error"] = "ollama_embed_failed"
+                    insert_chunk(
+                        cur, doc_id, "text", pno + 1, chunk, None, None, emb,
+                        meta,
+                    )
+                stats["text_chunks"] += len(text_chunks)
+                _inc("completed_text_chunks", len(text_chunks))
+
+            images = page.get_images(full=True) or []
+            img_count = 0
+            for im_i, img in enumerate(images[:MAX_IMAGES_PER_PAGE]):
+                xref = img[0]
+                base = doc.extract_image(xref)
+                if _should_skip_image(base, xref, seen_xrefs):
+                    stats["skipped_images"] += 1
+                    _inc("skipped_images")
+                    continue
+                seen_xrefs.add(xref)
+
+                img_bytes, ext = downscale_image(base["image"])
+                asset_name = f"{doc_id}_p{pno + 1}_i{im_i}.{ext}"
+                asset_path = os.path.join(ASSETS_DIR, asset_name)
+                with open(asset_path, "wb") as f:
+                    f.write(img_bytes)
+                written_assets.append(asset_path)
+
+                caption_q.put(
+                    (
+                        doc_id, pno + 1, im_i, img_bytes, lang, asset_name,
+                        {"extractor": "pymupdf-fallback"},
+                        cancel_event, result_q,
+                    ),
+                    block=True,
+                )
+                images_queued += 1
+                img_count += 1
+
+            logger.info("Page %d/%d fallback: %d text chunks, %d images queued",
+                        pno + 1, total_pages, len(text_chunks), img_count)
+    return images_queued
+
+
+def _queue_opendataloader_chunks(
+    cur,
+    chunks: list,
+    doc_id: uuid.UUID,
+    lang: str,
+    total_pages: int,
+    cancel_event: threading.Event,
+    result_q: queue.Queue,
+    written_assets: List[str],
+    stats: Dict[str, Any],
+) -> int:
+    text_chunks = [
+        c for c in chunks
+        if c.chunk_type == "text" and c.content_text and c.page <= total_pages
+    ]
+    if text_chunks:
+        embeddings = ollama_embed_batch([c.content_text for c in text_chunks])
+        for idx, (chunk, emb) in enumerate(zip(text_chunks, embeddings)):
+            meta = dict(chunk.meta)
+            meta.setdefault("chunk_index", idx)
+            if emb is None:
+                meta["embedding_error"] = "ollama_embed_failed"
+            insert_chunk(
+                cur,
+                doc_id,
+                "text",
+                chunk.page,
+                chunk.content_text,
+                None,
+                None,
+                emb,
+                meta,
+            )
+        stats["text_chunks"] += len(text_chunks)
+        _inc("completed_text_chunks", len(text_chunks))
+
+    images_queued = 0
+    seen_hashes: set[str] = set()
+    page_image_counts: Dict[int, int] = {}
+    for chunk in chunks:
+        if chunk.chunk_type != "image" or chunk.page > total_pages:
+            continue
+        im_i = page_image_counts.get(chunk.page, 0)
+        page_image_counts[chunk.page] = im_i + 1
+        if im_i >= MAX_IMAGES_PER_PAGE:
+            stats["skipped_images"] += 1
+            _inc("skipped_images")
+            continue
+
+        skip, image_sha = _should_skip_external_image(chunk.image_path, seen_hashes)
+        if skip:
+            stats["skipped_images"] += 1
+            _inc("skipped_images")
+            continue
+        if image_sha:
+            seen_hashes.add(image_sha)
+
+        with open(chunk.image_path, "rb") as f:
+            raw_img = f.read()
+        img_bytes, ext = downscale_image(raw_img)
+        asset_name = f"{doc_id}_p{chunk.page}_i{im_i}.{ext}"
+        asset_path = os.path.join(ASSETS_DIR, asset_name)
+        with open(asset_path, "wb") as f:
+            f.write(img_bytes)
+        written_assets.append(asset_path)
+
+        meta_extra = dict(chunk.meta)
+        if image_sha:
+            meta_extra["image_sha256"] = image_sha
+        caption_q.put(
+            (
+                doc_id, chunk.page, im_i, img_bytes, lang, asset_name,
+                meta_extra, cancel_event, result_q,
+            ),
+            block=True,
+        )
+        images_queued += 1
+
+    logger.info("Structured extraction queued: %d text chunks, %d images",
+                len(text_chunks), images_queued)
+    return images_queued
+
+
 def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, Any]:
     ensure_dirs()
     filename = os.path.basename(pdf_path)
@@ -450,10 +662,10 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
 
             delete_doc_chunks(cur, doc_id)
 
-            doc = fitz.open(pdf_path)
-            total_pages = doc.page_count
-            if MAX_PAGES > 0:
-                total_pages = min(total_pages, MAX_PAGES)
+            with fitz.open(pdf_path) as doc:
+                total_pages = doc.page_count
+                if MAX_PAGES > 0:
+                    total_pages = min(total_pages, MAX_PAGES)
 
             stats["pages"] = total_pages
             upsert_doc(cur, doc_id, filename, sha, lang, total_pages)
@@ -462,61 +674,36 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
             written_assets: List[str] = []
             cancel_event = threading.Event()
             result_q: queue.Queue = queue.Queue()
-            seen_xrefs: set = set()
             images_queued = 0
+            out_dir = None
 
             try:
-                # --- Phase 1+2: Extract text + embed, queue images ---
-                for pno in range(total_pages):
-                    page = doc.load_page(pno)
-                    text = page.get_text("text") or ""
-                    text_chunks = split_text(text, CHUNK_CHARS, CHUNK_OVERLAP)
+                # --- Phase 1: Structured extraction ---
+                try:
+                    elements, out_dir = parse_layout(pdf_path, str(doc_id))
+                    elements = [e for e in elements if e.page <= total_pages]
+                    chunks = layout_to_chunks(elements, CHUNK_CHARS, CHUNK_OVERLAP)
+                    if not chunks:
+                        raise RuntimeError("opendataloader produced zero chunks")
+                except Exception:
+                    if out_dir:
+                        shutil.rmtree(out_dir, ignore_errors=True)
+                        out_dir = None
+                    logger.exception(
+                        "opendataloader failed for %s; falling back to PyMuPDF",
+                        filename,
+                    )
+                    images_queued = _queue_legacy_pymupdf(
+                        cur, pdf_path, doc_id, lang, total_pages,
+                        cancel_event, result_q, written_assets, stats,
+                    )
+                else:
+                    images_queued = _queue_opendataloader_chunks(
+                        cur, chunks, doc_id, lang, total_pages,
+                        cancel_event, result_q, written_assets, stats,
+                    )
 
-                    # Batch embed text
-                    if text_chunks:
-                        text_embeddings = ollama_embed_batch(text_chunks)
-                        for idx, (chunk, emb) in enumerate(zip(text_chunks, text_embeddings)):
-                            insert_chunk(
-                                cur, doc_id, "text", pno + 1, chunk, None, None, emb,
-                                {"source": "pdf_text", "page": pno + 1, "chunk_index": idx},
-                            )
-                        stats["text_chunks"] += len(text_chunks)
-                        _inc("completed_text_chunks", len(text_chunks))
-
-                    # Filter + downscale + queue images
-                    images = page.get_images(full=True) or []
-                    img_count = 0
-                    for im_i, img in enumerate(images[:MAX_IMAGES_PER_PAGE]):
-                        xref = img[0]
-                        base = doc.extract_image(xref)
-
-                        if _should_skip_image(base, xref, seen_xrefs):
-                            stats["skipped_images"] += 1
-                            _inc("skipped_images")
-                            continue
-                        seen_xrefs.add(xref)
-
-                        img_bytes, ext = downscale_image(base["image"])
-
-                        asset_name = f"{doc_id}_p{pno+1}_i{im_i}.{ext}"
-                        asset_path = os.path.join(ASSETS_DIR, asset_name)
-                        with open(asset_path, "wb") as f:
-                            f.write(img_bytes)
-                        written_assets.append(asset_path)
-
-                        # Enqueue for caption workers (blocks if queue full = backpressure)
-                        caption_q.put(
-                            (doc_id, pno + 1, im_i, img_bytes, lang, asset_name,
-                             cancel_event, result_q),
-                            block=True,
-                        )
-                        images_queued += 1
-                        img_count += 1
-
-                    logger.info("Page %d/%d: %d text chunks, %d images queued",
-                                pno + 1, total_pages, len(text_chunks), img_count)
-
-                # --- Phase 3: Wait for caption results ---
+                # --- Phase 2: Wait for caption results ---
                 caption_results = []
                 deadline = _time.monotonic() + DOC_TIMEOUT
                 while len(caption_results) < images_queued:
@@ -532,11 +719,13 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                     except queue.Empty:
                         continue
 
-                # --- Phase 4: Insert caption chunks into DB ---
-                for page_no, im_i, caption, asset_name, emb in caption_results:
+                # --- Phase 3: Insert caption chunks into DB ---
+                for page_no, im_i, caption, asset_name, emb, meta_extra in caption_results:
+                    meta = {"source": "pdf_image", "page": page_no, "image_index": im_i}
+                    meta.update(meta_extra or {})
                     insert_chunk(
                         cur, doc_id, "image", page_no, None, caption, asset_name, emb,
-                        {"source": "pdf_image", "page": page_no, "image_index": im_i},
+                        meta,
                     )
                 stats["images"] = len(caption_results)
 
@@ -553,6 +742,9 @@ def extract_and_store(pdf_path: str, doc_id: uuid.UUID, lang: str) -> Dict[str, 
                 logger.warning("Ingestion failed for %s, rolled back %d chunks and %d assets",
                                filename, stats["text_chunks"] + stats["images"], len(written_assets))
                 raise
+            finally:
+                if out_dir:
+                    shutil.rmtree(out_dir, ignore_errors=True)
 
     elapsed = _time.monotonic() - t0
     logger.info("Ingestion complete: %s — %d text chunks, %d images in %.1fs",
@@ -568,17 +760,48 @@ def move_to_processed(pdf_path: str):
     os.remove(pdf_path)
 
 
+def move_to_error(pdf_path: str) -> bool:
+    if not os.path.exists(pdf_path):
+        return False
+    dst = os.path.join(ERROR_DIR, os.path.basename(pdf_path))
+    shutil.copy2(pdf_path, dst)
+    os.remove(pdf_path)
+    return True
+
+
 def list_pdfs(folder: str) -> List[str]:
     if not os.path.isdir(folder):
         return []
     return [os.path.join(folder, fn) for fn in sorted(os.listdir(folder)) if fn.lower().endswith(".pdf")]
 
 
+def _submit_pdf(pdf_path: str, lang: str = "de") -> bool:
+    """Submit a PDF once while it remains in inbox."""
+    norm_path = os.path.abspath(pdf_path)
+    with _submit_lock:
+        if norm_path in _submitted_paths:
+            return False
+        if not os.path.exists(norm_path):
+            return False
+        _submitted_paths.add(norm_path)
+    try:
+        doc_executor.submit(_process_one, norm_path, lang)
+    except Exception:
+        with _submit_lock:
+            _submitted_paths.discard(norm_path)
+        raise
+    return True
+
+
 def _process_one(pdf_path: str, lang: str = "de"):
     """Process a single PDF with error handling. Called by executor threads."""
+    pdf_path = os.path.abspath(pdf_path)
     filename = os.path.basename(pdf_path)
     _inc("active_docs")
     try:
+        if not os.path.exists(pdf_path):
+            logger.warning("Skipping missing PDF already moved by another worker: %s", filename)
+            return
         doc_id = get_or_create_doc_id(filename)
         result = extract_and_store(pdf_path, doc_id, lang)
         if result.get("status") in ("ingested", "skipped"):
@@ -589,12 +812,12 @@ def _process_one(pdf_path: str, lang: str = "de"):
     except Exception:
         logger.exception("Fatal error processing %s — moving to error dir", filename)
         os.makedirs(ERROR_DIR, exist_ok=True)
-        try:
-            shutil.move(pdf_path, os.path.join(ERROR_DIR, filename))
-        except Exception:
-            logger.exception("Failed to move %s to error dir", filename)
+        if not move_to_error(pdf_path):
+            logger.warning("Could not move %s to error dir because it no longer exists", filename)
         _inc("failed_docs")
     finally:
+        with _submit_lock:
+            _submitted_paths.discard(pdf_path)
         _dec("active_docs")
 
 
@@ -622,8 +845,8 @@ def _inbox_watcher():
                 if prev_size is not None and prev_size == size:
                     # Size stable for 2 consecutive polls → submit
                     stable.add(path)
-                    logger.info("New PDF detected (stable): %s", os.path.basename(path))
-                    doc_executor.submit(_process_one, path)
+                    if _submit_pdf(path):
+                        logger.info("New PDF detected (stable): %s", os.path.basename(path))
 
             # Clean up: remove entries for files no longer in inbox (moved to processed/error)
             known = {p: s for p, s in current.items() if p not in stable}
@@ -704,8 +927,8 @@ def ingest_scan(max_docs: int = 10, lang: str = "de"):
     pdfs = list_pdfs(INBOX_DIR)[:max_docs]
     submitted = 0
     for pdf_path in pdfs:
-        doc_executor.submit(_process_one, pdf_path, lang)
-        submitted += 1
+        if _submit_pdf(pdf_path, lang):
+            submitted += 1
     return {"status": "ok", "submitted": submitted, "inbox_total": len(list_pdfs(INBOX_DIR))}
 
 

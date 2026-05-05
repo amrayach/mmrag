@@ -1,8 +1,10 @@
 # OpenDataLoader PDF Integration — Design
 
-**Status:** Draft — pending user approval before implementation plan
+**Status:** Implemented and rolled out — May 5, 2026
 **Date:** 2026-05-05
 **Scope:** Replace PyMuPDF-based text extraction in `services/pdf-ingest` with `opendataloader-pdf` (local mode); keep PyMuPDF for image post-processing and the existing `qwen2.5vl:7b` captioning flow; introduce structure-aware chunking with bounding boxes and heading paths.
+
+**Rollout result:** all five PDFs in `data/processed/` were reprocessed. The current PDF corpus has 1,648 chunks, and all 1,648 carry `meta.bbox`. Rollback snapshot: `data/demo_snapshot_pre_opendataloader_20260505_172446.sql`; asset quarantine: `data/assets/_pre_opendataloader_20260505_172446/`. BMW Group has 486 noisy text chunks stored without embeddings and flagged with `meta.embedding_error`.
 
 ## 1. Goals & Non-Goals
 
