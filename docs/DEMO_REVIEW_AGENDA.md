@@ -1,9 +1,9 @@
 # MMRAG Demo System — Review Session
 
-**Date:** Thursday, March 20, 2026
+**Date:** Tuesday, May 5, 2026
 **Participants:** Amay, Sven
 **Duration:** ~60 minutes
-**Access:** https://spark-e010.tail907fce.ts.net:8451 (OpenWebUI)
+**Access:** https://spark-e010.tail907fce.ts.net:8451 (OpenWebUI), https://spark-e010.tail907fce.ts.net:8455 (Control Center)
 
 ---
 
@@ -17,24 +17,26 @@ A self-hosted multimodal RAG (Retrieval-Augmented Generation) system that:
 - Stores vectors in PostgreSQL/pgvector
 - Answers questions via streaming chat UI (OpenWebUI)
 - Uses qwen2.5:7b-instruct for generation, qwen2.5vl:7b for image captioning
+- Uses OpenDataLoader PDF for structured PDF extraction, heading breadcrumbs, tables, images, and bounding boxes
 - Runs entirely on the DGX Spark — no external API calls, no data leaves the server
 
 ### Architecture (simplified)
 
 ```
-User → OpenWebUI → rag-gateway → pgvector (retrieve) + Ollama (generate) → streaming response
-Ingestion: PDF/RSS → extract text + images → caption images → embed → store
+User → OpenWebUI → rag-gateway → pgvector (direct retrieve) + Ollama (generate) → streaming response
+Ingestion: PDF/RSS → extract structured text + images → caption images → embed → store
 ```
 
 ### What's In the Knowledge Base
 
-- **TechVision AG Jahresbericht 2025** — synthetic German company report (16 pages, 27 chunks: 19 text + 8 image)
-- **Siemens Nachhaltigkeitsbericht** — real corporate sustainability report (48 pages, 121 chunks)
-- **Siemens Annual Report 2024** — real annual report (222 pages, 847 chunks)
-- **BMW Geschäftsbericht 2023** — real report, images only (37 image chunks)
-- **~1,460 RSS articles** from spiegel.de, tagesschau.de, heise.de, zdf, dw, faz, spektrum
-- **6 curated news articles** (seeded, thematically linked to TechVision for cross-source demos)
-- **Total: 6,284 chunks** (5,174 text + 1,110 image) across 1,467 documents
+- **TechVision AG Jahresbericht 2025** — synthetic German company report (32 chunks: 24 text + 8 image)
+- **Siemens Nachhaltigkeitsbericht** — real corporate sustainability report (152 chunks: 113 text + 39 image)
+- **Siemens Annual Report 2024** — real annual report (119 chunks: 117 text + 2 image)
+- **BMW Geschäftsbericht 2023** — real report (1,342 chunks: 1,297 text + 45 image; 486 noisy text chunks are stored without embeddings and flagged)
+- **watcher_test.pdf** — small canary document (3 text chunks)
+- **~3,926 RSS/news documents** from spiegel.de, tagesschau.de, heise.de, zdf, dw, faz, spektrum
+- **Total: 15,332 chunks** (14,223 text + 1,109 image) across 3,931 documents
+- **PDF metadata:** all 1,648 PDF chunks carry `meta.bbox` after the May 5 OpenDataLoader reprocess
 
 ---
 
@@ -53,7 +55,7 @@ Each prompt showcases a specific capability. Run them in order — prompts 1-4 a
 | 5 | "Was berichten aktuelle Nachrichten über KI und Robotik in Deutschland?" | **Live news** — real RSS content with source links | Mix of seeded + real articles from spiegel, heise, tagesschau |
 | 6 | "Vergleiche TechVisions KI-Strategie aus ihrem Jahresbericht mit den aktuellen Branchentrends aus den Nachrichten. Nutze sowohl den PDF-Bericht als auch RSS-Nachrichtenquellen." | **Cross-source synthesis** — PDF + news combined | Side-by-side analysis: TechVision strategy vs. industry trends |
 | 7 | "@Nachhaltigkeit Welche Megatrends nennt Siemens in ihrem Nachhaltigkeitsbericht?" | **Multi-document** — works across different companies | Siemens megatrends from real PDF with page refs |
-| 8 | "@BMWGroup Zeige mir Bilder von BMW Fahrzeugen aus dem Geschäftsbericht" | **Real scanned PDF** — image extraction from real documents | 2-3 BMW car photos with AI-generated captions |
+| 8 | "@BMWGroup Zeige mir Bilder von BMW Fahrzeugen aus dem Geschäftsbericht" | **Real annual-report images** — image extraction from real documents | 2-3 BMW car photos with AI-generated captions |
 
 **Timing note:** Prompts take 25-95 seconds depending on complexity. The 7B model is the bottleneck — a 14B+ model would be faster per token but needs more VRAM.
 
@@ -72,13 +74,13 @@ Sven gets access to explore freely. Suggested areas to test:
 - Streaming — tokens appear progressively in the UI
 
 ### Known Limitations (be upfront about these)
-- **7B model constraints**: Answers can be repetitive, miss nuance, or list fewer items than exist in context. A larger model (14B/32B) would improve quality significantly.
+- **7B model constraints**: Answers can be repetitive, miss nuance, or list fewer items than exist in context. The next text-model evaluation should start with `qwen3.6:27b`, then `qwen3:30b` and `mistral-small3.2:24b`.
 - **Response time**: 25-95 seconds per query. First query after idle is slowest (model loading).
 - **Image relevance in unfiltered queries**: Images only appear when their document also has text hits (by design — prevents noise). Use `@filename` + image keywords to force image retrieval.
 - **RSS image quality**: Some RSS images have generic captions (logo, banner). Contextual re-captioning is planned.
 - **Single-language generation**: Answers in German even when source is English (Siemens Annual Report).
 - **No conversation memory across sessions**: Each chat is independent.
-- **pdf-ingest race condition**: Duplicate processing can occur if a PDF is submitted while the watcher also detects it. Not yet fixed — needs dedup locking.
+- **BMW text degradation**: BMW Group's report now has structured chunks and image captions, but 486 noisy text chunks failed embedding and are intentionally flagged in metadata. Use `@BMWGroup` image-focused prompts for the most reliable BMW demo path.
 
 ### Things to Try
 - Ask about specific numbers ("Wie hoch war der F&E-Anteil von TechVision?")
@@ -95,17 +97,20 @@ Sven gets access to explore freely. Suggested areas to test:
 - **Full pipeline**: ingest → embed → retrieve → generate → stream
 - **Direct context mode**: 78ms retrieval (was 5s through n8n)
 - **bge-m3 migration**: Migrated from nomic-embed-text (768d, English-primary) to bge-m3 (1024d, multilingual). Average quality score: 2.8 → 4.3 (+54%). Siemens German queries went from 1/5 → 5/5. Required re-embedding all 6,088 chunks, HNSW index drop/recreate, and threshold recalibration.
+- **OpenDataLoader PDF rollout**: Reprocessed all five PDFs with section-aware chunks, heading paths, tables, and bounding boxes; 1,648/1,648 PDF chunks now carry `meta.bbox`.
 - **11 containers**, all self-hosted, no external dependencies
 - **Ollama 0.18.0 vision bug found and fixed**: Auto-requested 262K context for vision model (exceeds 128K training limit). Fixed with explicit `num_ctx=8192` — captioning went from 100% failure to 100% success.
 
 ### What Needs Improvement Before Real Demo
-- [ ] Larger LLM? (14B or 32B for better answer quality vs. GPU tradeoff)
+- [ ] Benchmark larger LLM candidates in order: `qwen3.6:27b`, `qwen3:30b`, `mistral-small3.2:24b-instruct-2506-q4_K_M`, then `qwen2.5:32b-instruct-q4_K_M` as a stable fallback
+- [ ] Add `think: false` to Qwen3/Qwen3.6 Ollama chat payloads before benchmarking so thinking latency does not distort results
+- [ ] Clean or suppress BMW embedding-error text chunks if BMW text questions become a demo priority
+- [ ] Add click-to-source PDF highlighting using stored page + bbox metadata
 - [ ] Contextual image re-captioning (use surrounding text for better captions)
 - [ ] More German PDFs in the knowledge base
 - [ ] OpenWebUI customization (branding, starter prompts already configured)
 - [ ] Response time optimization (currently 25-95s depending on query)
 - [ ] Multi-language answer control (answer in source language when appropriate)
-- [ ] Fix pdf-ingest race condition (dedup locking)
 
 ### Open Questions for Sven
 1. Target audience for the real demo — technical or business stakeholders?

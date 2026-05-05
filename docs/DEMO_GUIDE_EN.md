@@ -217,7 +217,7 @@ The output shows:
 3. Database `rag` → Table `rag_chunks` → **Select data**
 4. Show the new entries with `doc_id`, `chunk_type`, `content_text`, and `embedding`
 
-> **Presenter note:** *"Here we see the raw data: each text segment received a 768-dimensional vector. Images were described by the vision model and also stored as vectors."*
+> **Presenter note:** *"Here we see the raw data: each text segment received a 1024-dimensional bge-m3 vector. Images were described by the vision model and also stored as vectors. For PDFs, the meta column also contains structure and bounding-box metadata."*
 
 ---
 
@@ -376,7 +376,7 @@ In OpenWebUI, ask a question that could involve both PDF and RSS content:
 | Table | Contents |
 |-------|----------|
 | `rag_docs` | Document metadata (filename, SHA256 hash, language, page count) |
-| `rag_chunks` | Individual text segments + images with 768-dim vectors |
+| `rag_chunks` | Individual text segments + images with 1024-dim vectors; PDF chunks also carry bounding-box and structure metadata |
 
 3. Run a SQL query (in Adminer's SQL field):
 
@@ -387,7 +387,7 @@ FROM rag_chunks
 GROUP BY chunk_type;
 ```
 
-> **Presenter note:** *"In the database, we can see how many text and image chunks are stored. Each chunk has a 768-dimensional vector representing its semantic content. The database uses pgvector for similarity search."*
+> **Presenter note:** *"In the database, we can see how many text and image chunks are stored. Each chunk has a 1024-dimensional bge-m3 vector representing its semantic content. PDF chunks also carry page and bounding-box metadata for more precise source references. The database uses pgvector for similarity search."*
 
 ### 6.3 Show Local AI Models
 
@@ -396,8 +396,8 @@ Three models run locally on the GPU:
 | Model | Task | Size |
 |-------|------|------|
 | `qwen2.5:7b-instruct` | Text generation (answers) | ~4.7 GB |
-| `nomic-embed-text` | Vectorization (embeddings) | ~274 MB |
-| `qwen2.5vl:7b` | Image recognition (vision) | ~4.7 GB |
+| `bge-m3` | Multilingual vectorization (1024-dim embeddings) | ~1.2 GB |
+| `qwen2.5vl:7b` | Image recognition and captioning (vision) | ~6.0 GB |
 
 > **Presenter note:** *"All three AI models run locally on the GPU — no API calls to OpenAI or other cloud services. The data never leaves the server."*
 

@@ -7,27 +7,31 @@ OpenWebUI
   │  POST /v1/chat/completions (stream=true)
   ▼
 rag-gateway (FastAPI, OpenAI-compatible)
-  │  1. POST /webhook/rag-chat → n8n
+  │  1. Embed query with Ollama bge-m3
   ▼
-n8n Chat Brain (6 nodes):
-  Webhook → Extract Query → Embed (Ollama) → Vector Literal → Vector Search (Postgres) → Build Context
-  │  Returns: chatRequestBody, imageObjects, sources
+PostgreSQL/pgvector
+  │  2. Direct vector search + source/image slot reservation
   ▼
 rag-gateway
-  │  2. POST /api/chat (stream=true) → Ollama
-  │  3. Translates Ollama NDJSON → OpenAI SSE chunks
-  │  4. Appends images (![caption](url)) and sources as final chunk
+  │  3. Build context locally
+  │  4. POST /api/chat (stream=true) → Ollama
+  │  5. Translate Ollama NDJSON → OpenAI SSE chunks
+  │  6. Append images (![caption](url)) and sources as final chunk
   ▼
 OpenWebUI (token-by-token streaming)
 ```
+
+n8n Chat Brain remains available as a context-only workflow/fallback path, but the running demo uses `CONTEXT_MODE=direct` in `rag-gateway`.
 
 ## Ingestion Flows
 
 ```
 PDF Ingestion:
   FileBrowser upload → data/inbox/
-    → n8n Ingestion Factory (every 2 min or manual webhook)
-    → pdf-ingest service (text extraction, image captioning, embedding)
+    → pdf-ingest watcher or n8n manual scan trigger
+    → OpenDataLoader PDF layout extraction (local mode, Java 17)
+    → section/table/image chunks with bounding boxes in rag_chunks.meta
+    → qwen2.5vl image captioning + bge-m3 embeddings
     → PostgreSQL/pgvector + data/assets/ (nginx)
 
 RSS Ingestion:
@@ -48,6 +52,7 @@ RSS Ingestion:
 | 56153 | Adminer      |
 | 56154 | PostgreSQL   |
 | 56155 | RAG Gateway  |
+| 56156 | Control Center |
 | 56157 | Assets       |
 
 ### Tailnet (Tailscale Serve)
@@ -59,6 +64,7 @@ RSS Ingestion:
 | 8452 | FileBrowser  |
 | 8453 | Adminer      |
 | 8454 | Assets       |
+| 8455 | Control Center |
 
 ## Key Components
 
@@ -68,6 +74,7 @@ RSS Ingestion:
 | n8n | Node.js | Workflow orchestration (embedding, vector search, context assembly) |
 | Ollama | Go | Local GPU inference (text, vision, embeddings) |
 | PostgreSQL | pgvector | Vector storage + similarity search |
-| pdf-ingest | FastAPI | PDF text/image extraction + captioning |
+| pdf-ingest | FastAPI + OpenDataLoader PDF | Structured PDF text/image extraction + captioning |
 | rss-ingest | FastAPI | RSS feed scraping + image captioning |
+| Control Center | FastAPI + static JS | Dashboard, readiness, docs, ingestion controls |
 | Assets (nginx) | Nginx | Static image serving + gallery UI |

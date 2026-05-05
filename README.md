@@ -1,23 +1,25 @@
 # MMRAG — Multimodal RAG Demo
 
-A self-hosted, GPU-accelerated **Retrieval-Augmented Generation** pipeline that ingests PDFs and RSS feeds (text + images), stores vector embeddings in PostgreSQL/pgvector, and serves streaming answers through a chat UI — orchestrated by n8n workflows with direct Ollama token streaming.
+A self-hosted, GPU-accelerated **Retrieval-Augmented Generation** pipeline that ingests PDFs and RSS feeds (text + images), stores vector embeddings in PostgreSQL/pgvector, and serves streaming answers through a chat UI. Retrieval and generation run through the RAG Gateway for direct pgvector context assembly and Ollama token streaming; n8n remains the workflow layer for ingestion triggers and fallback context workflows.
 
 ## Architecture
 
 ```
 Chat flow (streaming):
-  OpenWebUI → rag-gateway (OpenAI SSE) → n8n (context retrieval)
-    → PostgreSQL/pgvector (vector search)
-  rag-gateway → Ollama (streaming LLM) → OpenWebUI (token-by-token)
+  OpenWebUI → rag-gateway (OpenAI SSE)
+    → PostgreSQL/pgvector (direct vector search)
+    → Ollama (streaming LLM)
+    → OpenWebUI (token-by-token)
 
 Ingestion flows:
-  FileBrowser upload → data/inbox/ → n8n (Ingestion Factory)
-    → pdf-ingest → PostgreSQL/pgvector + assets/ (nginx)
+  FileBrowser upload → data/inbox/ → pdf-ingest watcher
+    → OpenDataLoader PDF + qwen2.5vl captions + bge-m3 embeddings
+    → PostgreSQL/pgvector + assets/ (nginx)
 
   RSS feeds → rss-ingest (scheduled) → PostgreSQL/pgvector + assets/ (nginx)
 ```
 
-### Services (10 containers)
+### Services (11 containers)
 
 | Service | Description |
 |---------|-------------|
@@ -25,11 +27,12 @@ Ingestion flows:
 | **n8n** | Workflow automation — Chat Brain (context), Ingestion Factory, RSS Ingestion |
 | **ollama** | Local LLM inference (GPU-accelerated) |
 | **rag-gateway** | OpenAI-compatible API with true SSE streaming (Ollama NDJSON → OpenAI SSE) |
-| **pdf-ingest** | PDF processing: text extraction, image captioning, embedding generation |
+| **pdf-ingest** | PDF processing: OpenDataLoader layout extraction, image captioning, embedding generation |
 | **rss-ingest** | RSS feed ingestion: article scraping, image captioning, embedding generation |
 | **openwebui** | Chat UI frontend |
 | **filebrowser** | Web-based file manager for PDF uploads |
 | **adminer** | Database admin UI |
+| **controlcenter** | Project dashboard, readiness checks, ingestion controls, docs browser |
 | **assets** | Nginx serving extracted images + browsable gallery |
 
 ### Models (Ollama)
@@ -38,9 +41,17 @@ Ingestion flows:
 |-------|---------|
 | `qwen2.5:7b-instruct` | Text generation (chat answers) |
 | `qwen2.5vl:7b` | Vision model (image captioning during ingestion) |
-| `nomic-embed-text` | Embedding generation (768-dim vectors) |
+| `bge-m3` | Multilingual embedding generation (1024-dim vectors) |
 
-All three models are kept loaded in GPU memory simultaneously (`OLLAMA_MAX_LOADED_MODELS=3`, ~11 GB total) to eliminate model swap latency.
+All three active models are kept loaded in GPU memory simultaneously (`OLLAMA_MAX_LOADED_MODELS=3`, ~12 GB total) to reduce model swap latency. Larger text-generation candidates such as `qwen3.6:27b`, `qwen3:30b`, and `mistral-small3.2:24b-instruct-2506-q4_K_M` are evaluation candidates, not the default runtime model yet.
+
+### PDF Ingestion
+
+PDF text extraction now uses `opendataloader-pdf==2.4.1` in local mode with OpenJDK 17 inside the `pdf-ingest` container. It produces structure-aware chunks with reading order, heading breadcrumbs, tables, image bounding boxes, page sizes, element IDs, and extractor provenance stored in `rag_chunks.meta`.
+
+PyMuPDF remains in the service for image post-processing, external-image dimension checks, and fallback handling. Embeddings still use `bge-m3`; PDF image captions still use `qwen2.5vl:7b`.
+
+The May 5, 2026 reprocess snapshot is `data/demo_snapshot_pre_opendataloader_20260505_172446.sql`; old PDF assets were preserved under `data/assets/_pre_opendataloader_20260505_172446/`. Current PDF corpus: 5 PDFs, 1,648 chunks, all 1,648 with `meta.bbox`. Known caveat: BMW Group text extraction produced 486 noisy text chunks that are stored without embeddings and flagged with `meta.embedding_error`; image chunks and structured metadata are present.
 
 ## Prerequisites
 
@@ -91,7 +102,7 @@ docker compose up -d --build
 ## Usage
 
 1. Upload PDFs via FileBrowser into `data/inbox/`
-2. Trigger ingestion: wait for the 2-minute cron, or call the `/webhook/ingest-now` endpoint in n8n
+2. Ingestion starts automatically when the `pdf-ingest` watcher sees a stable file; the n8n `/webhook/ingest-now` endpoint remains available as a manual scan trigger
 3. Chat in OpenWebUI — answers stream token-by-token with relevant text chunks, inline images, and source citations
 
 ### Demo Mode
@@ -123,6 +134,7 @@ All ports bind to `127.0.0.1` only (not publicly exposed).
 | 56153 | Adminer |
 | 56154 | PostgreSQL |
 | 56155 | RAG Gateway |
+| 56156 | Control Center |
 | 56157 | Assets (nginx + gallery) |
 
 Use a reverse proxy or Tailscale Serve to expose services on your network.
@@ -135,7 +147,8 @@ Use a reverse proxy or Tailscale Serve to expose services on your network.
 ├── services/
 │   ├── pdf-ingest/       # PDF processing microservice (FastAPI)
 │   ├── rss-ingest/       # RSS feed ingestion microservice (FastAPI)
-│   └── rag-gateway/      # OpenAI-compatible streaming proxy (FastAPI)
+│   ├── rag-gateway/      # OpenAI-compatible streaming proxy (FastAPI)
+│   └── controlcenter/    # Unified dashboard, readiness, docs, ingestion controls
 ├── n8n/workflows/        # Exportable n8n workflow JSONs
 ├── nginx/                # Custom nginx config (assets gallery)
 ├── scripts/              # Setup, health check, demo mode, prewarm scripts

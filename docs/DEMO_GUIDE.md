@@ -217,7 +217,7 @@ Die Ausgabe zeigt:
 3. Datenbank `rag` → Tabelle `rag_chunks` → **Daten anzeigen**
 4. Die neuen Einträge mit `doc_id`, `chunk_type`, `content_text` und `embedding` zeigen
 
-> **Moderationshinweis:** *„Hier sehen wir die Rohdaten: Jeder Textabschnitt hat einen 768-dimensionalen Vektor bekommen. Bilder wurden vom Vision-Modell beschrieben und ebenfalls als Vektoren gespeichert."*
+> **Moderationshinweis:** *„Hier sehen wir die Rohdaten: Jeder Textabschnitt hat einen 1024-dimensionalen bge-m3-Vektor bekommen. Bilder wurden vom Vision-Modell beschrieben und ebenfalls als Vektoren gespeichert. Bei PDFs sehen wir zusätzlich Struktur- und Bounding-Box-Metadaten in der Spalte meta."*
 
 ---
 
@@ -361,7 +361,7 @@ In OpenWebUI eine Frage stellen, die sowohl PDF- als auch RSS-Inhalte betreffen 
 | Tabelle | Inhalt |
 |---------|--------|
 | `rag_docs` | Dokumenten-Metadaten (Dateiname, SHA256-Hash, Sprache, Seitenzahl) |
-| `rag_chunks` | Einzelne Textabschnitte + Bilder mit 768-dim. Vektoren |
+| `rag_chunks` | Einzelne Textabschnitte + Bilder mit 1024-dim. Vektoren; PDF-Chunks enthalten zusätzlich Bounding-Box- und Struktur-Metadaten |
 
 3. Eine SQL-Abfrage ausführen (im SQL-Feld von Adminer):
 
@@ -372,7 +372,7 @@ FROM rag_chunks
 GROUP BY chunk_type;
 ```
 
-> **Moderationshinweis:** *„In der Datenbank sehen wir, wie viele Text- und Bild-Chunks gespeichert sind. Jeder Chunk hat einen 768-dimensionalen Vektor, der seinen semantischen Inhalt repräsentiert. Die Datenbank nutzt pgvector für die Ähnlichkeitssuche."*
+> **Moderationshinweis:** *„In der Datenbank sehen wir, wie viele Text- und Bild-Chunks gespeichert sind. Jeder Chunk hat einen 1024-dimensionalen bge-m3-Vektor, der seinen semantischen Inhalt repräsentiert. PDF-Chunks tragen zusätzlich Seiten- und Bounding-Box-Metadaten für präzisere Quellenverweise. Die Datenbank nutzt pgvector für die Ähnlichkeitssuche."*
 
 ### 6.3 Lokale KI-Modelle zeigen
 
@@ -381,8 +381,8 @@ Drei Modelle laufen lokal auf der GPU:
 | Modell | Aufgabe | Größe |
 |--------|---------|-------|
 | `qwen2.5:7b-instruct` | Textgenerierung (Antworten) | ~4.7 GB |
-| `nomic-embed-text` | Vektorisierung (Embeddings) | ~274 MB |
-| `qwen2.5vl:7b` | Bilderkennung (Vision) | ~4.7 GB |
+| `bge-m3` | Mehrsprachige Vektorisierung (Embeddings, 1024-dim.) | ~1.2 GB |
+| `qwen2.5vl:7b` | Bilderkennung und Bildbeschriftung (Vision) | ~6.0 GB |
 
 > **Moderationshinweis:** *„Alle drei KI-Modelle laufen lokal auf der GPU — kein API-Call an OpenAI oder andere Cloud-Dienste. Die Daten verlassen den Server nicht."*
 

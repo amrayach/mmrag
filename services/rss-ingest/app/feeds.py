@@ -13,7 +13,7 @@ class FeedConfig:
 
 
 # ---------------------------------------------------------------------------
-# 10 German RSS feeds with best-effort CSS selectors
+# 7 German RSS feeds with best-effort CSS selectors
 # ---------------------------------------------------------------------------
 
 FEEDS: Dict[str, FeedConfig] = {}
