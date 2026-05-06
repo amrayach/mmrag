@@ -1,0 +1,70 @@
+{
+  "_about": [
+    "Phase 0.6 gold-chunk annotation scaffold.",
+    "Each prompt declares its expected source(s), the failure-mode bucket the",
+    "prompt is designed to pressure-test, and a (currently empty) gold_chunk_ids",
+    "list. Phase 1 retrieval-quality work fills these IDs in once a chunk has",
+    "been confidently identified as 'the one that should rank into top-k'.",
+    "Until then, scripts/eval_retrieval_metrics.py exits cleanly without",
+    "computing meaningless zeros."
+  ],
+  "_failure_modes": {
+    "factual": "single-chunk factual extraction; specific numbers/text",
+    "list": "list-completeness; multi-chunk synthesis of brand/section/segment lists",
+    "table": "table-extraction quality; numeric values from tables",
+    "image": "image retrieval / caption quality; thresholds and cross-doc-id guard",
+    "rss": "RSS-only retrieval; @rss filter behavior",
+    "followup": "deictic / short follow-up rewriting",
+    "corpus_skew": "no-filter retrieval; RSS-vs-PDF dominance under unscoped queries"
+  },
+  "p01": {
+    "query": "@BMWGroup Welche zentralen finanziellen Kennzahlen (Umsatz, Ergebnis, Marge) nennt der BMW Group Bericht 2023? Bitte mit konkreten Zahlen und Quellenangaben.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "factual",
+    "gold_chunk_ids": [],
+    "notes": "Empty until a single chunk is confidently identified to contain the headline financial numbers. Many chunks contain isolated numbers; recall@k requires a primary chunk."
+  },
+  "p02": {
+    "query": "@Nachhaltigkeit Welche konkreten Nachhaltigkeitsziele und Maßnahmen werden im Siemens-Bericht zur Nachhaltigkeit beschrieben? Bitte mit Quellenangabe.",
+    "expected_doc": "Nachhaltigkeit-bei-Siemens.pdf",
+    "failure_mode": "factual",
+    "gold_chunk_ids": [],
+    "notes": ""
+  },
+  "p03": {
+    "query": "@TechVision Was sind die Hauptgeschäftsbereiche der TechVision AG laut Jahresbericht 2025? Liste sie vollständig auf.",
+    "expected_doc": "TechVision_AG_Jahresbericht_2025.pdf",
+    "failure_mode": "list",
+    "gold_chunk_ids": [],
+    "notes": "List-completeness on a small synthetic PDF; ideal for sanity-checking that retrieval surfaces the section-headers chunk."
+  },
+  "p04": {
+    "query": "@BMWGroup Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "list",
+    "gold_chunk_ids": [],
+    "notes": "Phase 0.4 found 17 brand-list-related chunks across pages 16, 27, 31, 37, 55, 69, 71, 82, 123, 126, 146, 321, 338. No single chunk contains the full list (BMW + MINI + Rolls-Royce + BMW Motorrad + …). One chunk (id 37039 page 71) has meta.embedding_error=ollama_embed_failed. Until Phase 0.4 retrieval re-runs identify which embedded chunks rank into top-k, gold_chunk_ids stays empty. A reasonable Phase 1 'partial gold set' would be the embedded chunks with brand-name overlap: 37032 (page 69, MINI), 37033 (page 69, MINI table), 36846 (page 27, Marken).",
+    "candidate_gold_chunk_ids": [37032, 37033, 36846]
+  },
+  "p05": {
+    "query": "@BMWGroup Welche konkreten Zahlen, Beträge oder Prozentwerte stehen in den Finanztabellen des Berichts? Nenne mindestens fünf Zahlenwerte mit Kontext.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "table",
+    "gold_chunk_ids": [],
+    "notes": "Tests OpenDataLoader table preservation. Once Phase 0.3 confirms that table chunks have meta.element_type='table', the gold chunks are a few representative table chunks."
+  },
+  "p06": {
+    "query": "@BMWGroup Welche Bilder oder Grafiken zeigen Produktionsstandorte, Fahrzeuge oder Personen? Beschreibe sie kurz und nenne die Seitenzahl wenn möglich.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "image",
+    "gold_chunk_ids": [],
+    "notes": "Image-intent query. Gold chunks should be image chunks with non-empty captions matching production/vehicle/person concepts."
+  },
+  "p07": {
+    "query": "Was sagen die deutschen Quellen zum Thema Nachhaltigkeit?",
+    "expected_doc": null,
+    "failure_mode": "corpus_skew",
+    "gold_chunk_ids": [],
+    "notes": "No filter, no expected document. Gold here is qualitative: the answer should cite at least one PDF source (e.g. Nachhaltigkeit-bei-Siemens.pdf) instead of being entirely RSS-driven. Phase 1 candidates: source-type weighting in context.py, route classifier."
+  }
+}

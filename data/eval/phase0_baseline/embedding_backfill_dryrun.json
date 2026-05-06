@@ -1,0 +1,4890 @@
+{
+  "captured_at": "2026-05-06T13:02:54+00:00",
+  "phase": "0.5",
+  "executed": false,
+  "filters": {
+    "doc_filter": "BMWGroup_Bericht2023.pdf",
+    "chunk_type": null,
+    "only_error": "ollama_embed_failed",
+    "limit": null,
+    "force": false
+  },
+  "selected": [
+    {
+      "id": 36770,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 6,
+      "content_chars": 332,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36776,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 9,
+      "content_chars": 1209,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36777,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 9,
+      "content_chars": 1499,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36781,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 11,
+      "content_chars": 1128,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36783,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 12,
+      "content_chars": 529,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36786,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 13,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36787,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 13,
+      "content_chars": 235,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36791,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 13,
+      "content_chars": 755,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36795,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 14,
+      "content_chars": 1397,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36796,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 14,
+      "content_chars": 416,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36799,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 15,
+      "content_chars": 438,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36802,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 16,
+      "content_chars": 1212,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36803,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 16,
+      "content_chars": 1382,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36804,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 16,
+      "content_chars": 1383,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36810,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 17,
+      "content_chars": 1029,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36812,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 18,
+      "content_chars": 1100,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36813,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 18,
+      "content_chars": 1089,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36814,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 18,
+      "content_chars": 1412,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36815,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 18,
+      "content_chars": 805,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36824,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 22,
+      "content_chars": 1142,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36830,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 23,
+      "content_chars": 323,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36832,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 24,
+      "content_chars": 991,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36835,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 25,
+      "content_chars": 1202,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36837,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 25,
+      "content_chars": 1236,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36838,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 25,
+      "content_chars": 630,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36841,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 26,
+      "content_chars": 608,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36847,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 28,
+      "content_chars": 15,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36858,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 32,
+      "content_chars": 1243,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36862,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 33,
+      "content_chars": 33,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36881,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 37,
+      "content_chars": 235,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36884,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 38,
+      "content_chars": 739,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36886,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 38,
+      "content_chars": 161,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36913,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 43,
+      "content_chars": 1139,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36917,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 43,
+      "content_chars": 130,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36921,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 44,
+      "content_chars": 912,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36923,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 45,
+      "content_chars": 744,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36925,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 45,
+      "content_chars": 1081,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36926,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 45,
+      "content_chars": 1437,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36927,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 45,
+      "content_chars": 421,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36928,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 46,
+      "content_chars": 1241,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36929,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 46,
+      "content_chars": 1030,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36930,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 46,
+      "content_chars": 1261,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36932,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 46,
+      "content_chars": 1425,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36933,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 46,
+      "content_chars": 703,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36934,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 47,
+      "content_chars": 539,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36935,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 47,
+      "content_chars": 1446,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36940,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 7,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36941,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36942,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 8,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36943,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 791,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36944,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 16,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36945,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36946,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36947,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 33,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36949,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36950,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 18,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36951,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36952,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 20,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36954,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 13,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36955,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 48,
+      "content_chars": 42,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36957,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 49,
+      "content_chars": 1405,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36958,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 49,
+      "content_chars": 642,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36977,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 53,
+      "content_chars": 109,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36979,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 54,
+      "content_chars": 220,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36985,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 56,
+      "content_chars": 573,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36990,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 58,
+      "content_chars": 658,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36992,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 59,
+      "content_chars": 449,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36994,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 59,
+      "content_chars": 1177,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 36996,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 60,
+      "content_chars": 1498,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37000,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 61,
+      "content_chars": 731,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37002,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 62,
+      "content_chars": 1132,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37003,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 62,
+      "content_chars": 633,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37004,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 62,
+      "content_chars": 1470,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37005,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 62,
+      "content_chars": 685,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37007,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 63,
+      "content_chars": 1216,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37008,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 63,
+      "content_chars": 992,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37009,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 64,
+      "content_chars": 1271,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37014,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 66,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37019,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 67,
+      "content_chars": 1498,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37022,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 67,
+      "content_chars": 25,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37023,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 67,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37024,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 67,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37025,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 67,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37026,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 67,
+      "content_chars": 34,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37030,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 68,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37031,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 68,
+      "content_chars": 232,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37034,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 69,
+      "content_chars": 40,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37036,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 70,
+      "content_chars": 1413,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37037,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 70,
+      "content_chars": 1443,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37039,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 71,
+      "content_chars": 1263,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37042,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 71,
+      "content_chars": 16,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37043,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 71,
+      "content_chars": 15,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37044,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 71,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37045,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 71,
+      "content_chars": 22,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37046,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 71,
+      "content_chars": 13,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37051,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 72,
+      "content_chars": 147,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37053,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 73,
+      "content_chars": 55,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37054,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 73,
+      "content_chars": 10,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37055,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 73,
+      "content_chars": 13,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37056,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 73,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37058,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 73,
+      "content_chars": 915,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37061,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 74,
+      "content_chars": 1345,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37062,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 74,
+      "content_chars": 344,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37064,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 75,
+      "content_chars": 1463,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37065,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 75,
+      "content_chars": 1207,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37068,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 77,
+      "content_chars": 1434,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37069,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 77,
+      "content_chars": 1307,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37071,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 77,
+      "content_chars": 969,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37074,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 78,
+      "content_chars": 758,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37075,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 78,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37076,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 78,
+      "content_chars": 290,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37080,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 79,
+      "content_chars": 44,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37081,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 79,
+      "content_chars": 271,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37082,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 79,
+      "content_chars": 85,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37086,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 80,
+      "content_chars": 69,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37090,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 80,
+      "content_chars": 51,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37091,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 80,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37093,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 80,
+      "content_chars": 29,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37096,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 80,
+      "content_chars": 44,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37105,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 82,
+      "content_chars": 1499,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37111,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 83,
+      "content_chars": 1064,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37113,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 83,
+      "content_chars": 884,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37138,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 91,
+      "content_chars": 389,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37145,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 92,
+      "content_chars": 401,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37153,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 94,
+      "content_chars": 1359,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37154,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 94,
+      "content_chars": 1424,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37158,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 95,
+      "content_chars": 1401,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37162,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 96,
+      "content_chars": 1075,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37165,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 97,
+      "content_chars": 520,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37169,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 97,
+      "content_chars": 882,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37171,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 98,
+      "content_chars": 109,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37173,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 98,
+      "content_chars": 57,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37175,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 98,
+      "content_chars": 103,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37178,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 99,
+      "content_chars": 965,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37179,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 99,
+      "content_chars": 702,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37182,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 99,
+      "content_chars": 997,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37183,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 99,
+      "content_chars": 1392,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37184,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 99,
+      "content_chars": 1301,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37185,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 99,
+      "content_chars": 341,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37189,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 100,
+      "content_chars": 654,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37190,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 100,
+      "content_chars": 213,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37195,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 101,
+      "content_chars": 235,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37202,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 103,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37203,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 103,
+      "content_chars": 32,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37206,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 104,
+      "content_chars": 577,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37211,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 106,
+      "content_chars": 1316,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37215,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 107,
+      "content_chars": 1445,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37223,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 108,
+      "content_chars": 1185,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37230,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 110,
+      "content_chars": 854,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37232,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 111,
+      "content_chars": 1034,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37233,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 111,
+      "content_chars": 669,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37237,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 112,
+      "content_chars": 1034,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37246,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 113,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37247,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 113,
+      "content_chars": 319,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37248,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 113,
+      "content_chars": 630,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37251,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 114,
+      "content_chars": 529,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37254,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 114,
+      "content_chars": 603,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37263,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 117,
+      "content_chars": 235,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37264,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 117,
+      "content_chars": 1316,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37266,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 117,
+      "content_chars": 170,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37269,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 118,
+      "content_chars": 1467,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37276,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 120,
+      "content_chars": 1494,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37277,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 120,
+      "content_chars": 211,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37293,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 124,
+      "content_chars": 1411,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37294,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 124,
+      "content_chars": 1392,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37296,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 124,
+      "content_chars": 268,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37297,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 125,
+      "content_chars": 1491,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37299,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 125,
+      "content_chars": 980,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37301,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 126,
+      "content_chars": 1280,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37306,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 27,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37308,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 29,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37309,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37310,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 37,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37311,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 21,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37312,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 9,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37313,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 10,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37314,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37315,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 31,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37316,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 8,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37317,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 13,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37318,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 128,
+      "content_chars": 36,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37321,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 129,
+      "content_chars": 204,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37327,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 131,
+      "content_chars": 852,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37328,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 131,
+      "content_chars": 1438,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37329,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 131,
+      "content_chars": 1209,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37330,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 131,
+      "content_chars": 1430,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37332,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 132,
+      "content_chars": 1308,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37333,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 132,
+      "content_chars": 1217,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37335,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 132,
+      "content_chars": 1354,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37336,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 132,
+      "content_chars": 592,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37338,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 133,
+      "content_chars": 1223,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37339,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 133,
+      "content_chars": 929,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37342,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 133,
+      "content_chars": 463,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37346,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 134,
+      "content_chars": 1213,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37348,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 135,
+      "content_chars": 448,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37349,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 135,
+      "content_chars": 1099,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37351,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 135,
+      "content_chars": 1197,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37363,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37365,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 62,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37366,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 20,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37367,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 24,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37368,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 30,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37371,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 42,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37373,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 44,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37374,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 11,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37377,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 33,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37379,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 139,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37388,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 142,
+      "content_chars": 1148,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37390,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37391,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 26,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37392,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 82,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37393,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37394,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 42,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37395,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 2,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37396,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37397,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 39,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37398,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37399,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 36,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37400,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37401,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37402,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 19,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37403,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37404,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 21,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37405,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37406,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 25,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37407,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37408,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 143,
+      "content_chars": 18,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37413,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 144,
+      "content_chars": 1479,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37419,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 146,
+      "content_chars": 1400,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37420,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 146,
+      "content_chars": 1450,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37423,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 147,
+      "content_chars": 988,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37426,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 148,
+      "content_chars": 665,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37430,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 149,
+      "content_chars": 504,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37453,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 159,
+      "content_chars": 18,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37455,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 160,
+      "content_chars": 1110,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37457,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 160,
+      "content_chars": 590,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37458,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 161,
+      "content_chars": 1399,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37459,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 161,
+      "content_chars": 744,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37460,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 161,
+      "content_chars": 1063,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37461,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 161,
+      "content_chars": 1303,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37466,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 163,
+      "content_chars": 1392,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37468,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 163,
+      "content_chars": 1179,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37469,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 163,
+      "content_chars": 707,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37471,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 164,
+      "content_chars": 1249,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37472,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 164,
+      "content_chars": 604,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37474,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 164,
+      "content_chars": 1237,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37475,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 164,
+      "content_chars": 742,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37480,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 165,
+      "content_chars": 1046,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37481,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 165,
+      "content_chars": 1011,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37482,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 166,
+      "content_chars": 639,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37483,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 166,
+      "content_chars": 1051,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37486,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 166,
+      "content_chars": 576,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37487,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 166,
+      "content_chars": 1223,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37489,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 167,
+      "content_chars": 1484,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37490,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 167,
+      "content_chars": 1433,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37491,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 167,
+      "content_chars": 1189,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37493,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 167,
+      "content_chars": 1209,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37494,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 168,
+      "content_chars": 1447,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37496,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 168,
+      "content_chars": 1257,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37499,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 169,
+      "content_chars": 1498,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37500,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 169,
+      "content_chars": 1439,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37502,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 169,
+      "content_chars": 1334,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37503,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 169,
+      "content_chars": 932,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37504,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 170,
+      "content_chars": 1210,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37506,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 170,
+      "content_chars": 1048,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37510,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 171,
+      "content_chars": 1209,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37511,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 171,
+      "content_chars": 1188,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37513,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 171,
+      "content_chars": 929,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37516,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 172,
+      "content_chars": 508,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37525,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 175,
+      "content_chars": 1323,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37532,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 177,
+      "content_chars": 817,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37537,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 179,
+      "content_chars": 1131,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37544,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 183,
+      "content_chars": 609,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37549,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 184,
+      "content_chars": 605,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37554,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 186,
+      "content_chars": 734,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37558,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 188,
+      "content_chars": 1202,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37560,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 188,
+      "content_chars": 374,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37562,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 189,
+      "content_chars": 1438,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37563,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 189,
+      "content_chars": 420,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37565,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 190,
+      "content_chars": 1320,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37567,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 190,
+      "content_chars": 1108,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37568,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 191,
+      "content_chars": 1348,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37575,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 193,
+      "content_chars": 982,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37577,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 193,
+      "content_chars": 657,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37581,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 195,
+      "content_chars": 332,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37584,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 196,
+      "content_chars": 1215,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37589,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 198,
+      "content_chars": 753,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37591,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 199,
+      "content_chars": 380,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37594,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 201,
+      "content_chars": 1456,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37596,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 202,
+      "content_chars": 814,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37598,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 203,
+      "content_chars": 1486,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37599,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 203,
+      "content_chars": 460,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37600,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 203,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37601,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 203,
+      "content_chars": 537,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37602,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 204,
+      "content_chars": 543,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37603,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 204,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37604,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 204,
+      "content_chars": 318,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37605,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 204,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37606,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 204,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37607,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 204,
+      "content_chars": 213,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37613,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 206,
+      "content_chars": 298,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37618,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 208,
+      "content_chars": 264,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37620,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 209,
+      "content_chars": 1391,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37621,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 209,
+      "content_chars": 1145,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37622,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 209,
+      "content_chars": 949,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37624,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 210,
+      "content_chars": 231,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37627,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 212,
+      "content_chars": 1140,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37629,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 212,
+      "content_chars": 1295,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37630,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 212,
+      "content_chars": 1402,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37635,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 214,
+      "content_chars": 692,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37640,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 215,
+      "content_chars": 145,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37641,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 216,
+      "content_chars": 1309,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37649,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 219,
+      "content_chars": 202,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37651,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 220,
+      "content_chars": 212,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37654,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 221,
+      "content_chars": 1422,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37655,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 221,
+      "content_chars": 655,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37657,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 222,
+      "content_chars": 1429,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37660,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 223,
+      "content_chars": 1444,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37661,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 223,
+      "content_chars": 1491,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37662,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 223,
+      "content_chars": 758,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37663,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 224,
+      "content_chars": 1403,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37665,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 224,
+      "content_chars": 1155,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37669,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 225,
+      "content_chars": 728,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37671,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 226,
+      "content_chars": 1165,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37673,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 226,
+      "content_chars": 578,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37674,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 226,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37676,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 227,
+      "content_chars": 834,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37680,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 228,
+      "content_chars": 1495,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37681,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 228,
+      "content_chars": 1435,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37688,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 231,
+      "content_chars": 1194,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37689,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 232,
+      "content_chars": 82,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37691,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 232,
+      "content_chars": 526,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37692,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 233,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37693,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 233,
+      "content_chars": 535,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37696,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 235,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37697,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 235,
+      "content_chars": 945,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37699,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 236,
+      "content_chars": 703,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37701,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 237,
+      "content_chars": 317,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37705,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 239,
+      "content_chars": 521,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37708,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 241,
+      "content_chars": 1152,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37716,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 246,
+      "content_chars": 1307,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37717,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 246,
+      "content_chars": 1471,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37719,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 246,
+      "content_chars": 528,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37720,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 247,
+      "content_chars": 1450,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37721,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 247,
+      "content_chars": 841,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37722,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 247,
+      "content_chars": 1197,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37723,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 247,
+      "content_chars": 1408,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37728,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 248,
+      "content_chars": 1313,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37730,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 248,
+      "content_chars": 706,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37735,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 249,
+      "content_chars": 960,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37737,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 250,
+      "content_chars": 788,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37746,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 252,
+      "content_chars": 765,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37747,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 252,
+      "content_chars": 740,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37757,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 256,
+      "content_chars": 956,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37758,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 257,
+      "content_chars": 1209,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37759,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 257,
+      "content_chars": 1213,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37760,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 257,
+      "content_chars": 1226,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37761,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 257,
+      "content_chars": 1174,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37763,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 257,
+      "content_chars": 699,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37767,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 258,
+      "content_chars": 744,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37770,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 259,
+      "content_chars": 734,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37772,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 260,
+      "content_chars": 1166,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37774,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 260,
+      "content_chars": 578,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37775,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 260,
+      "content_chars": 116,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37777,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 261,
+      "content_chars": 834,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37780,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 262,
+      "content_chars": 1308,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37782,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 262,
+      "content_chars": 389,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37786,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 264,
+      "content_chars": 374,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37794,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 268,
+      "content_chars": 321,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37797,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 91,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37798,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 15,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37799,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37800,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37801,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 5,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37802,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 5,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37803,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 6,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37804,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 15,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37805,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 5,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37806,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 15,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37807,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 29,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37808,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 269,
+      "content_chars": 50,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37813,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 271,
+      "content_chars": 1491,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37817,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 272,
+      "content_chars": 758,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37819,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 273,
+      "content_chars": 1267,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37822,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 10,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37823,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37824,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 79,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37825,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 10,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37826,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37827,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37828,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 103,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37829,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 56,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37830,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 19,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37831,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 1,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37832,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 17,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37833,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 26,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37834,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 32,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37835,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 64,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37836,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 57,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37837,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 32,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37839,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 274,
+      "content_chars": 612,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37841,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37843,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37844,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37845,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37846,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37847,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37849,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37851,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37852,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37853,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37854,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37855,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37857,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 2,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37858,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 27,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37859,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37861,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 2,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37862,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37863,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37864,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 275,
+      "content_chars": 15,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37867,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37869,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37870,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 14,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37871,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37872,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 4,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37873,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 3,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37875,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 2,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37876,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 40,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37877,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 276,
+      "content_chars": 16,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37880,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 277,
+      "content_chars": 1463,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37883,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 278,
+      "content_chars": 938,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37885,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 279,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37886,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 279,
+      "content_chars": 523,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37889,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 279,
+      "content_chars": 1182,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37890,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 280,
+      "content_chars": 1272,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37891,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 280,
+      "content_chars": 929,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37894,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 280,
+      "content_chars": 884,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37896,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 79,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37897,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 29,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37898,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 13,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37899,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 35,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37900,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 60,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37901,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 47,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37902,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 41,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37903,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 12,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37904,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 281,
+      "content_chars": 34,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37910,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 282,
+      "content_chars": 818,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37938,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 295,
+      "content_chars": 1080,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37940,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 296,
+      "content_chars": 1319,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37941,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 296,
+      "content_chars": 561,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37943,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 297,
+      "content_chars": 1429,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37945,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 297,
+      "content_chars": 738,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37947,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 298,
+      "content_chars": 500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37949,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 299,
+      "content_chars": 569,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37951,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 300,
+      "content_chars": 1070,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37953,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 301,
+      "content_chars": 1152,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37954,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 301,
+      "content_chars": 830,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37956,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 302,
+      "content_chars": 959,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37958,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 303,
+      "content_chars": 1500,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37959,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 303,
+      "content_chars": 486,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37960,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 303,
+      "content_chars": 403,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37969,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 307,
+      "content_chars": 676,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37970,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 307,
+      "content_chars": 1412,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37971,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 307,
+      "content_chars": 1336,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37973,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 308,
+      "content_chars": 1431,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37974,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 308,
+      "content_chars": 1239,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37975,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 308,
+      "content_chars": 378,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37977,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 309,
+      "content_chars": 755,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37984,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 313,
+      "content_chars": 620,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37989,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 316,
+      "content_chars": 148,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37990,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 317,
+      "content_chars": 1077,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37991,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 318,
+      "content_chars": 1473,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 37994,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 319,
+      "content_chars": 430,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38006,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 325,
+      "content_chars": 447,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38009,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 327,
+      "content_chars": 1480,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38012,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 328,
+      "content_chars": 953,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38015,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 329,
+      "content_chars": 893,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38024,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 331,
+      "content_chars": 1106,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38025,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 332,
+      "content_chars": 1474,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38026,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 332,
+      "content_chars": 1471,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38027,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 332,
+      "content_chars": 1476,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38028,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 332,
+      "content_chars": 1227,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38029,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 332,
+      "content_chars": 1193,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38030,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 333,
+      "content_chars": 1486,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38031,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 333,
+      "content_chars": 1430,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    },
+    {
+      "id": 38045,
+      "filename": "BMWGroup_Bericht2023.pdf",
+      "chunk_type": "text",
+      "page": 336,
+      "content_chars": 1351,
+      "caption_chars": 0,
+      "embedding_error": "ollama_embed_failed",
+      "has_embedding": false
+    }
+  ],
+  "by_filename": {
+    "BMWGroup_Bericht2023.pdf": {
+      "n": 486,
+      "by_error": {
+        "ollama_embed_failed": 486
+      }
+    }
+  },
+  "by_error": {
+    "ollama_embed_failed": 486
+  },
+  "cohorts": {
+    "very_long": 0,
+    "very_short": 135
+  },
+  "results": null
+}

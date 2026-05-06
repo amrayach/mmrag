@@ -1,0 +1,76 @@
+{
+  "_about": [
+    "Phase 0 populated gold-chunk copy.",
+    "This file is based on data/eval/gold_chunks.template.json.",
+    "Only p04 is populated because the Phase 0 evidence-quality audit",
+    "confidently identified partial answer-bearing BMW chunks.",
+    "The template remains unfilled for future annotation."
+  ],
+  "_failure_modes": {
+    "factual": "single-chunk factual extraction; specific numbers/text",
+    "list": "list-completeness; multi-chunk synthesis of brand/section/segment lists",
+    "table": "table-extraction quality; numeric values from tables",
+    "image": "image retrieval / caption quality; thresholds and cross-doc-id guard",
+    "rss": "RSS-only retrieval; @rss filter behavior",
+    "followup": "deictic / short follow-up rewriting",
+    "corpus_skew": "no-filter retrieval; RSS-vs-PDF dominance under unscoped queries"
+  },
+  "p01": {
+    "query": "@BMWGroup Welche zentralen finanziellen Kennzahlen (Umsatz, Ergebnis, Marge) nennt der BMW Group Bericht 2023? Bitte mit konkreten Zahlen und Quellenangaben.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "factual",
+    "gold_chunk_ids": [],
+    "notes": "Empty until a single chunk is confidently identified to contain the headline financial numbers. Many chunks contain isolated numbers; recall@k requires a primary chunk."
+  },
+  "p02": {
+    "query": "@Nachhaltigkeit Welche konkreten Nachhaltigkeitsziele und Maßnahmen werden im Siemens-Bericht zur Nachhaltigkeit beschrieben? Bitte mit Quellenangabe.",
+    "expected_doc": "Nachhaltigkeit-bei-Siemens.pdf",
+    "failure_mode": "factual",
+    "gold_chunk_ids": [],
+    "notes": ""
+  },
+  "p03": {
+    "query": "@TechVision Was sind die Hauptgeschäftsbereiche der TechVision AG laut Jahresbericht 2025? Liste sie vollständig auf.",
+    "expected_doc": "TechVision_AG_Jahresbericht_2025.pdf",
+    "failure_mode": "list",
+    "gold_chunk_ids": [],
+    "notes": "List-completeness on a small synthetic PDF; ideal for sanity-checking that retrieval surfaces the section-headers chunk."
+  },
+  "p04": {
+    "query": "@BMWGroup Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "list",
+    "gold_chunk_ids": [37032, 37033, 37040, 37041, 37047, 37039],
+    "notes": "Partial-gold evidence from data/eval/phase0_baseline/bmw_p04_evidence_quality_audit.md. p04 is a list-completeness query and no single chunk is a perfect full answer. Chunks 37032 and 37033 cover MINI/Rolls-Royce evidence; chunks 37040, 37041, and 37047 cover BMW Motorrad evidence; chunk 37039 is answer-bearing BMW Motorrad evidence but had a NULL embedding before targeted backfill. Chunk 36880 is explicitly not gold because it is table-of-contents/index-only.",
+    "gold_chunk_notes": {
+      "37032": "MINI and Rolls-Royce section text; embedded before backfill.",
+      "37033": "MINI and Rolls-Royce delivery table; embedded before backfill.",
+      "37040": "BMW Motorrad market launches/deliveries text; embedded before backfill.",
+      "37041": "BMW motorcycle deliveries / markets table; embedded before backfill.",
+      "37047": "BMW Motorrad new-model discussion; embedded before backfill.",
+      "37039": "BMW Motorrad segment introduction; answer-bearing but NULL embedding before targeted backfill."
+    },
+    "excluded_false_positive_chunk_ids": [36880]
+  },
+  "p05": {
+    "query": "@BMWGroup Welche konkreten Zahlen, Beträge oder Prozentwerte stehen in den Finanztabellen des Berichts? Nenne mindestens fünf Zahlenwerte mit Kontext.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "table",
+    "gold_chunk_ids": [],
+    "notes": "Tests OpenDataLoader table preservation. Once Phase 0.3 confirms that table chunks have meta.element_type='table', the gold chunks are a few representative table chunks."
+  },
+  "p06": {
+    "query": "@BMWGroup Welche Bilder oder Grafiken zeigen Produktionsstandorte, Fahrzeuge oder Personen? Beschreibe sie kurz und nenne die Seitenzahl wenn möglich.",
+    "expected_doc": "BMWGroup_Bericht2023.pdf",
+    "failure_mode": "image",
+    "gold_chunk_ids": [],
+    "notes": "Image-intent query. Gold chunks should be image chunks with non-empty captions matching production/vehicle/person concepts."
+  },
+  "p07": {
+    "query": "Was sagen die deutschen Quellen zum Thema Nachhaltigkeit?",
+    "expected_doc": null,
+    "failure_mode": "corpus_skew",
+    "gold_chunk_ids": [],
+    "notes": "No filter, no expected document. Gold here is qualitative: the answer should cite at least one PDF source (e.g. Nachhaltigkeit-bei-Siemens.pdf) instead of being entirely RSS-driven. Phase 1 candidates: source-type weighting in context.py, route classifier."
+  }
+}

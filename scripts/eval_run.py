@@ -40,6 +40,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PROMPTS = ROOT / "data" / "eval" / "prompts.json"
 RUNS_DIR = ROOT / "data" / "eval" / "runs"
+DEFAULT_TRACE_PATH = ROOT / "data" / "rag-traces" / "retrieval.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +274,14 @@ def write_summary(out_dir: Path, run_meta: dict, records: list[dict]) -> None:
         "num_prompts": len(records),
         "num_turns": len(rows),
         "num_errors": sum(1 for r in rows if r["error"]),
+        # Phase 0.7 surfaces RAG_TRACE state at the summary top level too,
+        # mirroring the spec wording (rag_trace_enabled / rag_trace_path /
+        # trace_record_count) so downstream metric scripts and reviewers can
+        # find them without descending into run_meta.
+        "rag_trace_enabled": bool(run_meta.get("rag_trace_enabled")),
+        "rag_trace_path": run_meta.get("rag_trace_path"),
+        "rag_trace_captured_path": run_meta.get("rag_trace_run_path"),
+        "trace_record_count": int(run_meta.get("rag_trace_record_count") or 0),
         "averages": {
             "ttft_ms": avg("ttft_ms"),
             "total_latency_ms": avg("total_latency_ms"),
@@ -385,6 +394,21 @@ def main() -> int:
     p.add_argument("--repeat", type=int, default=1, help="repeat each selected prompt N times")
     p.add_argument("--no-stream", action="store_true", help="use non-streaming endpoint")
     p.add_argument("--prewarm", action="store_true", help="run scripts/prewarm.sh first")
+    p.add_argument(
+        "--rag-trace-path",
+        default=str(DEFAULT_TRACE_PATH),
+        help=(
+            "Host path to the rag-gateway RAG_TRACE JSONL file. When set, the "
+            "harness snapshots the file size before the run and copies records "
+            "appended during the run into <run_dir>/traces/retrieval.jsonl. "
+            "Has no effect when RAG_TRACE is disabled in the gateway."
+        ),
+    )
+    p.add_argument(
+        "--no-rag-trace-capture",
+        action="store_true",
+        help="Disable trace capture even if RAG_TRACE is enabled on the gateway.",
+    )
     args = p.parse_args()
 
     prompts_path = Path(args.prompts)
@@ -411,6 +435,14 @@ def main() -> int:
     run_dir = RUNS_DIR / run_id(args.label)
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    # RAG_TRACE capture: snapshot the existing trace file size before the run
+    # so we can later copy only the lines appended during this run.
+    trace_path = Path(args.rag_trace_path) if args.rag_trace_path else None
+    trace_capture_enabled = bool(trace_path) and not args.no_rag_trace_capture
+    trace_offset_at_start = 0
+    if trace_capture_enabled and trace_path and trace_path.exists():
+        trace_offset_at_start = trace_path.stat().st_size
+
     run_meta = {
         "label": args.label,
         "started_at": now_iso(),
@@ -421,6 +453,13 @@ def main() -> int:
         "max_tokens": max_tokens,
         "repeat": args.repeat,
         "prompts_file": str(prompts_path.relative_to(ROOT)) if prompts_path.is_relative_to(ROOT) else str(prompts_path),
+        "rag_trace_path": (
+            str(trace_path.relative_to(ROOT))
+            if trace_path and trace_path.is_relative_to(ROOT)
+            else (str(trace_path) if trace_path else None)
+        ),
+        "rag_trace_capture_enabled": trace_capture_enabled,
+        "rag_trace_offset_at_start": trace_offset_at_start,
     }
     (run_dir / "run.json").write_text(
         json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -459,10 +498,46 @@ def main() -> int:
                         flush=True,
                     )
 
+    # Capture the slice of trace records appended during this run.
+    rag_trace_enabled = False
+    rag_trace_record_count = 0
+    rag_trace_run_path: str | None = None
+    if trace_capture_enabled and trace_path and trace_path.exists():
+        try:
+            new_size = trace_path.stat().st_size
+            if new_size > trace_offset_at_start:
+                with trace_path.open("rb") as src:
+                    src.seek(trace_offset_at_start)
+                    payload = src.read(new_size - trace_offset_at_start)
+                traces_dir = run_dir / "traces"
+                traces_dir.mkdir(parents=True, exist_ok=True)
+                out_file = traces_dir / "retrieval.jsonl"
+                out_file.write_bytes(payload)
+                rag_trace_record_count = sum(
+                    1 for line in payload.splitlines() if line.strip()
+                )
+                rag_trace_enabled = rag_trace_record_count > 0
+                rag_trace_run_path = str(out_file.relative_to(ROOT))
+        except OSError as exc:
+            print(f"[run] WARN: failed to capture trace records: {exc}", file=sys.stderr)
+
+    run_meta["rag_trace_enabled"] = rag_trace_enabled
+    run_meta["rag_trace_record_count"] = rag_trace_record_count
+    run_meta["rag_trace_run_path"] = rag_trace_run_path
+    (run_dir / "run.json").write_text(
+        json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
     write_summary(run_dir, run_meta, all_records)
     write_scorecard(run_dir, run_meta, all_records, prompts_path)
     print(f"[run] done. summary: {run_dir.relative_to(ROOT)}/summary.json", file=sys.stderr)
     print(f"[run] scorecard: {run_dir.relative_to(ROOT)}/scorecard.md", file=sys.stderr)
+    if rag_trace_enabled:
+        print(
+            f"[run] traces:    {rag_trace_run_path} "
+            f"({rag_trace_record_count} record(s))",
+            file=sys.stderr,
+        )
     return 0
 
 

@@ -107,6 +107,12 @@ services:
       REQUEST_TIMEOUT_SECS: "120"
       DEFAULT_MODEL: ${OLLAMA_TEXT_MODEL}
       OLLAMA_THINK: ${OLLAMA_THINK:-false}
+      # Phase 0 retrieval diagnostics — no JSONL writes when off.
+      RAG_TRACE: ${RAG_TRACE:-false}
+      RAG_TRACE_PATH: ${RAG_TRACE_PATH:-/data/rag-traces/retrieval.jsonl}
+    volumes:
+      # Host-visible retrieval-trace directory; only written when RAG_TRACE=true.
+      - ./data/rag-traces:/data/rag-traces
     ports:
       - "127.0.0.1:56155:8000"
     healthcheck:

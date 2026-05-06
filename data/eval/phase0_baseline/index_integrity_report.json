@@ -1,0 +1,83 @@
+{
+  "captured_at": "2026-05-06T12:37:39+00:00",
+  "phase": "0.3",
+  "host": "127.0.0.1",
+  "results": {
+    "total_docs": 4098,
+    "total_chunks": 15845,
+    "chunks_by_chunk_type": [
+      {
+        "chunk_type": "text",
+        "n": 14736
+      },
+      {
+        "chunk_type": "image",
+        "n": 1109
+      }
+    ],
+    "chunks_by_meta_source": [
+      {
+        "source": "rss_article",
+        "n": 13182
+      },
+      {
+        "source": "pdf_text",
+        "n": 1554
+      },
+      {
+        "source": "rss_image",
+        "n": 1015
+      },
+      {
+        "source": "pdf_image",
+        "n": 94
+      }
+    ],
+    "chunks_null_embedding_total": 493,
+    "chunks_with_embedding_error": [
+      {
+        "err": "ollama_embed_failed",
+        "n": 486
+      }
+    ],
+    "pdf_text_with_content_but_null_embedding": 486,
+    "image_chunks_with_asset_no_caption": 5,
+    "very_short_content_total": 207,
+    "very_long_content_total": 0,
+    "chunks_with_heading_path": 1648,
+    "chunks_with_element_type": 1648,
+    "top_filenames_missing_embedding": [
+      {
+        "filename": "BMWGroup_Bericht2023.pdf",
+        "n_missing": 488
+      },
+      {
+        "filename": "Nachhaltigkeit-bei-Siemens.pdf",
+        "n_missing": 4
+      },
+      {
+        "filename": "Siemens-Annual-Report-2024.pdf",
+        "n_missing": 1
+      }
+    ],
+    "production_excluded_by_null_embedding": 493,
+    "very_short_text_per_filename": [
+      {
+        "filename": "BMWGroup_Bericht2023.pdf",
+        "n": 192
+      },
+      {
+        "filename": "Siemens-Annual-Report-2024.pdf",
+        "n": 14
+      },
+      {
+        "filename": "https://www.zdfheute.de/politik/ausland/libanon-angriff-un-blauhelmsoldat-getoetet-nahost-100.html",
+        "n": 1
+      }
+    ],
+    "very_long_text_per_filename": [],
+    "heading_path_coverage_pct": 10.4,
+    "element_type_coverage_pct": 10.4,
+    "null_embedding_pct": 3.11
+  }
+}

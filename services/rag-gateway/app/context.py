@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import time
 from typing import Any
 
 import httpx
@@ -10,6 +11,8 @@ import numpy as np
 from pgvector.psycopg import register_vector_async
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
+
+from app import trace as _trace
 
 logger = logging.getLogger("rag-gateway")
 
@@ -101,18 +104,30 @@ async def close_pool() -> None:
 
 def _preprocess_query(
     query: str, messages: list[dict],
-) -> tuple[str, str | None, str | None]:
-    """Return (processed_query, doc_filter_or_None, source_type_or_None)."""
+) -> tuple[str, str | None, str | None, dict]:
+    """Return (processed_query, doc_filter_or_None, source_type_or_None, meta).
+
+    ``meta`` carries rewrite/filter provenance for tracing without changing
+    behavior: ``followup_rewrite_triggered``, ``deictic_match``,
+    ``deictic_token``, and the unmodified ``raw_query``. Behavior is
+    bit-identical to the previous 3-tuple version.
+    """
+    raw_query = query
+    deictic_m = _DEICTIC_RE.search(query)
+    deictic_token = deictic_m.group(0) if deictic_m else None
+    followup_rewrite_triggered = False
+
     # Follow-up rewriting: prepend prior user query for context continuity.
     # Triggers on short queries OR queries with deictic/anaphoric references
     # (dabei, dazu, davon, hierzu, diesem, etc.) that reference prior context.
     user_msgs = [m for m in messages if m.get("role") == "user"]
     if len(user_msgs) >= 2:
-        needs_rewrite = len(query) < 50 or bool(_DEICTIC_RE.search(query))
+        needs_rewrite = len(query) < 50 or bool(deictic_m)
         if needs_rewrite:
             prev = user_msgs[-2].get("content", "")[:120].strip()
             if prev:
                 query = f"Bezugnehmend auf: {prev} — {query}"
+                followup_rewrite_triggered = True
 
     # @rss / @pdf → source_type filter; other @tokens → doc_filter
     doc_filter = None
@@ -129,7 +144,13 @@ def _preprocess_query(
                 doc_filter = re.sub(r"[^\w.\-]", "_", query[1:space_idx])
             query = query[space_idx + 1:].strip()
 
-    return query, doc_filter, source_type
+    meta = {
+        "raw_query": raw_query,
+        "followup_rewrite_triggered": followup_rewrite_triggered,
+        "deictic_match": bool(deictic_m),
+        "deictic_token": deictic_token,
+    }
+    return query, doc_filter, source_type, meta
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +172,7 @@ async def _embed_query(query: str) -> list[float]:
 # ---------------------------------------------------------------------------
 
 _SEARCH_SQL_BASE = """\
-SELECT c.doc_id, c.chunk_type, c.page, c.content_text, c.caption,
+SELECT c.id, c.doc_id, c.chunk_type, c.page, c.content_text, c.caption,
        c.asset_path, c.meta, d.filename AS doc_filename,
        1 - (c.embedding <=> %(emb)s) AS score
 FROM rag_chunks c
@@ -216,6 +237,7 @@ async def _vector_search(
 def _build_context(
     hits: list[dict], query: str, model: str,
     temperature: float, max_tokens: int,
+    trace: _trace.RetrievalTrace | None = None,
 ) -> dict:
     base = PUBLIC_ASSETS_BASE_URL
 
@@ -228,25 +250,37 @@ def _build_context(
     # Cross-doc-id guard: non-image queries only show images from docs with text hits
     text_doc_ids = {h["doc_id"] for h in hits if h["chunk_type"] == "text"}
 
-    # Pre-select approved images (hits ordered by score desc)
+    # Pre-select approved images (hits ordered by score desc).
+    # When tracing, also remember which guard dropped each image so the
+    # candidates_image_before_selection record can be annotated.
+    _filter_t0 = time.perf_counter()
     _approved_images: set[int] = set()
     _img_count = 0
+    _drop_reason: dict[int, str] = {}
     for h in hits:
         if h["chunk_type"] != "image" or not h.get("asset_path"):
             continue
         if h["score"] < image_score_min:
+            _drop_reason.setdefault(id(h), "image_score_min")
             continue
         if not query_wants_images and h["doc_id"] not in text_doc_ids:
+            _drop_reason.setdefault(id(h), "cross_doc_id_guard")
             continue
         if _img_count >= max_images:
             break
         _approved_images.add(id(h))
         _img_count += 1
+    if trace is not None:
+        trace.add_timing(
+            "image_filter_and_cross_doc_guard_ms",
+            (time.perf_counter() - _filter_t0) * 1000.0,
+        )
 
     def show_image(h: dict) -> bool:
         return id(h) in _approved_images
 
     # Image objects for suffix (deduplicated by asset_path)
+    _build_t0 = time.perf_counter()
     _seen_assets: set[str] = set()
     image_objects: list[dict] = []
     for h in hits:
@@ -261,6 +295,7 @@ def _build_context(
 
     # Context lines
     ctx_lines: list[str] = []
+    final_context_chunks: list[dict] = []
     for h in hits:
         meta = h.get("meta") or {}
         is_rss = meta.get("content_type") == "rss_article"
@@ -274,13 +309,52 @@ def _build_context(
                 else f"Bild (Seite {h['page']})"
             )
             ctx_lines.append(f"{src}: {h.get('caption') or ''} {url}".strip())
+            if trace is not None and trace.enabled:
+                final_context_chunks.append(
+                    {
+                        "chunk_id": h.get("id"),
+                        "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
+                        "filename": h.get("doc_filename"),
+                        "source_label": "image",
+                        "page": h.get("page"),
+                        "score": round(float(h.get("score", 0.0)), 4),
+                        "order_in_context": len(ctx_lines) - 1,
+                        "chunk_type": "image",
+                    }
+                )
         elif is_rss:
             ctx_lines.append(
                 f"Quelle {meta.get('feed_name') or 'RSS'} "
                 f"- \"{meta.get('title') or ''}\": {h.get('content_text') or ''}"
             )
+            if trace is not None and trace.enabled:
+                final_context_chunks.append(
+                    {
+                        "chunk_id": h.get("id"),
+                        "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
+                        "filename": h.get("doc_filename"),
+                        "source_label": "rss-text",
+                        "page": h.get("page"),
+                        "score": round(float(h.get("score", 0.0)), 4),
+                        "order_in_context": len(ctx_lines) - 1,
+                        "chunk_type": "text",
+                    }
+                )
         else:
             ctx_lines.append(f"Text (Seite {h['page']}): {h.get('content_text') or ''}")
+            if trace is not None and trace.enabled:
+                final_context_chunks.append(
+                    {
+                        "chunk_id": h.get("id"),
+                        "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
+                        "filename": h.get("doc_filename"),
+                        "source_label": "pdf-text",
+                        "page": h.get("page"),
+                        "score": round(float(h.get("score", 0.0)), 4),
+                        "order_in_context": len(ctx_lines) - 1,
+                        "chunk_type": "text",
+                    }
+                )
 
     # Sources (max 8, markdown links for both RSS and PDF)
     sources: list[str] = []
@@ -340,6 +414,42 @@ def _build_context(
         ],
     }
 
+    if trace is not None:
+        trace.add_timing(
+            "context_assembly_ms",
+            (time.perf_counter() - _build_t0) * 1000.0,
+        )
+        if trace.enabled:
+            trace.set("final_context_chunks", final_context_chunks)
+            trace.set("context_char_count", len(context_text))
+            trace.set("context_token_estimate", len(context_text) // 4)
+            trace.set("sources_in_final_suffix", list(sources))
+            trace.set(
+                "images_in_final_suffix",
+                [
+                    {"url": img["url"], "caption": img.get("caption", "")}
+                    for img in image_objects
+                ],
+            )
+            # Backfill dropped_by_* on already-stored image candidates
+            cand_imgs = trace.record.get("candidates_image_before_selection") if trace.record else None
+            if cand_imgs:
+                # Rebuild a lookup from chunk_id → drop_reason via parallel hit list
+                # by walking hits the same way.
+                reason_by_chunk_id: dict[Any, str] = {}
+                for h in hits:
+                    if h["chunk_type"] != "image":
+                        continue
+                    r = _drop_reason.get(id(h))
+                    if r is not None:
+                        reason_by_chunk_id[h.get("id")] = r
+                for cand in cand_imgs:
+                    r = reason_by_chunk_id.get(cand.get("chunk_id"))
+                    if r == "image_score_min":
+                        cand["dropped_by_image_score_min"] = True
+                    elif r == "cross_doc_id_guard":
+                        cand["dropped_by_cross_doc_id_guard"] = True
+
     return {
         "chatRequestBody": chat_request_body,
         "imageObjects": image_objects,
@@ -358,21 +468,74 @@ async def get_context_direct(
     model: str,
     temperature: float,
     max_tokens: int,
+    trace: _trace.RetrievalTrace | None = None,
 ) -> dict:
-    """Full direct context pipeline: preprocess -> embed -> dual search -> build."""
-    processed_query, doc_filter, source_type = _preprocess_query(query, messages)
-    embedding = await _embed_query(processed_query)
+    """Full direct context pipeline: preprocess -> embed -> dual search -> build.
+
+    ``trace`` is optional and additive: when present, retrieval evidence and
+    per-stage timings are recorded. Response behavior is identical to the
+    pre-trace path when ``trace`` is None or RAG_TRACE is disabled.
+    """
+    if trace is None:
+        trace = _trace.RetrievalTrace(req_id="-", model_requested=model, raw_user_query=query)
+
+    with trace.time("followup_rewrite_and_filter_parsing_ms"):
+        processed_query, doc_filter, source_type, pre_meta = _preprocess_query(query, messages)
+
+    if trace.enabled:
+        trace.set("rewritten_query", (processed_query or "")[:1000])
+        trace.set("followup_rewrite_triggered", bool(pre_meta["followup_rewrite_triggered"]))
+        trace.set("deictic_match", bool(pre_meta["deictic_match"]))
+        trace.set("deictic_token", pre_meta["deictic_token"])
+        trace.set(
+            "parsed_filters",
+            {"source_type": source_type, "doc_filter": doc_filter},
+        )
+
+    with trace.time("query_embedding_ms"):
+        embedding = await _embed_query(processed_query)
 
     # Dual retrieval: reserve slots for both text and images
     query_wants_images = bool(_IMAGE_QUERY_RE.search(processed_query))
+    query_wants_cross_source = False
     text_limit = 4 if query_wants_images else 6
     image_limit = 4 if query_wants_images else 2
 
-    text_hits = await _vector_search(
-        embedding, doc_filter, source_type, chunk_type="text", limit=text_limit,
-    )
-    image_hits = await _vector_search(
-        embedding, doc_filter, source_type, chunk_type="image", limit=image_limit,
+    if trace.enabled:
+        image_score_min_used = 0.45 if query_wants_images else 0.55
+        max_images_used = 3 if query_wants_images else 2
+        trace.set(
+            "routing",
+            {
+                "image_intent_detected": bool(query_wants_images),
+                "cross_source_branch_triggered": bool(query_wants_cross_source),
+            },
+        )
+        trace.set(
+            "retrieval_config",
+            {
+                "query_embedding_model": OLLAMA_EMBED_MODEL,
+                "vector_distance_threshold": VECTOR_DISTANCE_THRESHOLD,
+                "text_limit": text_limit,
+                "image_limit": image_limit,
+                "image_score_min_used": image_score_min_used,
+                "max_images_used": max_images_used,
+                "score_boost_applied": 0.10 if doc_filter else 0.0,
+            },
+        )
+
+    sql_total_t0 = time.perf_counter()
+    with trace.time("vector_sql_text_ms"):
+        text_hits = await _vector_search(
+            embedding, doc_filter, source_type, chunk_type="text", limit=text_limit,
+        )
+    with trace.time("vector_sql_image_ms"):
+        image_hits = await _vector_search(
+            embedding, doc_filter, source_type, chunk_type="image", limit=image_limit,
+        )
+    trace.add_timing(
+        "vector_sql_total_ms",
+        (time.perf_counter() - sql_total_t0) * 1000.0,
     )
 
     # Boost image scores when doc_filter narrows to a specific document —
@@ -382,10 +545,21 @@ async def get_context_direct(
         for h in image_hits:
             h["score"] = h["score"] + 0.10
 
-    hits = sorted(text_hits + image_hits, key=lambda h: h["score"], reverse=True)
+    if trace.enabled:
+        trace.set(
+            "candidates_text_before_selection",
+            _trace.summarize_text_candidates(text_hits),
+        )
+        trace.set(
+            "candidates_image_before_selection",
+            _trace.summarize_image_candidates(image_hits),
+        )
+
+    with trace.time("merge_sort_fusion_ms"):
+        hits = sorted(text_hits + image_hits, key=lambda h: h["score"], reverse=True)
 
     logger.info(
-        "Direct context: %d text + %d image hits (query=%r, doc_filter=%s, source_type=%s)",
-        len(text_hits), len(image_hits), query[:80], doc_filter, source_type,
+        "Direct context: %d text + %d image hits (query=%r, doc_filter=%s, source_type=%s, cross_source=%s)",
+        len(text_hits), len(image_hits), query[:80], doc_filter, source_type, query_wants_cross_source,
     )
-    return _build_context(hits, processed_query, model, temperature, max_tokens)
+    return _build_context(hits, processed_query, model, temperature, max_tokens, trace=trace)

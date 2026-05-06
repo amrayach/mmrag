@@ -33,6 +33,7 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+.venv-phase0/
 
 # OS
 .DS_Store
@@ -42,6 +43,10 @@ data/demo_snapshot*.sql
 # Eval per-prompt outputs (keep summary.json, scorecard.md, run.json, prompts.json)
 data/eval/runs/*/p[0-9]*.json
 data/eval/runs/_latest_progress.log
+
+# RAG retrieval traces (only written when RAG_TRACE=true; large JSONL files)
+data/rag-traces/*
+!data/rag-traces/.gitkeep
 
 # Added by code-review-graph
 .code-review-graph/

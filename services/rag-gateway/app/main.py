@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app import context
+from app import trace as _trace
 
 # ---------------------------------------------------------------------------
 # Logging (structured JSON)
@@ -350,17 +351,29 @@ def _call_ollama_sync(chat_body: dict, req_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _get_context(req: ChatRequest, req_id: str, stream: bool = False) -> dict:
+async def _get_context(
+    req: ChatRequest,
+    req_id: str,
+    stream: bool = False,
+    trace: _trace.RetrievalTrace | None = None,
+) -> dict:
     """Dispatch context retrieval based on CONTEXT_MODE."""
     if CONTEXT_MODE == "direct":
         try:
+            extract_t0 = time.perf_counter()
             query = last_user_text(req.messages)
+            if trace is not None:
+                trace.add_timing(
+                    "last_user_message_extraction_ms",
+                    (time.perf_counter() - extract_t0) * 1000.0,
+                )
             result = await context.get_context_direct(
                 query=query,
                 messages=[m.model_dump() for m in req.messages],
                 model=req.model or DEFAULT_MODEL,
                 temperature=req.temperature if req.temperature is not None else 0.2,
                 max_tokens=req.max_tokens if req.max_tokens is not None else 800,
+                trace=trace,
             )
             return {
                 "chat_body": result["chatRequestBody"],
@@ -385,6 +398,60 @@ async def _get_context(req: ChatRequest, req_id: str, stream: bool = False) -> d
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Internal-only diagnostic endpoint: production retrieval, no LLM generation
+# ---------------------------------------------------------------------------
+# Same interface as /v1/chat/completions but returns the retrieval trace
+# record (candidates, final context, sources/images, timings) instead of
+# generating an answer. Used by scripts/diagnose_bmw_p04.py and other
+# diagnostic tooling so they share the production retrieval path. Reachable
+# only via the gateway's existing 127.0.0.1:56155 host port; no new ports
+# or 0.0.0.0 exposure.
+
+
+if _trace.RAG_TRACE_ENABLED:
+
+    @app.post("/v1/diagnostic/retrieval")
+    async def diagnostic_retrieval(req: ChatRequest):
+        if CONTEXT_MODE != "direct":
+            raise HTTPException(
+                status_code=400,
+                detail="diagnostic/retrieval requires CONTEXT_MODE=direct",
+            )
+        req_id = "diag-" + uuid.uuid4().hex[:8]
+        model = req.model or DEFAULT_MODEL
+        raw_user_query = last_user_text(req.messages)
+        trace = _trace.RetrievalTrace(
+            req_id=req_id,
+            model_requested=model,
+            raw_user_query=raw_user_query,
+            force_populate=True,
+        )
+        trace.persist = False
+        total_retrieval_t0 = time.perf_counter()
+        try:
+            ctx = await _get_context(req, req_id, stream=False, trace=trace)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"retrieval error: {exc}") from exc
+        trace.add_timing(
+            "total_retrieval_before_llm_ms",
+            (time.perf_counter() - total_retrieval_t0) * 1000.0,
+        )
+        trace.finalize_timings()
+        if trace.persist:
+            trace.write()
+        return {
+            "req_id": req_id,
+            "model_requested": model,
+            "trace": trace.record,
+            "image_objects": ctx["image_objects"],
+            "sources": ctx["sources"],
+            "context_chars": len(ctx["chat_body"].get("messages", [{}, {}])[1].get("content", "")),
+        }
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
     req_id = uuid.uuid4().hex[:12]
@@ -395,10 +462,25 @@ async def chat_completions(req: ChatRequest):
     logger.info("[%s] Chat request: model=%s, messages=%d, stream=%s, context_mode=%s",
                 req_id, model, len(req.messages), req.stream, CONTEXT_MODE)
 
+    # Build the per-request retrieval trace. Defaults to no-op (RAG_TRACE=false);
+    # when enabled, the JSONL record is appended after context is assembled.
+    raw_user_query = last_user_text(req.messages)
+    trace = _trace.RetrievalTrace(
+        req_id=req_id, model_requested=model, raw_user_query=raw_user_query,
+    )
+
     # Step 1: Get context
+    total_retrieval_t0 = time.perf_counter()
     try:
-        ctx = await _get_context(req, req_id, stream=bool(req.stream))
+        ctx = await _get_context(req, req_id, stream=bool(req.stream), trace=trace)
     except ContextUnavailableError:
+        trace.set("error", "context_unavailable")
+        trace.add_timing(
+            "total_retrieval_before_llm_ms",
+            (time.perf_counter() - total_retrieval_t0) * 1000.0,
+        )
+        if trace.persist:
+            trace.write()
         msg = "Das KI-System ist vorübergehend nicht erreichbar. Bitte in 30 Sekunden erneut versuchen."
         logger.warning("[%s] Returning SSE context-unavailable error to streaming client", req_id)
 
@@ -420,9 +502,29 @@ async def chat_completions(req: ChatRequest):
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(_ctx_error(), media_type="text/event-stream")
+    except HTTPException as exc:
+        trace.set("error", f"http_exception:{exc.status_code}")
+        trace.add_timing(
+            "total_retrieval_before_llm_ms",
+            (time.perf_counter() - total_retrieval_t0) * 1000.0,
+        )
+        if trace.persist:
+            trace.write()
+        raise
 
     chat_body = ctx["chat_body"]
     suffix = _build_suffix(ctx["image_objects"], ctx["sources"])
+
+    # Finalize total retrieval timing and emit the compact one-liner.
+    trace.add_timing(
+        "total_retrieval_before_llm_ms",
+        (time.perf_counter() - total_retrieval_t0) * 1000.0,
+    )
+    timings_summary = trace.timings_one_liner()
+    if _trace.RAG_TRACE_ENABLED and timings_summary:
+        logger.info("[%s] retrieval timings %s", req_id, timings_summary)
+    if trace.persist:
+        trace.write()
 
     if req.stream:
         # Steps 2-4: Stream from Ollama with SSE translation
