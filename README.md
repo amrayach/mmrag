@@ -39,11 +39,11 @@ Ingestion flows:
 
 | Model | Purpose |
 |-------|---------|
-| `qwen2.5:7b-instruct` | Text generation (chat answers) |
+| `gemma4:26b` | Text generation (chat answers) — MoE, 4B active params per token |
 | `qwen2.5vl:7b` | Vision model (image captioning during ingestion) |
 | `bge-m3` | Multilingual embedding generation (1024-dim vectors) |
 
-All three active models are kept loaded in GPU memory simultaneously (`OLLAMA_MAX_LOADED_MODELS=3`, ~12 GB total) to reduce model swap latency. Larger text-generation candidates such as `qwen3.6:27b`, `qwen3:30b`, and `mistral-small3.2:24b-instruct-2506-q4_K_M` are evaluation candidates, not the default runtime model yet.
+All three active models are kept loaded in GPU memory simultaneously (`OLLAMA_MAX_LOADED_MODELS=3`, ~28 GB total) to reduce model swap latency. Requires Ollama ≥ 0.21.0 for the `gemma4` manifest; this project pins `ollama/ollama:0.23.1`.
 
 ### PDF Ingestion
 

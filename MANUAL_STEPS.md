@@ -101,7 +101,7 @@ In OpenWebUI **Admin > Settings > Interface**:
    - `Vergleiche die Informationen aus dem Handbuch mit aktuellen Nachrichten`
      *(Cross-source query — tests multi-source synthesis)*
 
-3. **Model Selection** — set the default model to the rag-gateway model (should appear as `qwen2.5:7b-instruct` or whatever `DEFAULT_MODEL` is set to in `.env`).
+3. **Model Selection** — set the default model to the rag-gateway model (should appear as `gemma4:26b` or whatever `DEFAULT_MODEL` is set to in `.env`).
 
 These starter questions are designed to showcase all four capabilities in the demo: PDF retrieval, RSS feeds, multimodal images, and cross-source reasoning.
 

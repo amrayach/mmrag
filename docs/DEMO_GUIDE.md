@@ -380,7 +380,7 @@ Drei Modelle laufen lokal auf der GPU:
 
 | Modell | Aufgabe | Größe |
 |--------|---------|-------|
-| `qwen2.5:7b-instruct` | Textgenerierung (Antworten) | ~4.7 GB |
+| `gemma4:26b` | Textgenerierung (Antworten) — MoE, 4B aktive Parameter | ~17 GB |
 | `bge-m3` | Mehrsprachige Vektorisierung (Embeddings, 1024-dim.) | ~1.2 GB |
 | `qwen2.5vl:7b` | Bilderkennung und Bildbeschriftung (Vision) | ~6.0 GB |
 

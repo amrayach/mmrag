@@ -16,7 +16,7 @@ A self-hosted multimodal RAG (Retrieval-Augmented Generation) system that:
 - Embeds content with bge-m3 (multilingual, 1024-dim)
 - Stores vectors in PostgreSQL/pgvector
 - Answers questions via streaming chat UI (OpenWebUI)
-- Uses qwen2.5:7b-instruct for generation, qwen2.5vl:7b for image captioning
+- Uses gemma4:26b for generation (MoE, 4B active params), qwen2.5vl:7b for image captioning
 - Uses OpenDataLoader PDF for structured PDF extraction, heading breadcrumbs, tables, images, and bounding boxes
 - Runs entirely on the DGX Spark — no external API calls, no data leaves the server
 

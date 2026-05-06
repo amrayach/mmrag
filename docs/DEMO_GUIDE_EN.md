@@ -395,7 +395,7 @@ Three models run locally on the GPU:
 
 | Model | Task | Size |
 |-------|------|------|
-| `qwen2.5:7b-instruct` | Text generation (answers) | ~4.7 GB |
+| `gemma4:26b` | Text generation (answers) — MoE, 4B active params | ~17 GB |
 | `bge-m3` | Multilingual vectorization (1024-dim embeddings) | ~1.2 GB |
 | `qwen2.5vl:7b` | Image recognition and captioning (vision) | ~6.0 GB |
 

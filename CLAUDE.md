@@ -41,7 +41,7 @@ No host port binding for: ollama, pdf-ingest, rag-gateway (internal only).
 ## GPU Rules
 
 - Only the `ollama` container gets GPU access (`gpus: all` in compose).
-- Concurrency: `OLLAMA_NUM_PARALLEL=3`, `OLLAMA_MAX_LOADED_MODELS=3` (all 3 models stay loaded, ~12 GB).
+- Concurrency: `OLLAMA_NUM_PARALLEL=3`, `OLLAMA_MAX_LOADED_MODELS=3` (all 3 production models stay loaded, ~28 GB total: `gemma4:26b` ≈ 21 GB, `qwen2.5vl:7b` ≈ 6 GB, `bge-m3` ≈ 1.3 GB).
 - Do not run any GPU-heavy commands outside the ollama container.
 
 ## DGX Spark Server Guidelines (from admin)
