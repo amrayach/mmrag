@@ -57,7 +57,7 @@ Each prompt showcases a specific capability. Run them in order — prompts 1-4 a
 | 7 | "@Nachhaltigkeit Welche Megatrends nennt Siemens in ihrem Nachhaltigkeitsbericht?" | **Multi-document** — works across different companies | Siemens megatrends from real PDF with page refs |
 | 8 | "@BMWGroup Zeige mir Bilder von BMW Fahrzeugen aus dem Geschäftsbericht" | **Real annual-report images** — image extraction from real documents | 2-3 BMW car photos with AI-generated captions |
 
-**Timing note:** Prompts take 25-95 seconds depending on complexity. The 7B model is the bottleneck — a 14B+ model would be faster per token but needs more VRAM.
+**Timing note:** With `gemma4:26b` warm, the fixed eval averaged 7.0s total latency and the guided prompts typically land in the ~3-14s range. First query after idle can still be slower if models expired from memory.
 
 ---
 
@@ -74,8 +74,8 @@ Sven gets access to explore freely. Suggested areas to test:
 - Streaming — tokens appear progressively in the UI
 
 ### Known Limitations (be upfront about these)
-- **7B model constraints**: Answers can be repetitive, miss nuance, or list fewer items than exist in context. The next text-model evaluation should start with `qwen3.6:27b`, then `qwen3:30b` and `mistral-small3.2:24b`.
-- **Response time**: 25-95 seconds per query. First query after idle is slowest (model loading).
+- **BMW brand-list retrieval**: The BMW list-completeness prompt is now known to be retrieval-side. The relevant brand/list chunks do not reliably surface in top-k, so `gemma4:26b` responds honestly instead of inventing unsupported brands.
+- **Cold starts**: Warm responses are much faster after the model promotion, but the first query after model expiry can still be slower.
 - **Image relevance in unfiltered queries**: Images only appear when their document also has text hits (by design — prevents noise). Use `@filename` + image keywords to force image retrieval.
 - **RSS image quality**: Some RSS images have generic captions (logo, banner). Contextual re-captioning is planned.
 - **Single-language generation**: Answers in German even when source is English (Siemens Annual Report).
@@ -99,17 +99,18 @@ Sven gets access to explore freely. Suggested areas to test:
 - **bge-m3 migration**: Migrated from nomic-embed-text (768d, English-primary) to bge-m3 (1024d, multilingual). Average quality score: 2.8 → 4.3 (+54%). Siemens German queries went from 1/5 → 5/5. Required re-embedding all 6,088 chunks, HNSW index drop/recreate, and threshold recalibration.
 - **OpenDataLoader PDF rollout**: Reprocessed all five PDFs with section-aware chunks, heading paths, tables, and bounding boxes; 1,648/1,648 PDF chunks now carry `meta.bbox`.
 - **11 containers**, all self-hosted, no external dependencies
-- **Ollama 0.18.0 vision bug found and fixed**: Auto-requested 262K context for vision model (exceeds 128K training limit). Fixed with explicit `num_ctx=8192` — captioning went from 100% failure to 100% success.
+- **Ollama 0.23.1 + gemma4 promotion**: The stack now uses `ollama/ollama:0.23.1` and `gemma4:26b` for text generation. The fixed eval improved from 9.8s avg total latency on the 7B baseline to 7.0s with cleaner answers.
+- **Vision context bug found and fixed**: Ollama had auto-requested 262K context for the vision model (exceeds 128K training limit). Fixed with explicit `num_ctx=8192` — captioning went from 100% failure to 100% success.
 
 ### What Needs Improvement Before Real Demo
-- [ ] Benchmark larger LLM candidates in order: `qwen3.6:27b`, `qwen3:30b`, `mistral-small3.2:24b-instruct-2506-q4_K_M`, then `qwen2.5:32b-instruct-q4_K_M` as a stable fallback
-- [ ] Add `think: false` to Qwen3/Qwen3.6 Ollama chat payloads before benchmarking so thinking latency does not distort results
-- [ ] Clean or suppress BMW embedding-error text chunks if BMW text questions become a demo priority
+- [ ] Improve BMW brand-list retrieval with lexical recall, reranking, or targeted chunking around list/table pages
+- [ ] Clean or suppress BMW embedding-error text chunks if broader BMW text questions become a demo priority
 - [ ] Add click-to-source PDF highlighting using stored page + bbox metadata
+- [ ] Turn the eval harness scorecard into a release gate for retrieval/model/prompt changes
 - [ ] Contextual image re-captioning (use surrounding text for better captions)
 - [ ] More German PDFs in the knowledge base
 - [ ] OpenWebUI customization (branding, starter prompts already configured)
-- [ ] Response time optimization (currently 25-95s depending on query)
+- [ ] Response optimization through prompt compression, context trimming, and prewarm discipline
 - [ ] Multi-language answer control (answer in source language when appropriate)
 
 ### Open Questions for Sven

@@ -1,7 +1,7 @@
 /* ---------------------------------------------------------------------------
    overview.js — System Overview: meeting-ready documentation page
    All content is static/hardcoded. No API calls. Works offline.
-   Data verified from live DB queries on 2026-05-05.
+   Data verified from live DB queries on 2026-05-05 and model evals on 2026-05-06.
    --------------------------------------------------------------------------- */
 
 const Pages = window.Pages || {};
@@ -44,15 +44,16 @@ Pages.overview = function(container) {
     <h1>MMRAG</h1>
     <div class="overview-subtitle">
       <span>Multimodal RAG Demo System</span>
-      <span class="overview-badge overview-badge-accent">May 5, 2026</span>
+      <span class="overview-badge overview-badge-accent">May 6, 2026</span>
       <span class="overview-badge overview-badge-info">spark-e010.tail907fce.ts.net</span>
     </div>
     <p class="overview-pitch">
       A self-hosted, GPU-accelerated AI system that ingests PDFs and live RSS news feeds,
       understands both text and images, and answers questions with source citations and inline
       images — all streamed token-by-token in real time. Every byte of data stays on the
-      DGX Spark server. Optimized for German-language documents. Direct RAG Gateway retrieval
-      keeps context assembly fast; n8n orchestrates ingestion triggers and fallback workflows.
+      DGX Spark server. Optimized for German-language documents with gemma4:26b as the promoted
+      text model. Direct RAG Gateway retrieval keeps context assembly fast; n8n orchestrates
+      ingestion triggers and fallback workflows.
     </p>
     <div class="metrics-grid" style="margin-top:1.2rem">
       ${Components.metricCard('11', 'Containers', 'var(--success)')}
@@ -99,13 +100,13 @@ Pages.overview = function(container) {
               <tr><td>RAG Gateway</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_rag_gateway</td><td><code>custom build</code></td><td>56155</td><td>&mdash;</td><td>8000</td></tr>
               <tr><td>Control Center</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_controlcenter</td><td><code>custom build</code></td><td>56156</td><td><a href="https://spark-e010.tail907fce.ts.net:8455" target="_blank" rel="noopener">:8455</a></td><td>8000</td></tr>
               <tr><td>Assets</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_assets</td><td><code>nginx:1.29-alpine</code></td><td>56157</td><td><a href="https://spark-e010.tail907fce.ts.net:8454" target="_blank" rel="noopener">:8454</a></td><td>80</td></tr>
-              <tr><td>Ollama</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_ollama</td><td><code>ollama/ollama:0.18.0</code></td><td>&mdash;</td><td>&mdash;</td><td>11434</td></tr>
+              <tr><td>Ollama</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_ollama</td><td><code>ollama/ollama:0.23.1</code></td><td>&mdash;</td><td>&mdash;</td><td>11434</td></tr>
               <tr><td>PDF Ingest</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_pdf_ingest</td><td><code>custom build</code></td><td>&mdash;</td><td>&mdash;</td><td>8001</td></tr>
               <tr><td>RSS Ingest</td><td style="font-family:var(--font-mono);font-size:0.72rem">ammer_mmragv2_rss_ingest</td><td><code>custom build</code></td><td>&mdash;</td><td>&mdash;</td><td>8002</td></tr>
             </tbody>
           </table>
         </div>
-        <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem">Host ports bind to <code>127.0.0.1</code> and the fixed Tailscale interface only. No <code>0.0.0.0</code> public binds.</p>
+        <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem">Host ports bind to <code>127.0.0.1</code> only. Tailnet access is provided by Tailscale Serve, not Compose host bindings. No <code>0.0.0.0</code> public binds.</p>
       </div>
     </details>
   </div>
@@ -275,7 +276,7 @@ Pages.overview = function(container) {
           </tr></thead>
           <tbody>
             <tr><td><strong>PostgreSQL</strong></td><td>Vector storage + search</td><td><code>supabase/postgres:15.14.1.081</code></td><td>56154</td><td>&mdash;</td><td>pgvector, HNSW index</td></tr>
-            <tr><td><strong>Ollama</strong></td><td>GPU inference (text, vision, embed)</td><td><code>ollama/ollama:0.18.0</code></td><td>&mdash;</td><td>&mdash;</td><td>gpus: all, 3 models loaded</td></tr>
+            <tr><td><strong>Ollama</strong></td><td>GPU inference (text, vision, embed)</td><td><code>ollama/ollama:0.23.1</code></td><td>&mdash;</td><td>&mdash;</td><td>gpus: all, gemma4/bge/qwen2.5vl kept warm</td></tr>
             <tr><td><strong>n8n</strong></td><td>Workflow orchestration</td><td><code>n8nio/n8n:1.102.0</code></td><td>56150</td><td>8450</td><td>Chat Brain, Ingestion Factory, RSS</td></tr>
             <tr><td><strong>RAG Gateway</strong></td><td>OpenAI-compatible streaming proxy</td><td><code>custom (FastAPI)</code></td><td>56155</td><td>&mdash;</td><td>NDJSON &rarr; SSE, direct context</td></tr>
             <tr><td><strong>PDF Ingest</strong></td><td>PDF processing</td><td><code>custom (FastAPI)</code></td><td>&mdash;</td><td>&mdash;</td><td>OpenDataLoader PDF, Java 17, PyMuPDF post-processing, 3 caption workers</td></tr>
@@ -311,11 +312,11 @@ Pages.overview = function(container) {
               <td>1.2 GB</td>
             </tr>
             <tr>
-              <td><code>qwen2.5:7b-instruct</code></td>
+              <td><code>gemma4:26b</code></td>
               <td><span class="badge badge-success">Text Gen</span></td>
-              <td>Chat answer generation (German output)</td>
+              <td>Promoted chat answer model (German output; MoE, 4B active params/token)</td>
               <td>&mdash;</td>
-              <td>4.7 GB</td>
+              <td>17 GB disk / ~21 GB VRAM</td>
             </tr>
             <tr>
               <td><code>qwen2.5vl:7b</code></td>
@@ -328,14 +329,14 @@ Pages.overview = function(container) {
         </table>
       </div>
       <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.8rem;font-size:0.75rem;color:var(--text-secondary)">
-        <span>Total VRAM: <strong style="color:var(--text-primary)">~11.9 GB</strong> / 128 GB unified (9.3%)</span>
+        <span>Total active model footprint: <strong style="color:var(--text-primary)">~28 GB</strong> / 128 GB unified</span>
         <span>OLLAMA_MAX_LOADED_MODELS: <strong style="color:var(--text-primary)">3</strong> (all always loaded)</span>
         <span>OLLAMA_NUM_PARALLEL: <strong style="color:var(--text-primary)">3</strong></span>
       </div>
       <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem">
         Migrated from nomic-embed-text (768d, English-primary) to bge-m3 (1024d, multilingual) on Mar 17.
         Quality score: 2.8 &rarr; 4.3 (+54%). German query accuracy: 20% &rarr; 100%.
-        Text-model evaluation candidates are qwen3.6:27b, qwen3:30b, mistral-small3.2:24b, and qwen2.5:32b; not active defaults yet.
+        Text-model A/B on May 6 tested seven candidates; gemma4:26b was promoted because it improved answer quality while reducing average total latency from 9.8s to 7.0s versus the 7B baseline.
       </p>
     </div>
   </div>
@@ -402,7 +403,7 @@ Pages.overview = function(container) {
       <span class="overview-section-num">07</span> Security &amp; Isolation
     </div>
     <div class="overview-checklist-grid">
-      ${_checkItem('No Public Bindings', 'Host ports bind only to 127.0.0.1 and the fixed Tailscale interface — no 0.0.0.0 bindings.')}
+      ${_checkItem('No Public Bindings', 'Host ports bind only to 127.0.0.1. Tailnet access uses Tailscale Serve, not Compose host bindings.')}
       ${_checkItem('Tailscale Serve Only', 'External access via Tailscale Serve (not Funnel). No public exposure.')}
       ${_checkItem('Isolated Docker Project', 'Unique prefix ammer_mmragv2_* for containers, ammer-mmragv2_ for volumes.')}
       ${_checkItem('Dedicated Port Range', 'Ports 56150\u201356157 reserved. No default ports (5432, 8080) exposed.')}
@@ -505,7 +506,7 @@ meta         JSONB</pre>
     ${_promptCard(8, '@BMWGroup Zeige mir Bilder von BMW Fahrzeugen aus dem Gesch\u00e4ftsbericht', ['Real annual report images'], 'BMW car photos with AI-generated captions and PDF page metadata')}
 
     <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.8rem">
-      Response time: 25\u201395 seconds depending on complexity. First query after idle is slowest (model loading). Run <code>make demo-start</code> to pre-warm.
+      Warm response envelope after the gemma4:26b promotion: roughly 3\u201314 seconds in the eval set, with 7.0s average total latency. First query after idle can still be slower if models expired from memory.
     </p>
   </div>
 
@@ -530,6 +531,7 @@ meta         JSONB</pre>
           ${_timelineItem('2026-03-17', 'migration', 'Embedding Migration', 'nomic-embed-text (768d) \u2192 bge-m3 (1024d). Quality: 2.8\u21924.3 (+54%). Re-embedded 6,088 chunks.')}
           ${_timelineItem('2026-03-18', 'feature', 'TechVision AG Corpus + Review Prep', 'Synthetic German annual report (16p, now 32 chunks after OpenDataLoader reprocess). Demo review agenda. This overview page.')}
           ${_timelineItem('2026-05-05', 'migration', 'OpenDataLoader PDF Upgrade', 'Replaced flat PyMuPDF text chunks with structured PDF extraction. Reprocessed 5 PDFs into 1,648 bbox-enabled chunks.')}
+          ${_timelineItem('2026-05-06', 'migration', 'Model A/B + gemma4 Promotion', 'Upgraded Ollama to 0.23.1, tested seven text-model candidates, and promoted gemma4:26b after it beat the 7B baseline on quality and latency.')}
         </div>
       </div>
     </details>
@@ -551,58 +553,58 @@ meta         JSONB</pre>
               fill="none" stroke="var(--bg-tertiary)" stroke-width="3"/>
             <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               fill="none" stroke="var(--accent)" stroke-width="3"
-              stroke-dasharray="81, 100" stroke-linecap="round"/>
-            <text x="18" y="20" text-anchor="middle" class="overview-score-ring-text" fill="var(--text-primary)">8.1</text>
+              stroke-dasharray="88, 100" stroke-linecap="round"/>
+            <text x="18" y="20" text-anchor="middle" class="overview-score-ring-text" fill="var(--text-primary)">8.8</text>
           </svg>
           <div class="overview-score-summary">
-            Weighted across 6 categories. Architecture, ingestion reliability, and PDF source metadata are strong.
-            Remaining gaps are text-model quality, response speed, and the BMW embedding-error cleanup.
+            Weighted across 6 categories. OpenDataLoader ingestion and the gemma4:26b model promotion closed the biggest quality and latency gaps.
+            Remaining gaps are BMW brand-list retrieval, click-to-source highlighting, and broader demo-corpus coverage.
           </div>
         </div>
-        ${_scoreRow('System Stability', 8.7, 20)}
-        ${_scoreRow('Retrieval Quality', 8.0, 20)}
-        ${_scoreRow('Architecture', 8.8, 15)}
-        ${_scoreRow('Response Speed', 6.0, 15)}
+        ${_scoreRow('System Stability', 9.0, 20)}
+        ${_scoreRow('Retrieval Quality', 8.2, 20)}
+        ${_scoreRow('Architecture', 9.0, 15)}
+        ${_scoreRow('Response Speed', 8.6, 15)}
         ${_scoreRow('Presentation', 9.0, 15)}
-        ${_scoreRow('Demo Polish', 8.5, 15)}
+        ${_scoreRow('Demo Polish', 8.8, 15)}
       </div>
 
       <div class="card">
-        <div class="card-header"><span class="card-title">Roadmap to 9.0</span></div>
+        <div class="card-header"><span class="card-title">Roadmap to 9.0+</span></div>
         <div>
           <div class="overview-roadmap-item">
-            <span class="overview-roadmap-impact">+0.7</span>
+            <span class="overview-roadmap-impact">+0.4</span>
             <div>
-              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Benchmark qwen3.6:27b</div>
-              <div style="font-size:0.72rem;color:var(--text-secondary)">Best new text-model candidate. Use <code>OLLAMA_TEXT_MODEL</code> and set <code>think:false</code> for Qwen3-family tests.</div>
+              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Fix BMW p04 brand-list retrieval</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary)">The model A/B showed the list-completeness issue is retrieval-side: the brand-list chunks do not surface in top-k.</div>
             </div>
           </div>
           <div class="overview-roadmap-item">
             <span class="overview-roadmap-impact">+0.4</span>
             <div>
-              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Benchmark qwen3:30b + Mistral fallback</div>
-              <div style="font-size:0.72rem;color:var(--text-secondary)">qwen3:30b as balanced candidate; mistral-small3.2:24b for anti-repetition fallback.</div>
+              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Click-to-source PDF highlights</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary)">Use stored page and bbox metadata to highlight the exact cited region in the original PDF.</div>
             </div>
           </div>
           <div class="overview-roadmap-item">
             <span class="overview-roadmap-impact">+0.3</span>
             <div>
-              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Clean BMW embedding-error chunks</div>
-              <div style="font-size:0.72rem;color:var(--text-secondary)">Suppress or repair noisy extracted text chunks so BMW text retrieval is as reliable as BMW image retrieval.</div>
-            </div>
-          </div>
-          <div class="overview-roadmap-item">
-            <span class="overview-roadmap-impact">+0.3</span>
-            <div>
-              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Consistent &lt;10s first useful token</div>
-              <div style="font-size:0.72rem;color:var(--text-secondary)">Prompt compression, context trimming, and model keep-alive/prewarm discipline.</div>
+              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Hybrid retrieval or reranking</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary)">Add lexical recall or a lightweight reranker for list/table pages where pure vector search misses exact labels.</div>
             </div>
           </div>
           <div class="overview-roadmap-item">
             <span class="overview-roadmap-impact">+0.2</span>
             <div>
-              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Click-to-source PDF highlights</div>
-              <div style="font-size:0.72rem;color:var(--text-secondary)">Use stored page + bbox metadata to highlight the exact cited area in source PDFs.</div>
+              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Scorecard thresholds for releases</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary)">Turn the eval harness into a gate for future retrieval, model, and prompt changes.</div>
+            </div>
+          </div>
+          <div class="overview-roadmap-item">
+            <span class="overview-roadmap-impact">+0.2</span>
+            <div>
+              <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Expand German corporate corpus</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary)">Add more real PDFs so cross-company demo prompts have stronger coverage.</div>
             </div>
           </div>
         </div>
@@ -621,10 +623,10 @@ meta         JSONB</pre>
       <div class="card">
         <div class="card-header"><span class="card-title">Known Limitations</span></div>
         <ul style="font-size:0.8rem;color:var(--text-secondary);line-height:1.6;padding-left:1.2rem">
-          <li><strong>7B model constraints:</strong> Answers can be repetitive, miss nuance, or list fewer items than available in context.</li>
-          <li><strong>Response time:</strong> 25\u201395 seconds per query. First query after idle is slowest.</li>
+          <li><strong>BMW p04 retrieval gap:</strong> The BMW brand-list prompt is retrieval-side: the relevant list/table chunks do not reliably surface in top-k, so gemma4 answers honestly instead of inventing missing brands.</li>
+          <li><strong>Cold starts:</strong> Warm gemma4 responses average about 7s in the eval set; first query after model expiry can still be slower.</li>
           <li><strong>Image relevance:</strong> Images only appear when their document has text hits. Use @filename + image keywords.</li>
-          <li><strong>BMW text caveat:</strong> 486 noisy BMW text chunks are stored without embeddings and flagged in metadata. BMW image prompts are reliable; BMW text prompts need scoped phrasing.</li>
+          <li><strong>BMW text caveat:</strong> 486 noisy BMW text chunks are stored without embeddings and flagged in metadata. BMW image prompts are reliable; scoped BMW factual prompts still work.</li>
           <li><strong>RSS image quality:</strong> Some images have generic captions (logos, banners).</li>
           <li><strong>German-only output:</strong> Answers in German even when source is English (Siemens Annual Report).</li>
           <li><strong>No cross-session memory:</strong> Each chat is independent. No conversation persistence.</li>
@@ -633,12 +635,12 @@ meta         JSONB</pre>
       <div class="card">
         <div class="card-header"><span class="card-title">Planned Improvements</span></div>
         <ul style="font-size:0.8rem;color:var(--text-secondary);line-height:1.6;padding-left:1.2rem">
-          <li><strong>Text-model upgrade:</strong> Test qwen3.6:27b first, then qwen3:30b, mistral-small3.2:24b, and qwen2.5:32b fallback.</li>
-          <li><strong>Qwen thinking control:</strong> Add <code>think:false</code> to Qwen3-family Ollama chat payloads before benchmarking.</li>
-          <li><strong>BMW cleanup:</strong> Suppress or repair embedding-error PDF text chunks if BMW text questions become demo-critical.</li>
+          <li><strong>BMW brand-list retrieval:</strong> Improve exact-list/table recall with lexical search, reranking, or targeted chunking around brand/holdings pages.</li>
+          <li><strong>BMW cleanup:</strong> Suppress or repair embedding-error PDF text chunks if BMW text questions become broader demo-critical.</li>
           <li><strong>PDF click-to-source:</strong> Use stored bounding boxes to highlight cited regions in the original PDF.</li>
+          <li><strong>Eval gates:</strong> Keep <code>scripts/eval_run.py</code> and scorecards as release checks for retrieval, prompt, and model changes.</li>
           <li><strong>Contextual re-captioning:</strong> Use surrounding text for better image descriptions.</li>
-          <li><strong>Response optimization:</strong> KV cache tuning, prompt compression, batch prefill.</li>
+          <li><strong>Response optimization:</strong> Prompt compression, context trimming, and keep-alive/prewarm discipline.</li>
           <li><strong>More German PDFs:</strong> Expand the corporate document knowledge base.</li>
           <li><strong>Multi-language control:</strong> Answer in source language when appropriate.</li>
           <li><strong>Additional doc types:</strong> PowerPoint, Excel, structured data ingestion.</li>
@@ -661,7 +663,7 @@ meta         JSONB</pre>
           <div class="overview-question"><span class="overview-question-num">1.</span><span class="overview-question-text">Target audience for the real demo &mdash; technical or business stakeholders?</span></div>
           <div class="overview-question"><span class="overview-question-num">2.</span><span class="overview-question-text">Which corporate documents should we ingest for the production demo?</span></div>
           <div class="overview-question"><span class="overview-question-num">3.</span><span class="overview-question-text">Should we add more document types (PowerPoint, Excel)?</span></div>
-          <div class="overview-question"><span class="overview-question-num">4.</span><span class="overview-question-text">Should we prioritize qwen3.6:27b/qwen3:30b evaluation before the production demo?</span></div>
+          <div class="overview-question"><span class="overview-question-num">4.</span><span class="overview-question-text">Should the next sprint prioritize BMW list-retrieval quality or click-to-source PDF highlighting?</span></div>
           <div class="overview-question"><span class="overview-question-num">5.</span><span class="overview-question-text">Timeline for the real demo &mdash; how many weeks to prepare?</span></div>
         </div>
       </div>

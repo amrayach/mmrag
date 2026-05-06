@@ -88,7 +88,7 @@ Pages.rag = function(container) {
     try {
       const data = await API.get('/api/rag/models');
       const models = data.data || data.models || [];
-      const defaultModel = data.default_model || 'qwen2.5:7b-instruct';
+      const defaultModel = data.default_model || 'gemma4:26b';
       select.innerHTML = models.map(m => {
         const name = m.id || m.name || m;
         const isDefault = name === defaultModel || name.includes(defaultModel);
@@ -96,7 +96,7 @@ Pages.rag = function(container) {
       }).join('');
       selectedModel = select.value;
     } catch {
-      const fallback = 'qwen2.5:7b-instruct';
+      const fallback = 'gemma4:26b';
       select.innerHTML = `<option value="${fallback}">${fallback}</option>`;
       selectedModel = fallback;
       Components.toast('Could not load models — using default', 'warning');

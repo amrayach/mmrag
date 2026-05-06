@@ -108,6 +108,7 @@ The frozen spec is the baseline, but the running demo intentionally diverges in 
 
 - Deployment is complete and demo-hardened. The expected stack is the `ammer-mmragv2` Docker Compose project on localhost ports `56150-56157`.
 - `rag-gateway` runs in `CONTEXT_MODE=direct`: it embeds queries, searches Postgres/pgvector, builds context, and streams Ollama output as OpenAI-compatible SSE.
+- Text generation now uses `gemma4:26b` on `ollama/ollama:0.23.1`. The previous `qwen2.5:7b-instruct` model is a rollback baseline, not the active default.
 - n8n Chat Brain is context-only now: Webhook -> Extract Query -> Embed -> Vector Literal -> Vector Search -> Build Context. Do not move LLM generation back into n8n.
 - Demo readiness lives at `scripts/demo_readiness_check.sh`. Run it before demos or after changes that affect containers, models, webhooks, context retrieval, streaming, demo mode, Tailscale Serve, or tailnet URLs.
 
@@ -120,6 +121,7 @@ The frozen spec is the baseline, but the running demo intentionally diverges in 
 - Query prefixes matter: `@rss` restricts to RSS docs, `@pdf` restricts to PDFs, and any other `@token` is treated as a filename filter.
 - Follow-up rewriting is deictic/anaphoric: short follow-ups or phrases such as `dabei`, `dazu`, `davon`, `hierzu`, `diesem` are rewritten with the previous user query.
 - PDF retrieval is improved by OpenDataLoader structure-aware chunks, but source filters are still preferred for demos because the RSS corpus is much larger. For PDF-focused prompts, use filename filters such as `@Nachhaltigkeit`, `@BMWGroup`, `@Siemens`, or `@TechVision`.
+- The BMW p04 brand/list-completeness failure is retrieval-side: seven model tests showed the relevant BMW list chunks do not reliably surface in top-k. Fix retrieval/chunking/reranking before attempting another model swap.
 
 ### PDF Ingestion
 
@@ -152,6 +154,7 @@ The frozen spec is the baseline, but the running demo intentionally diverges in 
 - D22: RSS source set was reduced to the current 7 feeds.
 - D23: `bge-m3` replaced `nomic-embed-text`; vector schema is 1024d.
 - D24: PDF extraction switched from PyMuPDF flat text chunks to OpenDataLoader structured layout extraction with bounding boxes and heading paths. Reprocess snapshot/quarantine were created before regenerating all PDF chunks.
+- D25: Text generation default moved from `qwen2.5:7b-instruct` to `gemma4:26b`, and Ollama was pinned to `0.23.1` for Gemma 4 support.
 
 ### Local Agent Config
 

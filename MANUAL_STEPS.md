@@ -134,17 +134,18 @@ These starter questions are designed to showcase all four capabilities in the de
 | D13 | Code node `$json.query` for webhook body | Changed to `$json.body.query` | Webhook v2 wraps POST body in `$json.body` |
 | D14 | LLM generation in n8n Chat Brain | Moved to rag-gateway (Phase 2 streaming) | Enables true token streaming (Ollama NDJSON → OpenAI SSE). n8n now returns context only (6 nodes). |
 | D15 | Assets nginx with default config | Custom `nginx/assets.conf` with gallery | Added JSON autoindex at `/api/files` and HTML gallery as index page |
-| D16 | `OLLAMA_MAX_LOADED_MODELS=1` | Changed to `3` | DGX Spark has 128 GB unified memory — keeps all 3 models loaded (~11 GB total), eliminates model swap latency |
+| D16 | `OLLAMA_MAX_LOADED_MODELS=1` | Changed to `3` | DGX Spark has 128 GB unified memory — keeps the text, vision, and embedding models loaded (~28 GB total with `gemma4:26b`), reducing model swap latency |
 | D17 | No RSS image backfill | Added `/ingest/backfill-images` endpoint | Adds image chunks to RSS articles ingested before captioning was enabled. Filters SVGs, tracking pixels, and images < 5 KB |
 | D18 | Serial PDF ingestion (`OLLAMA_NUM_PARALLEL=1`, lock file) | Parallel pipeline: `OLLAMA_NUM_PARALLEL=3`, `ThreadPoolExecutor(2)` for concurrent docs, 3 caption workers with bounded queue, batch embeddings (`/api/embed`, 10/batch), image filtering (<150px, <5KB, doc-scoped dedup), PyMuPDF shrink downscaling, auto file watcher | ~8-9x speedup for bulk PDF prep. See `docs/plans/2026-03-06-fast-pdf-ingestion-design.md` |
 | D18a | `/ingest/upload` blocks until ingestion complete | Returns `202 Accepted`, saves to inbox, defers to file watcher | Prevents upload timeouts and lock contention |
 | D18b | `/ingest/scan` blocks until all PDFs processed | Returns immediately after submitting to thread pool | Non-blocking; n8n cron acts as fallback to file watcher |
 | D19 | No unified control UI | Control Center (11th container) on port 56156/8455 | Single-pane-of-glass: dashboard, services, ingestion, demo mode, RAG playground, docs, system info |
 | D24 | PyMuPDF text extraction in pdf-ingest | Replaced with `opendataloader-pdf==2.4.1` local mode; section-based chunking with heading breadcrumbs replaces flat 1500-char page chunks | OpenJDK 17 JRE runs in pdf-ingest. Bounding boxes, page sizes, heading paths, element ids, element types, extractor provenance, and split strategy are stored in `rag_chunks.meta`. PyMuPDF remains for image post-processing, dimension checks, and fallback. Reprocessing uses `scripts/reprocess_pdfs.sh --confirm` after a DB snapshot and `data/assets/_pre_opendataloader_<ts>/` asset quarantine. The May 5, 2026 rollout reprocessed all five PDFs and produced 1,648 PDF chunks with `meta.bbox`; snapshot `data/demo_snapshot_pre_opendataloader_20260505_172446.sql`, asset quarantine `data/assets/_pre_opendataloader_20260505_172446/`. Embedding (`bge-m3`) and vision captioning (`qwen2.5vl:7b`) unchanged. BMW Group has 486 noisy text chunks stored without embeddings and flagged with `meta.embedding_error`. |
+| D25 | `qwen2.5:7b-instruct` text-generation default on `ollama/ollama:0.18.0` | Promoted `gemma4:26b` as the text-generation default and pinned `ollama/ollama:0.23.1` | A seven-candidate eval showed `gemma4:26b` was the first model to improve answer quality while reducing average total latency (7.0s vs 9.8s for the 7B baseline). Ollama 0.23.1 is required for the Gemma 4 manifest. Embedding and vision models remain `bge-m3` and `qwen2.5vl:7b`. |
 
 ### Post-ODL Baseline & BMW Assessment (2026-05-05)
 
-A 12-prompt fixed eval was run against the post-ODL corpus with the current text model (`qwen2.5:7b-instruct`, temp=0.2, prewarmed). Run dir: `data/eval/runs/20260505_190437__baseline_post_odl/`. Harness: `scripts/eval_run.py` + `data/eval/prompts.json`.
+A 12-prompt fixed eval was run against the post-ODL corpus with the then-current baseline text model (`qwen2.5:7b-instruct`, temp=0.2, prewarmed). Run dir: `data/eval/runs/20260505_190437__baseline_post_odl/`. Harness: `scripts/eval_run.py` + `data/eval/prompts.json`.
 
 Headline numbers: 13/13 turns succeeded, avg TTFT 877 ms, avg total latency 9.8 s, avg 6 sources / 2 images per response.
 
@@ -152,10 +153,18 @@ Headline numbers: 13/13 turns succeeded, avg TTFT 877 ms, avg total latency 9.8 
 Evidence:
 - p01 (BMW Kennzahlen) retrieved €29.689 Mio Bruttoergebnis and €18.482 Mio Ergebnis vor Finanzergebnis from page 57 with 8 BMW sources.
 - p05 (BMW Tabellenzahlen) retrieved 5 distinct table rows from page 10 with concrete numerical content.
-- p04 (BMW list-completeness) returned a short list (4 items) — that is a 7B-model ceiling, not a retrieval problem; defer to the text-model upgrade phase.
+- p04 (BMW list-completeness) returned a short list (4 items). The May 6 model A/B later showed this is primarily a retrieval/list-page recall issue, not a model-size issue.
 
 The 486 unembedded chunks mostly correspond to table/index/layout regions that BMW's PDF structure produces with high `�` density. They retain `meta.bbox` and remain inspectable; their information is also reachable via embedded text chunks and image captions. If a future eval surfaces a BMW question that fails specifically because of unembedded content, revisit by adding a `�`-density text-cleanup pre-filter or routing affected pages through the PyMuPDF fallback.
 
 **RSS-vs-PDF retrieval (p07):** the unfiltered prompt "Was sagen die deutschen Quellen zum Thema Nachhaltigkeit?" returned BMW page 78 + Siemens Nachhaltigkeit page 28 as the top-2 sources. The earlier project-truth note that "unfiltered PDF queries get outscored by RSS text chunks" may be stale post-ODL and should be re-verified before being relied on for demo guidance.
 
-**Deferred next phase:** text-model A/B against the same harness. Spec for the prerequisite `rag-gateway` change is at `docs/superpowers/specs/2026-05-05-rag-gateway-think-false-design.md`.
+### Text-Model A/B And gemma4 Promotion (2026-05-06)
+
+The text-model A/B phase is complete. The eval harness tested the 7B baseline plus `qwen3.6:27b`, `qwen3:30b`, `mistral-small3.2:24b-instruct-2506-q4_K_M`, `qwen2.5:32b-instruct-q4_K_M`, `command-r:35b-08-2024-q4_K_M`, `gemma4:26b`, and a `gemma4:31b` smoke.
+
+`gemma4:26b` was promoted as the production text model. It produced clean German answers with no thinking leakage, no p04 plant hallucination or repetition loop, byte-near-identical p01/p12 stability, and better latency than the 7B baseline: avg TTFT 1,084 ms, avg total 7.0s vs 9.8s baseline. Runtime is now `OLLAMA_TEXT_MODEL=gemma4:26b` with `ollama/ollama:0.23.1`.
+
+Rejected candidates remain useful evidence but are not production defaults: `qwen3:30b` leaked reasoning into `/api/chat`, `qwen3.6:27b` was faithful but slow and over-conservative, `mistral-small3.2` hallucinated and looped on p04, `qwen2.5:32b` was safe but too slow, `command-r:35b` had a basic BMW refusal, and `gemma4:31b` was too slow in smoke testing.
+
+The remaining high-value improvement is retrieval-side: BMW p04 list completeness fails because the relevant brand/list chunks do not reliably surface in top-k. Fix with lexical recall, reranking, or targeted chunking before considering another model swap.

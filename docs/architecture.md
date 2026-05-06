@@ -23,6 +23,16 @@ OpenWebUI (token-by-token streaming)
 
 n8n Chat Brain remains available as a context-only workflow/fallback path, but the running demo uses `CONTEXT_MODE=direct` in `rag-gateway`.
 
+## Current Runtime Models
+
+| Role | Model | Notes |
+|------|-------|-------|
+| Text generation | `gemma4:26b` | Production default after the May 6, 2026 A/B. MoE model with 4B active params per token; fixed eval averaged 7.0s total latency vs 9.8s for the prior 7B baseline. |
+| Image captioning | `qwen2.5vl:7b` | Used during PDF/RSS ingestion only, not during query-time generation. |
+| Embeddings | `bge-m3` | Multilingual 1024-dimensional embeddings for text chunks and image captions. |
+
+The Ollama container is pinned to `ollama/ollama:0.23.1` so the Gemma 4 manifest loads correctly. The three active production models are kept warm with `OLLAMA_MAX_LOADED_MODELS=3`.
+
 ## Ingestion Flows
 
 ```
@@ -71,7 +81,7 @@ RSS Ingestion:
 | Component | Tech | Role |
 |-----------|------|------|
 | rag-gateway | FastAPI | OpenAI API proxy + Ollama SSE translator |
-| n8n | Node.js | Workflow orchestration (embedding, vector search, context assembly) |
+| n8n | Node.js | Workflow orchestration, ingestion triggers, and context-only fallback workflow |
 | Ollama | Go | Local GPU inference (text, vision, embeddings) |
 | PostgreSQL | pgvector | Vector storage + similarity search |
 | pdf-ingest | FastAPI + OpenDataLoader PDF | Structured PDF text/image extraction + captioning |

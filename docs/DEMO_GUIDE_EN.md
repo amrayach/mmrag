@@ -52,7 +52,7 @@ MMRAG is a **locally hosted AI system** that understands documents (PDFs, RSS fe
 └──────┘ └──────┘    └──────────────┘     └──────────────┘
 ```
 
-> **Note:** RAG-Gateway retrieves context from n8n and then streams directly from Ollama — token by token in real-time.
+> **Note:** In the running demo mode, RAG Gateway builds context directly from pgvector and then streams from Ollama — token by token in real time. n8n remains visible as the context workflow and orchestration layer.
 
 ### Data Flow: From Document to Answer
 
@@ -116,7 +116,7 @@ The script checks 15 points:
 | Problem | Solution |
 |---------|----------|
 | Containers not started | `cd /srv/projects/ammer/mmrag-n8n-demo-v2 && docker compose up -d` |
-| Ollama models missing | `bash scripts/setup_models.sh` (takes ~5-10 min) |
+| Ollama models missing | `bash scripts/setup_models.sh` (duration depends on cache/network; production models are ~25 GB) |
 | Webhooks not reachable | Log into n8n, check and activate workflows |
 | Tailscale URLs not reachable | Check `tailscale serve status`, re-set rules if needed |
 
@@ -356,7 +356,7 @@ In OpenWebUI, ask a question that could involve both PDF and RSS content:
 **Show the Chat Brain workflow:**
 1. Open the **"Chat Brain"** workflow
 2. Explain the data flow: `Webhook → Extract query → Embedding → Vector literal → Vector search → Build context`
-3. Explain: "n8n delivers the context — the actual answer is streamed by the RAG gateway directly from Ollama, token by token."
+3. Explain: "In the running demo mode, RAG Gateway builds context directly; this n8n workflow shows the context/fallback path. The actual answer is streamed by the RAG Gateway directly from Ollama, token by token."
 
 > **Presenter note:** *"The workflow has 6 nodes: it receives the question, computes the search vector, finds the relevant text segments, and builds the context. The answer generation then happens directly — tokens are streamed to the browser in real-time."*
 

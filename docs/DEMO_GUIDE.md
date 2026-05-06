@@ -52,7 +52,7 @@ MMRAG ist ein **lokal gehostetes KI-System**, das Dokumente (PDFs, RSS-Feeds) ve
 └──────┘ └──────┘    └──────────────┘     └──────────────┘
 ```
 
-> **Hinweis:** RAG-Gateway holt Kontext von n8n und streamt dann direkt von Ollama — Token für Token in Echtzeit.
+> **Hinweis:** Im laufenden Demo-Modus baut der RAG-Gateway den Kontext direkt aus pgvector auf und streamt anschließend von Ollama — Token für Token in Echtzeit. n8n bleibt als Kontext-Workflow und Orchestrierungsschicht sichtbar.
 
 ### Datenfluss: Vom Dokument zur Antwort
 
@@ -116,7 +116,7 @@ Das Skript prüft 15 Punkte:
 | Problem | Lösung |
 |---------|--------|
 | Container nicht gestartet | `cd /srv/projects/ammer/mmrag-n8n-demo-v2 && docker compose up -d` |
-| Ollama-Modelle fehlen | `bash scripts/setup_models.sh` (dauert ca. 5-10 Min.) |
+| Ollama-Modelle fehlen | `bash scripts/setup_models.sh` (Dauer je nach Cache/Netzwerk; Produktionsmodelle ca. 25 GB) |
 | Webhooks nicht erreichbar | In n8n einloggen, Workflows prüfen und aktivieren |
 | Tailscale-URLs nicht erreichbar | `tailscale serve status` prüfen, ggf. Regeln neu setzen |
 
@@ -341,7 +341,7 @@ In OpenWebUI eine Frage stellen, die sowohl PDF- als auch RSS-Inhalte betreffen 
 **Chat Brain Workflow zeigen:**
 1. Workflow **„Chat Brain"** öffnen
 2. Den Datenfluss erklären: `Webhook → Abfrage extrahieren → Embedding → Vektor-Literal → Vektorsuche → Kontext aufbauen`
-3. Erklären: „n8n liefert den Kontext — die eigentliche Antwort wird vom RAG-Gateway direkt von Ollama gestreamt, Token für Token."
+3. Erklären: „Im laufenden Demo-Modus baut der RAG-Gateway den Kontext direkt auf; dieser n8n-Workflow zeigt den Kontextpfad/Fallback. Die eigentliche Antwort wird vom RAG-Gateway direkt von Ollama gestreamt, Token für Token."
 
 > **Moderationshinweis:** *„Der Workflow hat 6 Knoten: Er empfängt die Frage, berechnet den Suchvektor, findet die relevanten Textabschnitte und baut den Kontext auf. Die Antwortgenerierung erfolgt dann direkt — Token werden in Echtzeit an den Browser gestreamt."*
 

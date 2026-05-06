@@ -57,7 +57,7 @@ The May 5, 2026 reprocess snapshot is `data/demo_snapshot_pre_opendataloader_202
 
 - Docker and Docker Compose
 - NVIDIA GPU with driver + NVIDIA Container Toolkit (for Ollama)
-- ~20 GB disk for models + container images
+- ~40 GB disk for production models + container images. Keeping all evaluated model candidates requires substantially more disk.
 
 ## Quick Start
 
@@ -84,7 +84,7 @@ docker compose up -d --build
 ./scripts/health_check.sh
 ```
 
-4. **Pull Ollama models** (first run only, ~15 GB):
+4. **Pull Ollama models** (first run only, ~25 GB for the production text, vision, and embedding models):
 
 ```bash
 ./scripts/setup_models.sh
