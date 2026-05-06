@@ -1,0 +1,10 @@
+{
+  "_rationale": "p01 selected; 13+ stable historical eval runs; manual production-path probe on 2026-05-06T16:34:00+02:00 returned HTTP 200, 20 source-link matches, and 2085 answer characters in 10775 ms.",
+  "prompt_id": "p01",
+  "query_id": "p01",
+  "source_prompt_id": "p01_bmw_kennzahlen",
+  "query": "@BMWGroup Welche zentralen finanziellen Kennzahlen (Umsatz, Ergebnis, Marge) nennt der BMW Group Bericht 2023? Bitte mit konkreten Zahlen und Quellenangaben.",
+  "expected_min_sources": 1,
+  "expected_max_latency_ms": 30000,
+  "model": "gemma4:26b"
+}

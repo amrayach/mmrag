@@ -48,5 +48,15 @@ data/eval/runs/_latest_progress.log
 data/rag-traces/*
 !data/rag-traces/.gitkeep
 
+# Demo health check runtime reports
+data/eval/demo_health/latest.json
+data/eval/demo_health/latest.md
+data/eval/demo_health/history/*_health.json
+data/eval/demo_health/history/*_health.md
+data/eval/demo_health/notifications.log
+data/eval/demo_health/*.tmp
+!data/eval/demo_health/.gitkeep
+!data/eval/demo_health/history/.gitkeep
+
 # Added by code-review-graph
 .code-review-graph/
