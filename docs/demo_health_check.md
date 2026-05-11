@@ -16,7 +16,7 @@ Required checks fail the run and return a non-zero exit code:
 | R5 | Embedding spot-check | Y | Calls project Ollama `/api/embed` for `bge-m3` and verifies one non-zero 1024-dimensional vector. |
 | R6 | Trace directory writable | Y | Writes and removes `data/rag-traces/.health_write_test`, needed for later retrieval trace comparisons. |
 | R7 | RAG query | Y | Sends the golden query through `/v1/chat/completions` with `stream=false`, `temperature=0`, and `max_tokens=180`; requires an answer, source links, and latency under budget. |
-| R8 | Ollama text-model GPU placement | Y | Runs after the RAG query, reads `docker compose exec -T ollama ollama ps`, and verifies the active generation model is mostly on GPU. `>=90% GPU` passes, `50-89% GPU` warns, and `<50% GPU` fails by default. |
+| R8 | Ollama text-model GPU placement | Y | Runs after the RAG query, reads `docker compose exec -T ollama ollama ps`, and verifies the active generation model is loaded mostly on GPU. `>=90% GPU` passes, `50-89% GPU` warns, `<50% GPU` fails by default, and a missing post-RAG model fails by default. |
 | R9 | Recent ingest activity | N | Reads `MAX(created_at)` from `rag_chunks` when that column exists; warns if newest content is older than seven days and reports SKIP if the current schema has no `created_at` column. |
 
 ## What This Does Not Check
@@ -173,8 +173,9 @@ Adjust `+30` to the desired retention window.
 - `DEMO_HEALTH_GATEWAY_URL`: override the inferred local gateway URL.
 - `DEMO_HEALTH_MIN_DISK_GB`: default `5`.
 - `DEMO_HEALTH_REQUIRE_TEXT_GPU`: default `true`. When `false`, CPU-only or
-  partial-CPU text-model placement is reported as WARN instead of FAIL. This is
-  intended for CPU-only development environments, not demo readiness.
+  partial-CPU text-model placement is reported as WARN instead of FAIL. A text
+  model missing after `rag_query` is also WARN instead of FAIL. This is intended
+  for CPU-only development environments, not demo readiness.
 - `DEMO_HEALTH_ALERT_WEBHOOK`: documented for later; real webhook calls are not implemented in this session.
 
 ## Recovery Procedures
@@ -208,7 +209,9 @@ docker compose exec ollama ollama ps
 ```
 
 Verify that the active text-generation model shows `100% GPU` or at least
-`>=90% GPU`. Then rerun:
+`>=90% GPU`. If the model is absent immediately after a successful RAG query,
+Ollama may have evicted it between checks; send the warm-up request again and
+rerun the health check. Then rerun:
 
 ```bash
 python3 scripts/demo_e2e_check.py

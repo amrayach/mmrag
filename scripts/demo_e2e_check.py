@@ -746,9 +746,11 @@ def check_ollama_text_model_gpu_placement(model: str, timeout: float) -> CheckRe
         details["loaded_model_names"] = loaded_names
         details["message"] = (
             f"text model {model} is not currently loaded after rag_query; "
-            "it will load on first request, then rerun this check after warm-up"
+            "rag_query should have loaded it, so re-run after a warm-up request if Ollama evicted it between checks"
         )
-        return result("SKIP", False, start, details, details["message"])
+        status = "WARN" if not require_gpu else "FAIL"
+        required = require_gpu
+        return result(status, required, start, details, details["message"])
 
     processor = match.get("processor", "unknown") or "unknown"
     gpu_percent = parse_gpu_percent(processor)
