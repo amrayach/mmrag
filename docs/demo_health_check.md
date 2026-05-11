@@ -16,7 +16,8 @@ Required checks fail the run and return a non-zero exit code:
 | R5 | Embedding spot-check | Y | Calls project Ollama `/api/embed` for `bge-m3` and verifies one non-zero 1024-dimensional vector. |
 | R6 | Trace directory writable | Y | Writes and removes `data/rag-traces/.health_write_test`, needed for later retrieval trace comparisons. |
 | R7 | RAG query | Y | Sends the golden query through `/v1/chat/completions` with `stream=false`, `temperature=0`, and `max_tokens=180`; requires an answer, source links, and latency under budget. |
-| R8 | Recent ingest activity | N | Reads `MAX(created_at)` from `rag_chunks` when that column exists; warns if newest content is older than seven days and reports SKIP if the current schema has no `created_at` column. |
+| R8 | Ollama text-model GPU placement | Y | Runs after the RAG query, reads `docker compose exec -T ollama ollama ps`, and verifies the active generation model is mostly on GPU. `>=90% GPU` passes, `50-89% GPU` warns, and `<50% GPU` fails by default. |
+| R9 | Recent ingest activity | N | Reads `MAX(created_at)` from `rag_chunks` when that column exists; warns if newest content is older than seven days and reports SKIP if the current schema has no `created_at` column. |
 
 ## What This Does Not Check
 
@@ -26,7 +27,7 @@ Required checks fail the run and return a non-zero exit code:
 - RSS feed freshness or external RSS availability.
 - Tailscale Serve/Funnel reachability.
 - Public demo website status.
-- GPU residency or throughput benchmarking.
+- GPU throughput benchmarking. The check does verify active text-model placement in Ollama after the RAG query loads the model.
 - Any ingestion, DB mutation, schema state, or document freshness beyond the warning-only newest chunk timestamp.
 
 ## Manual Run
@@ -76,7 +77,8 @@ Important fields:
 - `warnings`: warning-only findings such as stale ingest activity.
 
 A regression usually appears as a changed `failed_check`, a rising `rag_query`
-latency, fewer detected sources, or a stale `last_pass_ts`.
+latency, fewer detected sources, CPU placement for the active text model, or a
+stale `last_pass_ts`.
 
 ## Reading latest.md
 
@@ -170,13 +172,53 @@ Adjust `+30` to the desired retention window.
 - `DEMO_HEALTH_QUERY`: override the golden query text.
 - `DEMO_HEALTH_GATEWAY_URL`: override the inferred local gateway URL.
 - `DEMO_HEALTH_MIN_DISK_GB`: default `5`.
+- `DEMO_HEALTH_REQUIRE_TEXT_GPU`: default `true`. When `false`, CPU-only or
+  partial-CPU text-model placement is reported as WARN instead of FAIL. This is
+  intended for CPU-only development environments, not demo readiness.
 - `DEMO_HEALTH_ALERT_WEBHOOK`: documented for later; real webhook calls are not implemented in this session.
+
+## Recovery Procedures
+
+### Ollama Text Model Falls Back To CPU
+
+Symptom:
+
+```text
+docker compose exec ollama ollama ps
+gemma4:26b  ...  100% CPU
+bge-m3      ...  100% GPU
+```
+
+Related logs can include `offloaded 0/31 layers to GPU`. In the observed
+incident, host CUDA and the embedding model were healthy; the problem was
+Ollama scheduler state corruption rather than actual VRAM shortage.
+
+Recovery:
+
+```bash
+docker compose restart ollama
+sleep 20
+
+# Send one warm-up request through rag-gateway so the text model loads.
+curl -sS -H "Content-Type: application/json" \
+  -d '{"model":"gemma4:26b","messages":[{"role":"user","content":"Kurz antworten."}],"max_tokens":1}' \
+  http://127.0.0.1:56155/v1/chat/completions >/dev/null
+
+docker compose exec ollama ollama ps
+```
+
+Verify that the active text-generation model shows `100% GPU` or at least
+`>=90% GPU`. Then rerun:
+
+```bash
+python3 scripts/demo_e2e_check.py
+```
 
 ## Known Limitations
 
 - The RAG check validates answer shape, source links, and latency, not semantic correctness.
 - Optional services can be down without failing the RAG-path health check.
-- Model availability is checked via `/api/tags`; the model does not have to be currently loaded in VRAM.
+- Model availability is checked via `/api/tags`; loaded placement is checked separately after `rag_query`.
 - The script uses Docker CLI read-only inspection and exec calls, so it requires local Docker permissions.
 - The current `rag_chunks` schema has no `created_at` column, so the optional recent-ingest check reports SKIP rather than PASS/WARN.
 - The golden query is p01 because it is historically stable; it is not intended to exercise known weak retrieval cases such as p04.

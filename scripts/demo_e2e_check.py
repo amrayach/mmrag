@@ -94,6 +94,13 @@ def load_env() -> dict[str, str]:
     return env
 
 
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
 def active_model(env: dict[str, str]) -> str:
     return (
         os.environ.get("DEMO_HEALTH_MODEL")
@@ -601,6 +608,174 @@ def check_rag_query(gateway_url: str, model: str, golden: dict[str, Any], timeou
     return result("PASS", True, start, details)
 
 
+def parse_ollama_ps_json(stdout: str) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    raw = stdout.strip()
+    if not raw:
+        return rows
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return rows
+    items: list[Any]
+    if isinstance(parsed, list):
+        items = parsed
+    elif isinstance(parsed, dict):
+        value = parsed.get("models") or parsed.get("items")
+        items = value if isinstance(value, list) else [parsed]
+    else:
+        return rows
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("model")
+        processor = item.get("processor") or item.get("processors")
+        if not isinstance(name, str):
+            continue
+        rows.append(
+            {
+                "name": name,
+                "id": str(item.get("id") or ""),
+                "size": str(item.get("size") or ""),
+                "processor": str(processor or "unknown"),
+                "raw": json.dumps(item, ensure_ascii=False, sort_keys=True),
+            }
+        )
+    return rows
+
+
+def parse_ollama_ps_table(stdout: str) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    lines = [line.rstrip() for line in stdout.splitlines() if line.strip()]
+    if len(lines) <= 1:
+        return rows
+    for line in lines[1:]:
+        parts = re.split(r"\s{2,}", line.strip())
+        if len(parts) < 4:
+            rows.append({"raw": line})
+            continue
+        row = {
+            "name": parts[0],
+            "id": parts[1],
+            "size": parts[2],
+            "processor": parts[3],
+            "raw": line,
+        }
+        if len(parts) > 4:
+            row["context"] = parts[4]
+        if len(parts) > 5:
+            row["until"] = parts[5]
+        rows.append(row)
+    return rows
+
+
+def parse_gpu_percent(processor: str) -> int | None:
+    text = processor.strip()
+    gpu_match = re.search(r"(\d{1,3})\s*%\s*GPU", text, flags=re.IGNORECASE)
+    if gpu_match:
+        return max(0, min(100, int(gpu_match.group(1))))
+    cpu_match = re.search(r"(\d{1,3})\s*%\s*CPU", text, flags=re.IGNORECASE)
+    if cpu_match:
+        return max(0, min(100, 100 - int(cpu_match.group(1))))
+    return None
+
+
+def check_ollama_text_model_gpu_placement(model: str, timeout: float) -> CheckResult:
+    start = time.perf_counter()
+    require_gpu = env_bool("DEMO_HEALTH_REQUIRE_TEXT_GPU", True)
+    recovery_hint = (
+        "Recovery: docker compose restart ollama; wait 20s; send one warm-up "
+        "request; docker compose exec ollama ollama ps"
+    )
+    json_cp = run_cmd(
+        ["docker", "compose", "exec", "-T", "ollama", "ollama", "ps", "--format", "json"],
+        timeout=min(10, timeout),
+    )
+    rows: list[dict[str, str]] = []
+    inspection_method = "json"
+    table_cp: subprocess.CompletedProcess[str] | None = None
+    json_attempt_error = ""
+    if json_cp.returncode == 0:
+        rows = parse_ollama_ps_json(json_cp.stdout)
+        if not rows:
+            json_attempt_error = "JSON output was empty or unrecognized"
+    else:
+        json_attempt_error = json_cp.stderr.strip() or json_cp.stdout.strip() or f"exit {json_cp.returncode}"
+    if not rows:
+        inspection_method = "table"
+        table_cp = run_cmd(
+            ["docker", "compose", "exec", "-T", "ollama", "ollama", "ps"],
+            timeout=min(10, timeout),
+        )
+        if table_cp.returncode == 0:
+            rows = parse_ollama_ps_table(table_cp.stdout)
+
+    cp = table_cp or json_cp
+    details: dict[str, Any] = {
+        "name": "ollama_text_model_gpu_placement",
+        "model": model,
+        "processor": "unknown",
+        "gpu_percent": None,
+        "require_gpu": require_gpu,
+        "raw_line": None,
+        "message": "",
+        "inspection_method": inspection_method,
+        "json_attempt_error": json_attempt_error,
+        "command": "docker compose exec -T ollama ollama ps",
+        "stdout": cp.stdout.strip(),
+        "stderr": cp.stderr.strip(),
+    }
+    if cp.returncode != 0:
+        details["returncode"] = cp.returncode
+        details["message"] = f"cannot inspect ollama ps: {cp.stderr.strip() or cp.stdout.strip() or f'exit {cp.returncode}'}"
+        return result("FAIL", True, start, details, details["message"])
+
+    details["loaded_models"] = rows
+    target_names = normalize_model_name(model)
+    match = next(
+        (
+            row
+            for row in rows
+            if row.get("name") in target_names
+            or normalize_model_name(row.get("name", "")) & target_names
+        ),
+        None,
+    )
+    if not match:
+        loaded_names = [row.get("name") for row in rows if row.get("name")]
+        details["loaded_model_names"] = loaded_names
+        details["message"] = (
+            f"text model {model} is not currently loaded after rag_query; "
+            "it will load on first request, then rerun this check after warm-up"
+        )
+        return result("SKIP", False, start, details, details["message"])
+
+    processor = match.get("processor", "unknown") or "unknown"
+    gpu_percent = parse_gpu_percent(processor)
+    details["matched_model"] = match
+    details["processor"] = processor
+    details["gpu_percent"] = gpu_percent
+    details["raw_line"] = match.get("raw")
+
+    if gpu_percent is not None and gpu_percent >= 90:
+        details["message"] = f"text model {model} processor is {processor}"
+        return result("PASS", True, start, details)
+
+    if gpu_percent is not None and gpu_percent >= 50:
+        details["message"] = (
+            f"text model {model} processor is {processor}; substantial CPU offload may slow demos"
+        )
+        return result("WARN", False, start, details, details["message"])
+
+    if gpu_percent is None:
+        details["message"] = f"text model {model} processor is {processor}; unable to parse GPU percentage"
+    else:
+        details["message"] = f"text model {model} processor is {processor}; {recovery_hint}"
+    status = "WARN" if not require_gpu else "FAIL"
+    required = require_gpu
+    return result(status, required, start, details, details["message"])
+
+
 def check_recent_ingest(timeout: float, env: dict[str, str]) -> CheckResult:
     start = time.perf_counter()
     db = env.get("RAG_DB") or "rag"
@@ -740,6 +915,17 @@ def serialize_checks(checks: dict[str, CheckResult]) -> dict[str, Any]:
             "duration_ms": check.latency_ms,
             "details": check.details,
         }
+        if name == "ollama_text_model_gpu_placement":
+            for key in (
+                "name",
+                "model",
+                "processor",
+                "gpu_percent",
+                "require_gpu",
+                "raw_line",
+                "message",
+            ):
+                out[name][key] = check.details.get(key)
         if check.reason:
             out[name]["reason"] = check.reason
     return out
@@ -795,6 +981,7 @@ def main() -> int:
                     if add("embedding_spot_check", check_embedding_spot(timeout)):
                         if add("trace_dir_writable", check_trace_dir()):
                             if add("rag_query", check_rag_query(gateway_url, model, golden, timeout)):
+                                add("ollama_text_model_gpu_placement", check_ollama_text_model_gpu_placement(model, timeout))
                                 add("recent_ingest", check_recent_ingest(timeout, env))
 
     status = "FAIL" if failed_check else "PASS"
