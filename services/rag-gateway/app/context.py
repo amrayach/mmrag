@@ -174,6 +174,7 @@ async def _embed_query(query: str) -> list[float]:
 _SEARCH_SQL_BASE = """\
 SELECT c.id, c.doc_id, c.chunk_type, c.page, c.content_text, c.caption,
        c.asset_path, c.meta, d.filename AS doc_filename,
+       d.pages AS doc_pages, d.lang AS doc_lang,
        1 - (c.embedding <=> %(emb)s) AS score
 FROM rag_chunks c
 JOIN rag_docs d ON c.doc_id = d.doc_id
@@ -310,51 +311,51 @@ def _build_context(
             )
             ctx_lines.append(f"{src}: {h.get('caption') or ''} {url}".strip())
             if trace is not None and trace.enabled:
-                final_context_chunks.append(
-                    {
-                        "chunk_id": h.get("id"),
-                        "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
-                        "filename": h.get("doc_filename"),
-                        "source_label": "image",
-                        "page": h.get("page"),
-                        "score": round(float(h.get("score", 0.0)), 4),
-                        "order_in_context": len(ctx_lines) - 1,
-                        "chunk_type": "image",
-                    }
-                )
+                rec = {
+                    "chunk_id": h.get("id"),
+                    "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
+                    "filename": h.get("doc_filename"),
+                    "source_label": "image",
+                    "page": h.get("page"),
+                    "score": round(float(h.get("score", 0.0)), 4),
+                    "order_in_context": len(ctx_lines) - 1,
+                    "chunk_type": "image",
+                }
+                _trace.enrich_final_context_chunk(rec, h)
+                final_context_chunks.append(rec)
         elif is_rss:
             ctx_lines.append(
                 f"Quelle {meta.get('feed_name') or 'RSS'} "
                 f"- \"{meta.get('title') or ''}\": {h.get('content_text') or ''}"
             )
             if trace is not None and trace.enabled:
-                final_context_chunks.append(
-                    {
-                        "chunk_id": h.get("id"),
-                        "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
-                        "filename": h.get("doc_filename"),
-                        "source_label": "rss-text",
-                        "page": h.get("page"),
-                        "score": round(float(h.get("score", 0.0)), 4),
-                        "order_in_context": len(ctx_lines) - 1,
-                        "chunk_type": "text",
-                    }
-                )
+                rec = {
+                    "chunk_id": h.get("id"),
+                    "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
+                    "filename": h.get("doc_filename"),
+                    "source_label": "rss-text",
+                    "page": h.get("page"),
+                    "score": round(float(h.get("score", 0.0)), 4),
+                    "order_in_context": len(ctx_lines) - 1,
+                    "chunk_type": "text",
+                }
+                _trace.enrich_final_context_chunk(rec, h)
+                final_context_chunks.append(rec)
         else:
             ctx_lines.append(f"Text (Seite {h['page']}): {h.get('content_text') or ''}")
             if trace is not None and trace.enabled:
-                final_context_chunks.append(
-                    {
-                        "chunk_id": h.get("id"),
-                        "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
-                        "filename": h.get("doc_filename"),
-                        "source_label": "pdf-text",
-                        "page": h.get("page"),
-                        "score": round(float(h.get("score", 0.0)), 4),
-                        "order_in_context": len(ctx_lines) - 1,
-                        "chunk_type": "text",
-                    }
-                )
+                rec = {
+                    "chunk_id": h.get("id"),
+                    "doc_id": str(h.get("doc_id")) if h.get("doc_id") is not None else None,
+                    "filename": h.get("doc_filename"),
+                    "source_label": "pdf-text",
+                    "page": h.get("page"),
+                    "score": round(float(h.get("score", 0.0)), 4),
+                    "order_in_context": len(ctx_lines) - 1,
+                    "chunk_type": "text",
+                }
+                _trace.enrich_final_context_chunk(rec, h)
+                final_context_chunks.append(rec)
 
     # Sources (max 8, markdown links for both RSS and PDF)
     sources: list[str] = []
