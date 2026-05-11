@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MMRAG Demo</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" data-route="landing" aria-label="MMRAG Demo Startseite">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <span>MMRAG Demo</span>
+        </a>
+        <nav class="top-actions" aria-label="Demo Navigation">
+          <button class="ghost-button" type="button" data-route="landing">Start</button>
+          <button class="ghost-button" type="button" data-route="login">Login</button>
+        </nav>
+      </header>
+
+      <main>
+        <section id="landingView" class="view landing-view" data-view="landing">
+          <div class="landing-copy">
+            <p class="eyebrow">Lokaler Retrieval-Chat</p>
+            <h1>MMRAG Demo</h1>
+            <p class="lead">
+              Ein reduzierter Zugang zum lokalen Gemma-Gateway für PDF-Berichte,
+              RSS-Kontext und Quellenlinks. Die Demo läuft nur mit temporärem Code.
+            </p>
+            <button class="primary-button" type="button" data-route="login">Enter Demo</button>
+          </div>
+          <div class="corpus-panel" aria-label="Demo Korpus">
+            <div class="corpus-row">
+              <span>PDF</span>
+              <strong>Berichte</strong>
+            </div>
+            <div class="corpus-row">
+              <span>RSS</span>
+              <strong>Nachrichten</strong>
+            </div>
+            <div class="corpus-row">
+              <span>GPU</span>
+              <strong>Gemma lokal</strong>
+            </div>
+          </div>
+        </section>
+
+        <section id="loginView" class="view auth-view" data-view="login" hidden>
+          <form id="loginForm" class="auth-panel">
+            <p class="eyebrow">Demo-Code</p>
+            <h2>Zugang einloesen</h2>
+            <label for="codeInput">Code</label>
+            <div class="input-row">
+              <input id="codeInput" name="code" type="text" autocomplete="one-time-code" required>
+              <button class="primary-button" type="submit">Login</button>
+            </div>
+            <p id="loginStatus" class="form-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section id="chatView" class="view chat-view" data-view="chat" hidden>
+          <aside class="example-panel" aria-label="Beispielfragen">
+            <p class="eyebrow">Beispiele</p>
+            <button type="button" class="example-button">Was steht im Siemens-Bericht zu Lieferketten?</button>
+            <button type="button" class="example-button">Fasse die aktuellen Themen aus den RSS-Feeds zusammen.</button>
+            <button type="button" class="example-button">Was sind die wichtigsten Punkte des BMW-Berichts 2023?</button>
+          </aside>
+
+          <section class="chat-panel" aria-label="Chat">
+            <div id="messageList" class="message-list" aria-live="polite"></div>
+            <form id="chatForm" class="composer">
+              <label for="messageInput" class="sr-only">Nachricht</label>
+              <textarea id="messageInput" rows="2" placeholder="Frage eingeben..." required></textarea>
+              <button id="sendButton" class="primary-button" type="submit">Senden</button>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

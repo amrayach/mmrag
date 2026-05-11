@@ -62,5 +62,13 @@ data/eval/demo_health/*.tmp
 !data/eval/demo_health/.gitkeep
 !data/eval/demo_health/history/.gitkeep
 
+# Demo site local build artifacts
+demo-site/node_modules/
+demo-site/dist/
+demo-site/build/
+demo-site/.venv/
+demo-site/.cache/
+demo-site/coverage/
+
 # Added by code-review-graph
 .code-review-graph/
