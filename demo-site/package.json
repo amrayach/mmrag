@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "DEMO_SITE_MOCK_GATEWAY=true HOST=127.0.0.1 PORT=56159 node server/index.js",
+    "dev": "DEMO_SITE_MOCK_GATEWAY=true DEMO_SITE_AUTH_STORE_PATH=./data/auth.json HOST=127.0.0.1 PORT=56159 node server/index.js",
     "check": "node --check server/index.js && node --check test/server.test.js",
     "test": "node --test test/*.test.js"
   },

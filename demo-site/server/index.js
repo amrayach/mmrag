@@ -34,8 +34,21 @@ function intFromEnv(name, fallback, min, max) {
   return Math.min(max, Math.max(min, parsed));
 }
 
+function floatFromEnv(name, fallback, min, max) {
+  const raw = process.env[name];
+  const parsed = Number.parseFloat(raw || "");
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
+
 function stripTrailingSlash(value) {
   return String(value || "").replace(/\/+$/, "");
+}
+
+function hoursToMs(hours) {
+  return Math.max(0.000001, Number(hours) || 1) * 60 * 60 * 1000;
 }
 
 function createConfig(overrides = {}) {
@@ -55,10 +68,21 @@ function createConfig(overrides = {}) {
     tokenTtlMs:
       overrides.tokenTtlMs ||
       intFromEnv("DEMO_SITE_TOKEN_TTL_SECONDS", 24 * 60 * 60, 1, 31 * 24 * 60 * 60) * 1000,
+    codeTtlHours:
+      overrides.codeTtlHours || floatFromEnv("DEMO_SITE_CODE_TTL_HOURS", 24, 0.01, 24 * 31),
+    sessionTtlHours:
+      overrides.sessionTtlHours || floatFromEnv("DEMO_SITE_SESSION_TTL_HOURS", 24, 0.01, 24 * 31),
+    adminToken: Object.prototype.hasOwnProperty.call(overrides, "adminToken")
+      ? overrides.adminToken
+      : process.env.DEMO_SITE_ADMIN_TOKEN || "",
+    authStorePath:
+      overrides.authStorePath ||
+      process.env.DEMO_SITE_AUTH_STORE_PATH ||
+      path.join("/app", "data", "auth.json"),
     maxQueriesPerHour:
       overrides.maxQueriesPerHour || intFromEnv("DEMO_SITE_MAX_QUERIES_PER_HOUR", 10, 1, 100),
     maxTokensCap: overrides.maxTokensCap || 800,
-    chatTimeoutMs: overrides.chatTimeoutMs || 60_000,
+    chatTimeoutMs: overrides.chatTimeoutMs || intFromEnv("DEMO_SITE_CHAT_TIMEOUT_MS", 60_000, 1_000, 300_000),
     mockGateway:
       typeof overrides.mockGateway === "boolean"
         ? overrides.mockGateway
@@ -114,6 +138,310 @@ async function readJson(req) {
   }
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function tokenPrefix(token) {
+  return String(token || "").slice(0, 8);
+}
+
+function remoteAddress(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress || "";
+}
+
+function optionalString(value, maxLength = 500) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.trim().slice(0, maxLength);
+}
+
+function parsePositiveNumber(value, fallback, min, max) {
+  const parsed = Number.parseFloat(String(value ?? ""));
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function initialAuthData() {
+  return {
+    version: 1,
+    access_codes: [],
+    sessions: [],
+    audit_events: []
+  };
+}
+
+function normalizeAuthData(raw) {
+  const data = raw && typeof raw === "object" ? raw : {};
+  return {
+    version: 1,
+    access_codes: Array.isArray(data.access_codes) ? data.access_codes : [],
+    sessions: Array.isArray(data.sessions) ? data.sessions : [],
+    audit_events: Array.isArray(data.audit_events) ? data.audit_events : []
+  };
+}
+
+function codeState(code, now = Date.now()) {
+  if (code.revoked_at) {
+    return "revoked";
+  }
+  if (Date.parse(code.expires_at) <= now) {
+    return "expired";
+  }
+  if ((Number(code.redemption_count) || 0) >= (Number(code.max_redemptions) || 1)) {
+    return "exhausted";
+  }
+  return "active";
+}
+
+function authError(statusCode, error, message) {
+  return { ok: false, statusCode, error, message };
+}
+
+class AuthStore {
+  constructor(filePath) {
+    this.filePath = path.resolve(filePath);
+    this.data = initialAuthData();
+    this.error = null;
+    this.writeQueue = Promise.resolve();
+    this.ready = this.load();
+  }
+
+  async load() {
+    try {
+      await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+      const raw = await fs.readFile(this.filePath, "utf8");
+      this.data = normalizeAuthData(JSON.parse(raw));
+      this.error = null;
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        this.data = initialAuthData();
+        try {
+          await this.persist();
+          this.error = null;
+        } catch (writeError) {
+          this.error = writeError;
+        }
+        return;
+      }
+      this.error = error;
+    }
+  }
+
+  async ensureAvailable() {
+    await this.ready;
+    if (this.error) {
+      const err = new Error("auth_store_unavailable");
+      err.statusCode = 503;
+      err.detail = this.error.message;
+      throw err;
+    }
+  }
+
+  health() {
+    if (this.error) {
+      return { auth_store: "error", auth_store_error: this.error.message };
+    }
+    return { auth_store: "ok" };
+  }
+
+  async persist() {
+    const write = async () => {
+      await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+      const tmpPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
+      const body = `${JSON.stringify(this.data, null, 2)}\n`;
+      await fs.writeFile(tmpPath, body, { mode: 0o600 });
+      await fs.rename(tmpPath, this.filePath);
+    };
+    this.writeQueue = this.writeQueue.then(write, write);
+    await this.writeQueue;
+  }
+
+  audit(event, req) {
+    this.data.audit_events.push({
+      timestamp: nowIso(),
+      event: event.event,
+      code: event.code || undefined,
+      token_prefix: event.token ? tokenPrefix(event.token) : event.token_prefix || undefined,
+      status: event.status || "ok",
+      remote_address: req ? remoteAddress(req) : undefined
+    });
+    this.data.audit_events = this.data.audit_events.slice(-1000);
+  }
+
+  async createCode(body, req, config) {
+    await this.ensureAvailable();
+    const now = Date.now();
+    const ttlHours = parsePositiveNumber(body.ttl_hours, config.codeTtlHours, 0.000001, 24 * 31);
+    const maxRedemptions = Math.floor(
+      parsePositiveNumber(body.max_redemptions, 1, 1, 1000)
+    );
+    const code = `demo-${crypto.randomBytes(18).toString("base64url")}`;
+    const record = {
+      code,
+      created_at: new Date(now).toISOString(),
+      expires_at: new Date(now + hoursToMs(ttlHours)).toISOString(),
+      revoked_at: null,
+      max_redemptions: maxRedemptions,
+      redemption_count: 0,
+      label: optionalString(body.label, 120) || null,
+      created_by: optionalString(body.created_by, 120) || "admin",
+      notes: optionalString(body.notes, 1000) || null
+    };
+    this.data.access_codes.push(record);
+    this.audit({ event: "code_created", code, status: "ok" }, req);
+    await this.persist();
+    return record;
+  }
+
+  async listCodes() {
+    await this.ensureAvailable();
+    const now = Date.now();
+    return this.data.access_codes.map((code) => ({
+      code: code.code,
+      created_at: code.created_at,
+      expires_at: code.expires_at,
+      revoked_at: code.revoked_at || null,
+      redemption_count: Number(code.redemption_count) || 0,
+      max_redemptions: Number(code.max_redemptions) || 1,
+      label: code.label || null,
+      notes: code.notes || null,
+      created_by: code.created_by || null,
+      status: codeState(code, now),
+      active: codeState(code, now) === "active"
+    }));
+  }
+
+  findCode(codeValue) {
+    return this.data.access_codes.find((record) => record.code === codeValue);
+  }
+
+  async revokeCode(codeValue, req) {
+    await this.ensureAvailable();
+    const code = this.findCode(codeValue);
+    if (!code) {
+      this.audit({ event: "code_revoke", code: codeValue, status: "not_found" }, req);
+      await this.persist();
+      return authError(404, "code_not_found", "Der Demo-Code wurde nicht gefunden.");
+    }
+    if (!code.revoked_at) {
+      code.revoked_at = nowIso();
+    }
+    this.audit({ event: "code_revoke", code: codeValue, status: "ok" }, req);
+    await this.persist();
+    return { ok: true, code };
+  }
+
+  async redeemCode(codeValue, req, config) {
+    await this.ensureAvailable();
+    const now = Date.now();
+    const code = this.findCode(codeValue);
+    if (!code) {
+      this.audit({ event: "code_redeem", code: codeValue, status: "invalid" }, req);
+      await this.persist();
+      return authError(401, "code_invalid", "Der Demo-Code ist ungueltig.");
+    }
+
+    const state = codeState(code, now);
+    if (state === "revoked") {
+      this.audit({ event: "code_redeem", code: codeValue, status: "revoked" }, req);
+      await this.persist();
+      return authError(403, "code_revoked", "Der Demo-Code wurde widerrufen.");
+    }
+    if (state === "expired") {
+      this.audit({ event: "code_redeem", code: codeValue, status: "expired" }, req);
+      await this.persist();
+      return authError(410, "code_expired", "Der Demo-Code ist abgelaufen.");
+    }
+    if (state === "exhausted") {
+      this.audit({ event: "code_redeem", code: codeValue, status: "exhausted" }, req);
+      await this.persist();
+      return authError(429, "code_exhausted", "Der Demo-Code wurde bereits verwendet.");
+    }
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const codeExpiresAt = Date.parse(code.expires_at);
+    const sessionExpiresAt = Math.min(now + hoursToMs(config.sessionTtlHours), codeExpiresAt);
+    const session = {
+      token,
+      code: code.code,
+      created_at: new Date(now).toISOString(),
+      expires_at: new Date(sessionExpiresAt).toISOString(),
+      revoked_at: null,
+      last_seen_at: new Date(now).toISOString(),
+      query_times: []
+    };
+    code.redemption_count = (Number(code.redemption_count) || 0) + 1;
+    this.data.sessions.push(session);
+    this.audit({ event: "code_redeem", code: codeValue, token, status: "ok" }, req);
+    await this.persist();
+
+    return {
+      ok: true,
+      token,
+      expires_at: session.expires_at,
+      code_expires_at: code.expires_at,
+      session
+    };
+  }
+
+  async validateSession(token, req) {
+    await this.ensureAvailable();
+    if (!token) {
+      return { status: "missing" };
+    }
+    const session = this.data.sessions.find((record) => record.token === token);
+    if (!session) {
+      return { status: "invalid", token };
+    }
+    if (session.revoked_at) {
+      return { status: "revoked", token };
+    }
+    if (Date.parse(session.expires_at) <= Date.now()) {
+      return { status: "expired", token };
+    }
+    session.last_seen_at = nowIso();
+    session.queryTimes = Array.isArray(session.queryTimes)
+      ? session.queryTimes
+      : Array.isArray(session.query_times)
+        ? session.query_times
+        : [];
+    this.audit({ event: "session_seen", token, status: "ok" }, req);
+    await this.persist();
+    return { status: "ok", token, session };
+  }
+
+  async saveSession(session) {
+    session.query_times = Array.isArray(session.queryTimes) ? session.queryTimes : session.query_times || [];
+    await this.persist();
+  }
+
+  async revokeSessionByPrefix(prefix, req) {
+    await this.ensureAvailable();
+    if (prefix.length < 8) {
+      return authError(400, "token_prefix_too_short", "Der Token-Praefix muss mindestens 8 Zeichen haben.");
+    }
+    const matches = this.data.sessions.filter((session) => session.token.startsWith(prefix));
+    if (matches.length === 0) {
+      return authError(404, "session_not_found", "Die Demo-Sitzung wurde nicht gefunden.");
+    }
+    if (matches.length > 1) {
+      return authError(409, "token_prefix_ambiguous", "Der Token-Praefix ist nicht eindeutig.");
+    }
+    matches[0].revoked_at = matches[0].revoked_at || nowIso();
+    this.audit({ event: "session_revoke", token: matches[0].token, status: "ok" }, req);
+    await this.persist();
+    return { ok: true, token_prefix: tokenPrefix(matches[0].token), revoked_at: matches[0].revoked_at };
+  }
+}
+
 function cookieHeader(token, maxAgeSeconds) {
   const safeToken = encodeURIComponent(token);
   return [
@@ -142,25 +470,16 @@ function tokenFromRequest(req) {
   return "";
 }
 
-function getSession(req, sessions, now = Date.now()) {
+async function getSession(req, authStore) {
   const token = tokenFromRequest(req);
-  if (!token) {
-    return { status: "missing" };
-  }
-  const session = sessions.get(token);
-  if (!session) {
-    return { status: "invalid", token };
-  }
-  if (session.expiresAt <= now) {
-    sessions.delete(token);
-    return { status: "expired", token };
-  }
-  return { status: "ok", token, session };
+  return authStore.validateSession(token, req);
 }
 
 function checkRateLimit(session, config, now = Date.now()) {
   const windowStart = now - 60 * 60 * 1000;
-  session.queryTimes = session.queryTimes.filter((timestamp) => timestamp > windowStart);
+  session.queryTimes = (Array.isArray(session.queryTimes) ? session.queryTimes : session.query_times || []).filter(
+    (timestamp) => timestamp > windowStart
+  );
   if (session.queryTimes.length >= config.maxQueriesPerHour) {
     const oldest = session.queryTimes[0] || now;
     const retryAfterSeconds = Math.max(1, Math.ceil((oldest + 60 * 60 * 1000 - now) / 1000));
@@ -353,6 +672,107 @@ async function serveStatic(req, res) {
   }
 }
 
+function safeEqual(value, expected) {
+  const left = Buffer.from(String(value || ""));
+  const right = Buffer.from(String(expected || ""));
+  if (left.length !== right.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(left, right);
+}
+
+function requireAdmin(req, config) {
+  if (!config.adminToken) {
+    return authError(
+      503,
+      "admin_disabled",
+      "Admin-Endpunkte sind deaktiviert, weil DEMO_SITE_ADMIN_TOKEN nicht gesetzt ist."
+    );
+  }
+  const authorization = req.headers.authorization || "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!bearer || !safeEqual(bearer[1].trim(), config.adminToken)) {
+    return authError(401, "admin_unauthorized", "Admin-Token fehlt oder ist ungueltig.");
+  }
+  return { ok: true };
+}
+
+function codeFromRevokePath(pathname) {
+  const match = pathname.match(/^\/api\/admin\/codes\/(.+)\/revoke$/);
+  if (!match) {
+    return "";
+  }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return "";
+  }
+}
+
+function tokenPrefixFromRevokePath(pathname) {
+  const match = pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/revoke$/);
+  if (!match) {
+    return "";
+  }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return "";
+  }
+}
+
+async function handleAdminRequest(req, res, app, url) {
+  const admin = requireAdmin(req, app.config);
+  if (!admin.ok) {
+    sendJson(res, admin.statusCode, { error: admin.error, message: admin.message });
+    return true;
+  }
+
+  if (url.pathname === "/api/admin/codes" && req.method === "POST") {
+    const body = await readJson(req);
+    const code = await app.authStore.createCode(body, req, app.config);
+    sendJson(res, 200, {
+      code: code.code,
+      expires_at: code.expires_at,
+      max_redemptions: code.max_redemptions
+    });
+    return true;
+  }
+
+  if (url.pathname === "/api/admin/codes" && req.method === "GET") {
+    sendJson(res, 200, { codes: await app.authStore.listCodes() });
+    return true;
+  }
+
+  const codeValue = codeFromRevokePath(url.pathname);
+  if (codeValue && req.method === "POST") {
+    const result = await app.authStore.revokeCode(codeValue, req);
+    if (!result.ok) {
+      sendJson(res, result.statusCode, { error: result.error, message: result.message });
+      return true;
+    }
+    sendJson(res, 200, {
+      code: result.code.code,
+      revoked_at: result.code.revoked_at,
+      status: codeState(result.code)
+    });
+    return true;
+  }
+
+  const prefix = tokenPrefixFromRevokePath(url.pathname);
+  if (prefix && req.method === "POST") {
+    const result = await app.authStore.revokeSessionByPrefix(prefix, req);
+    if (!result.ok) {
+      sendJson(res, result.statusCode, { error: result.error, message: result.message });
+      return true;
+    }
+    sendJson(res, 200, result);
+    return true;
+  }
+
+  return false;
+}
+
 async function handleRequest(req, res, app) {
   const url = new URL(req.url, "http://127.0.0.1");
 
@@ -362,33 +782,45 @@ async function handleRequest(req, res, app) {
   }
 
   if (req.method === "GET" && url.pathname === "/health") {
-    sendJson(res, 200, { ok: true });
+    await app.authStore.ready;
+    const health = app.authStore.health();
+    sendJson(res, health.auth_store === "ok" ? 200 : 503, { ok: health.auth_store === "ok", ...health });
     return;
+  }
+
+  if (url.pathname.startsWith("/api/admin/")) {
+    const handled = await handleAdminRequest(req, res, app, url);
+    if (handled) {
+      return;
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/redeem") {
     const body = await readJson(req);
     const code = typeof body.code === "string" ? body.code.trim() : "";
     if (!code) {
-      sendJson(res, 400, { error: "code_required" });
+      sendJson(res, 400, { error: "code_required", message: "Bitte einen Demo-Code eingeben." });
       return;
     }
 
-    const token = crypto.randomBytes(32).toString("base64url");
-    const expiresAt = Date.now() + app.config.tokenTtlMs;
-    app.sessions.set(token, { expiresAt, queryTimes: [] });
+    const result = await app.authStore.redeemCode(code, req, app.config);
+    if (!result.ok) {
+      sendJson(res, result.statusCode, { error: result.error, message: result.message });
+      return;
+    }
 
+    const maxAgeSeconds = Math.max(1, (Date.parse(result.expires_at) - Date.now()) / 1000);
     sendJson(
       res,
       200,
-      { token, expires_at: new Date(expiresAt).toISOString() },
-      { "set-cookie": cookieHeader(token, app.config.tokenTtlMs / 1000) }
+      { token: result.token, expires_at: result.expires_at, code_expires_at: result.code_expires_at },
+      { "set-cookie": cookieHeader(result.token, maxAgeSeconds) }
     );
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/chat") {
-    const auth = getSession(req, app.sessions);
+    const auth = await getSession(req, app.authStore);
     if (auth.status !== "ok") {
       sendJson(res, 401, { error: "invalid_or_expired_session" });
       return;
@@ -406,6 +838,7 @@ async function handleRequest(req, res, app) {
       );
       return;
     }
+    await app.authStore.saveSession(auth.session);
 
     const gatewayResponse = await proxyChat(messages, body, app.config, app.fetchImpl);
     const content = gatewayResponse.choices?.[0]?.message?.content || "";
@@ -431,17 +864,21 @@ async function handleRequest(req, res, app) {
 }
 
 function createApp(options = {}) {
+  const config = createConfig(options.config || {});
   const app = {
-    config: createConfig(options.config || {}),
-    sessions: options.sessions || new Map(),
+    config,
+    authStore: options.authStore || new AuthStore(config.authStorePath),
     fetchImpl: options.fetchImpl || fetch
   };
 
   const server = http.createServer((req, res) => {
     handleRequest(req, res, app).catch((error) => {
       const statusCode = error.statusCode || 500;
-      const message = statusCode >= 500 ? "server_error" : error.message;
-      sendJson(res, statusCode, { error: message });
+      const message = statusCode >= 500 && error.message !== "auth_store_unavailable" ? "server_error" : error.message;
+      sendJson(res, statusCode, {
+        error: message,
+        message: error.detail || undefined
+      });
     });
   });
 
@@ -459,6 +896,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  AuthStore,
   createApp,
   parseAssistantContent,
   sanitizeMessages,

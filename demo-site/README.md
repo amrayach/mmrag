@@ -1,8 +1,8 @@
 # MMRAG Demo Site
 
 Local-only demo website for the existing `rag-gateway` OpenAI-compatible chat API.
-It provides a branded German landing page, a temporary-code auth stub, and a small
-chat UI that renders gateway sources below each assistant answer.
+It provides a branded German landing page, persistent temporary access-code auth,
+and a small chat UI that renders gateway sources below each assistant answer.
 
 ## Stack Choice
 
@@ -43,7 +43,15 @@ npm run dev
 `npm run dev` starts the backend and static frontend on
 `http://127.0.0.1:56159` with `DEMO_SITE_MOCK_GATEWAY=true`. Mock mode verifies
 the UI, auth flow, source rendering, and rate limiting without calling the real
-gateway.
+gateway. Local dev writes auth state to `demo-site/data/auth.json`, which is
+gitignored.
+
+Admin endpoints are disabled unless `DEMO_SITE_ADMIN_TOKEN` is set:
+
+```bash
+cd demo-site
+DEMO_SITE_ADMIN_TOKEN=local-admin-token npm run dev
+```
 
 For a local live-gateway run after Session 3.0 validation is complete:
 
@@ -59,31 +67,90 @@ Only run these after Session 3.0 confirms gateway validation is complete:
 ```bash
 docker compose config --quiet
 docker compose build demo-site
-docker compose up -d demo-site
+DEMO_SITE_ADMIN_TOKEN=local-admin-token docker compose up -d --no-deps demo-site
 curl -s http://127.0.0.1:56158/health
 ```
 
 The compose service binds `127.0.0.1:${PORT_DEMO_SITE:-56158}:3000` and uses
 `RAG_GATEWAY_URL=http://rag-gateway:8000` by default. `rag-gateway` already has a
 healthcheck, so the demo service depends on `rag-gateway` with
-`condition: service_healthy`.
+`condition: service_healthy`. Auth data is stored in the demo-site-only
+`demo_site_data` volume at `/app/data/auth.json`.
 
-## Auth Stub
+## Persistent Access-Code Auth
 
-This is intentionally in-memory only. `POST /api/auth/redeem` accepts any
-non-empty code and returns:
+`POST /api/auth/redeem` validates a persistent temporary code and returns:
 
 ```json
-{"token":"<random>","expires_at":"<ISO 8601 24h hence>"}
+{"token":"<random>","expires_at":"<ISO 8601>","code_expires_at":"<ISO 8601>"}
 ```
 
-The token is stored in memory and also returned as an HttpOnly localhost cookie.
-`POST /api/chat` accepts either `Authorization: Bearer <token>` or the cookie.
-Invalid or expired tokens return `401`. Tokens are lost on restart, which is
-expected for Session 4.
+Codes are stored in a local JSON file with `code`, `created_at`, `expires_at`,
+`revoked_at`, `max_redemptions`, `redemption_count`, `label`, `created_by`, and
+`notes`. Sessions are stored in the same file with `token`, `code`, `created_at`,
+`expires_at`, `revoked_at`, and `last_seen_at`. Audit events record event type,
+status, remote address, code, and token prefix only. Full session tokens are not
+written to audit events.
 
-For expiry testing, set `DEMO_SITE_TOKEN_TTL_SECONDS=1` and retry a chat request
-after the token expires.
+Generated codes and session tokens use `crypto.randomBytes`. Default code expiry
+is 24 hours and default `max_redemptions` is 1. Session expiry is the earlier of
+the code expiry and `DEMO_SITE_SESSION_TTL_HOURS` after redemption.
+
+The token is returned as JSON and also as an HttpOnly localhost cookie.
+`POST /api/chat` accepts either `Authorization: Bearer <token>` or the cookie.
+Invalid, expired, or revoked tokens return `401`.
+
+Session persistence uses Option A: sessions persist across container restart.
+This avoids disrupting a live demo if `docker compose restart demo-site` is
+needed. The trade-off is a broader persistent token surface than a hard-reset
+restart model, so revocation is written to the same JSON store immediately and
+the admin revoke endpoint never logs full token values.
+
+## Admin API
+
+All admin endpoints require `Authorization: Bearer $DEMO_SITE_ADMIN_TOKEN`. If
+the token is unset, admin endpoints return `503 admin_disabled`.
+
+Create a code:
+
+```bash
+curl -s -X POST http://127.0.0.1:56158/api/admin/codes \
+  -H "Authorization: Bearer $DEMO_SITE_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ttl_hours":24,"max_redemptions":1,"label":"Sven"}'
+```
+
+List codes:
+
+```bash
+curl -s -H "Authorization: Bearer $DEMO_SITE_ADMIN_TOKEN" \
+  http://127.0.0.1:56158/api/admin/codes
+```
+
+Revoke a code:
+
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $DEMO_SITE_ADMIN_TOKEN" \
+  http://127.0.0.1:56158/api/admin/codes/<code>/revoke
+```
+
+Optionally revoke a session by token prefix:
+
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $DEMO_SITE_ADMIN_TOKEN" \
+  http://127.0.0.1:56158/api/admin/sessions/<first-8-token-chars>/revoke
+```
+
+## Configuration
+
+- `DEMO_SITE_ADMIN_TOKEN`: enables admin endpoints.
+- `DEMO_SITE_CODE_TTL_HOURS`: default code TTL, default `24`.
+- `DEMO_SITE_SESSION_TTL_HOURS`: default session TTL, default `24`.
+- `DEMO_SITE_AUTH_STORE_PATH`: auth JSON path, default `/app/data/auth.json`.
+- `DEMO_SITE_MAX_QUERIES_PER_HOUR`: per-session rate limit, default `10`.
+- `DEMO_SITE_CHAT_TIMEOUT_MS`: gateway timeout in milliseconds, default `60000`.
 
 ## Chat Limits
 
@@ -95,18 +162,18 @@ after the token expires.
 - Streaming is not implemented in the demo UI; the UI shows a typing indicator
   until the full non-streaming response arrives.
 
-## Session 4.1 Queue
+## Remaining Queue
 
-- Persistent auth backend.
-- Admin endpoint for code generation.
-- Code rotation and expiry management.
-- Optional analytics/audit logging.
+- Optional admin UI.
+- External delivery of demo codes.
+- More detailed operational audit export.
 - Tailscale Funnel exposure after local validation.
 
 ## Known Limitations
 
 - No public deployment or Funnel configuration.
-- No persistent temp-account storage.
+- No public signup, user accounts, passwords, OAuth, email delivery, analytics,
+  or billing.
 - No OpenAI/cloud LLM integration.
 - Example questions are provisional until live gateway walkthrough validation is
   approved and completed.

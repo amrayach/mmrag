@@ -69,6 +69,8 @@ demo-site/build/
 demo-site/.venv/
 demo-site/.cache/
 demo-site/coverage/
+demo-site/data/
+demo-site/.tmp-*/
 
 # Added by code-review-graph
 .code-review-graph/

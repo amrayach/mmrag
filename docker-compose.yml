@@ -300,10 +300,17 @@ services:
       PORT: "3000"
       RAG_GATEWAY_URL: ${RAG_GATEWAY_URL:-http://rag-gateway:8000}
       DEMO_SITE_MODEL: ${DEMO_SITE_MODEL:-gemma4:26b}
+      DEMO_SITE_ADMIN_TOKEN: ${DEMO_SITE_ADMIN_TOKEN:-}
+      DEMO_SITE_AUTH_STORE_PATH: ${DEMO_SITE_AUTH_STORE_PATH:-/app/data/auth.json}
+      DEMO_SITE_CODE_TTL_HOURS: ${DEMO_SITE_CODE_TTL_HOURS:-24}
+      DEMO_SITE_SESSION_TTL_HOURS: ${DEMO_SITE_SESSION_TTL_HOURS:-24}
       DEMO_SITE_TOKEN_TTL_SECONDS: ${DEMO_SITE_TOKEN_TTL_SECONDS:-86400}
       DEMO_SITE_MAX_QUERIES_PER_HOUR: ${DEMO_SITE_MAX_QUERIES_PER_HOUR:-10}
+      DEMO_SITE_CHAT_TIMEOUT_MS: ${DEMO_SITE_CHAT_TIMEOUT_MS:-60000}
     ports:
       - "127.0.0.1:${PORT_DEMO_SITE:-56158}:3000"
+    volumes:
+      - demo_site_data:/app/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
@@ -336,3 +343,4 @@ volumes:
   openwebui_data:
   filebrowser_db:
   filebrowser_config:
+  demo_site_data:

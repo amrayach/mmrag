@@ -145,7 +145,7 @@ async function redeemCode(code) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || "Code konnte nicht eingeloest werden.");
+    throw new Error(data.message || data.error || "Code konnte nicht eingeloest werden.");
   }
   saveToken(data.token, data.expires_at);
 }
