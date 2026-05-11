@@ -1,0 +1,18 @@
+{
+  "name": "mmrag-demo-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-only demo website for the MMRAG rag-gateway.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "DEMO_SITE_MOCK_GATEWAY=true HOST=127.0.0.1 PORT=56159 node server/index.js",
+    "check": "node --check server/index.js && node --check test/server.test.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

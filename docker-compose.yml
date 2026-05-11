@@ -286,6 +286,32 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  demo-site:
+    build:
+      context: ./demo-site
+      dockerfile: Dockerfile
+    container_name: ammer_mmragv2_demo_site
+    depends_on:
+      rag-gateway:
+        condition: service_healthy
+    environment:
+      NODE_ENV: "production"
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      RAG_GATEWAY_URL: ${RAG_GATEWAY_URL:-http://rag-gateway:8000}
+      DEMO_SITE_MODEL: ${DEMO_SITE_MODEL:-gemma4:26b}
+      DEMO_SITE_TOKEN_TTL_SECONDS: ${DEMO_SITE_TOKEN_TTL_SECONDS:-86400}
+      DEMO_SITE_MAX_QUERIES_PER_HOUR: ${DEMO_SITE_MAX_QUERIES_PER_HOUR:-10}
+    ports:
+      - "127.0.0.1:${PORT_DEMO_SITE:-56158}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
   assets:
     image: nginx:1.29-alpine
     container_name: ammer_mmragv2_assets
