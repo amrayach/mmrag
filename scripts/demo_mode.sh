@@ -17,7 +17,7 @@ case "${1:-}" in
     echo ""
 
     # 1. Stop RSS ingest to free GPU for interactive queries
-    echo "1/3 Stopping rss-ingest (prevents GPU contention)..."
+    echo "1/4 Stopping rss-ingest (prevents GPU contention)..."
     docker compose stop rss-ingest
     echo "    rss-ingest stopped."
 
@@ -46,13 +46,31 @@ case "${1:-}" in
     fi
     echo ""
 
-    # 2. Pre-warm all Ollama models
-    echo "2/3 Pre-warming Ollama models..."
+    # 2. Recreate Ollama so compose GPU/resource settings are applied and
+    # stale CPU fallback runners are cleared before the demo starts.
+    echo "2/4 Recreating ollama with demo-safe GPU settings..."
+    docker compose -p ammer-mmragv2 up -d --force-recreate --no-deps ollama
+    echo "    Waiting for ollama API..."
+    for _ in $(seq 1 60); do
+      if docker compose -p ammer-mmragv2 exec -T ollama ollama list >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    if ! docker compose -p ammer-mmragv2 exec -T ollama ollama list >/dev/null 2>&1; then
+      echo "ERROR: ollama did not become ready after restart."
+      exit 1
+    fi
+    echo "    ollama ready."
+    echo ""
+
+    # 3. Pre-warm all Ollama models
+    echo "3/4 Pre-warming Ollama models..."
     bash scripts/prewarm.sh
     echo ""
 
-    # 3. Quick health verification
-    echo "3/3 Verifying core services..."
+    # 4. Quick health verification
+    echo "4/4 Verifying core services..."
     GW_OK=$(curl -sf http://127.0.0.1:56155/health 2>/dev/null && echo "ok" || echo "FAIL")
     N8N_OK=$(curl -sf http://127.0.0.1:56150/healthz 2>/dev/null && echo "ok" || echo "FAIL")
     OW_OK=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:56151 2>/dev/null || echo "000")

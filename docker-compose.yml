@@ -67,10 +67,20 @@ services:
     image: ollama/ollama:0.23.1
     container_name: ammer_mmragv2_ollama
     environment:
-      OLLAMA_NUM_PARALLEL: "3"
+      # Demo-performance mode: give one live answer the full GB10 path, keep all
+      # production models resident, and fail prewarm if Ollama falls back to CPU.
+      OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_MAX_LOADED_MODELS: "3"
-      OLLAMA_KEEP_ALIVE: "10m"
-      OLLAMA_MAX_VRAM: "68719476736"
+      OLLAMA_KEEP_ALIVE: "1h"
+      OLLAMA_CONTEXT_LENGTH: "4096"
+      OLLAMA_GPU_OVERHEAD: "0"
+      OLLAMA_KV_CACHE_TYPE: "q8_0"
+      OLLAMA_LLM_LIBRARY: "cuda_v13"
+      OLLAMA_NEW_ENGINE: "false"
+      OLLAMA_FLASH_ATTENTION: "true"
+      NVIDIA_VISIBLE_DEVICES: "all"
+      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+      CUDA_VISIBLE_DEVICES: "0"
     volumes:
       - ollama_data:/root/.ollama
     gpus: all
@@ -212,13 +222,14 @@ services:
     restart: unless-stopped
 
   openwebui:
-    image: ghcr.io/open-webui/open-webui@sha256:53a4d2fc8c7a7cc620cd18e6fe416ed9940f2db87fddf837e3aa55111bec6995
+    image: ghcr.io/open-webui/open-webui@sha256:a7e4796ae894d1e2a0c1824860ade472f35c507608a01c3581377b5c19b0ed49
     container_name: ammer_mmragv2_openwebui
     depends_on:
       rag-gateway:
         condition: service_started
     environment:
       WEBUI_NAME: "MMRAG Demo (Tailnet Only)"
+      WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY}"
     ports:
       - "127.0.0.1:${PORT_OPENWEBUI}:8080"
     volumes:

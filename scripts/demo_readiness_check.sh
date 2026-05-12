@@ -44,6 +44,59 @@ else
   fail "Ollama not responding"
 fi
 
+# ── 2b. Ollama GPU residency ─────────────────────────────────────────────
+echo "== 2b. Ollama GPU residency =="
+OLLAMA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ammer_mmragv2_ollama 2>/dev/null || true)
+if [ -n "$OLLAMA_IP" ] && PS_JSON=$(curl -sf "http://${OLLAMA_IP}:11434/api/ps" 2>/dev/null); then
+  if GPU_STATUS=$(PS_JSON="$PS_JSON" python3 - "${OLLAMA_EMBED_MODEL}" "${OLLAMA_TEXT_MODEL}" "${OLLAMA_VISION_MODEL}" <<'PY'
+import json
+import os
+import sys
+
+required = sys.argv[1:]
+models = json.loads(os.environ["PS_JSON"]).get("models", [])
+
+def aliases(name: str) -> set[str]:
+    if ":" in name:
+        return {name}
+    return {name, f"{name}:latest"}
+
+loaded = {}
+for model in models:
+    names = {model.get("name", ""), model.get("model", "")}
+    for required_name in required:
+        if names & aliases(required_name):
+            loaded[required_name] = model
+
+errors = []
+details = []
+for required_name in required:
+    model = loaded.get(required_name)
+    if not model:
+        errors.append(f"{required_name}: missing")
+        continue
+    size_vram = int(model.get("size_vram") or 0)
+    details.append(f"{model.get('name')} vram={size_vram / (1024 ** 3):.1f}GiB")
+    if size_vram <= 0:
+        errors.append(f"{required_name}: CPU fallback")
+
+if errors:
+    print("; ".join(errors))
+    if details:
+        print("Loaded: " + "; ".join(details))
+    sys.exit(1)
+
+print("; ".join(details))
+PY
+  ); then
+    pass "Required models resident on GPU: $GPU_STATUS"
+  else
+    fail "Required models are not all on GPU: $GPU_STATUS"
+  fi
+else
+  fail "Could not query Ollama /api/ps for GPU residency"
+fi
+
 # ── 3. n8n webhooks (ingestion readiness) ─────────────────────────────────
 # n8n is optional for chat since CONTEXT_MODE=direct.
 # These checks verify ingestion workflow readiness only.

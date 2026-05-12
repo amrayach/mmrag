@@ -368,15 +368,57 @@ def write_scorecard(
 def maybe_prewarm() -> None:
     script = ROOT / "scripts" / "prewarm.sh"
     if not script.exists():
-        print("[prewarm] scripts/prewarm.sh not found, skipping", file=sys.stderr)
-        return
+        raise RuntimeError("scripts/prewarm.sh not found")
     print("[prewarm] running scripts/prewarm.sh", file=sys.stderr)
     try:
         subprocess.run(["bash", str(script)], check=True, timeout=300)
     except subprocess.CalledProcessError as e:
-        print(f"[prewarm] failed: {e}", file=sys.stderr)
-    except subprocess.TimeoutExpired:
-        print("[prewarm] timed out after 300s", file=sys.stderr)
+        raise RuntimeError(f"prewarm failed: {e}") from e
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError("prewarm timed out after 300s") from e
+
+
+def collect_ollama_ps() -> dict:
+    """Return Ollama /api/ps for run evidence; never raises."""
+    try:
+        ip = subprocess.check_output(
+            [
+                "docker", "inspect", "-f",
+                "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+                "ammer_mmragv2_ollama",
+            ],
+            cwd=ROOT,
+            text=True,
+            timeout=5,
+        ).strip()
+        if not ip:
+            return {"error": "ammer_mmragv2_ollama has no container IP"}
+        r = requests.get(f"http://{ip}:11434/api/ps", timeout=5)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def assert_resident_model_on_gpu(model: str, ps: dict) -> None:
+    """Fail evals when the target model is known to be resident on CPU."""
+    if ps.get("error"):
+        raise RuntimeError(f"could not collect Ollama GPU residency: {ps['error']}")
+
+    wanted = {model}
+    if ":" not in model:
+        wanted.add(f"{model}:latest")
+
+    for item in ps.get("models", []):
+        names = {item.get("name", ""), item.get("model", "")}
+        if names & wanted:
+            if int(item.get("size_vram") or 0) <= 0:
+                raise RuntimeError(
+                    f"{model} is resident but size_vram=0; refusing CPU-fallback eval"
+                )
+            return
+
+    raise RuntimeError(f"{model} is not resident after prewarm; refusing cold/ambiguous eval")
 
 
 # ---------------------------------------------------------------------------
@@ -430,14 +472,28 @@ def main() -> int:
         return 2
 
     if args.prewarm:
-        maybe_prewarm()
+        try:
+            maybe_prewarm()
+        except RuntimeError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 2
+
+    ollama_ps_at_start = collect_ollama_ps()
+    if args.prewarm:
+        try:
+            assert_resident_model_on_gpu(model, ollama_ps_at_start)
+        except RuntimeError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 2
 
     run_dir = RUNS_DIR / run_id(args.label)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # RAG_TRACE capture: snapshot the existing trace file size before the run
     # so we can later copy only the lines appended during this run.
-    trace_path = Path(args.rag_trace_path) if args.rag_trace_path else None
+    trace_path = (
+        Path(args.rag_trace_path) if args.rag_trace_path else None
+    )
     trace_capture_enabled = bool(trace_path) and not args.no_rag_trace_capture
     trace_offset_at_start = 0
     if trace_capture_enabled and trace_path and trace_path.exists():
@@ -453,6 +509,8 @@ def main() -> int:
         "max_tokens": max_tokens,
         "repeat": args.repeat,
         "prompts_file": str(prompts_path.relative_to(ROOT)) if prompts_path.is_relative_to(ROOT) else str(prompts_path),
+        "prewarm": args.prewarm,
+        "ollama_ps_at_start": ollama_ps_at_start,
         "rag_trace_path": (
             str(trace_path.relative_to(ROOT))
             if trace_path and trace_path.is_relative_to(ROOT)

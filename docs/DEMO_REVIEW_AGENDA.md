@@ -48,14 +48,14 @@ Each prompt showcases a specific capability. Run them in order — prompts 1-4 a
 
 | # | Prompt | Capability | Expected |
 |---|--------|-----------|----------|
-| 1 | "Welche fünf strategischen Megatrends nennt TechVision AG in ihrem Jahresbericht 2025? Liste alle fünf auf." | **Deep PDF retrieval** — structured answer with page citations | 5 megatrends listed, page refs, strategy diagram image |
-| 2 | "Welche konkreten Umsatzzahlen und Wachstumsziele hat sich das Unternehmen dabei gesetzt?" | **Multi-turn intelligence** — "dabei" triggers follow-up context from P1 | 1.05-1.10 Mrd 2026, 1.5 Mrd 2028, EBIT targets |
+| 1 | "@TechVision Welche strategischen Megatrends nennt TechVision AG im Jahresbericht 2025? Liste sie vollständig auf und nenne die Seiten." | **Deep PDF retrieval** — scoped structured answer with page citations | Megatrend overview, page refs, strategy diagram image |
+| 2 | "Welche Umsatzentwicklung, Umsatzziele und EBIT-Ziele nennt der Bericht dazu? Nenne konkrete Zahlen und Jahre." | **Multi-turn intelligence** — "dazu" triggers follow-up context from P1 | 847 Mio 2025, 1.05-1.10 Mrd 2026, 1.5 Mrd 2028, EBIT targets |
 | 3 | "@TechVision Welche Nachhaltigkeitsziele und CO₂-Reduktionszahlen werden im Bericht genannt?" | **Document scoping** — @filename restricts search | 42% CO₂ reduction, 78% recycling, EcoVadis 91/100 |
-| 4 | "@TechVision Zeige mir die Produktbilder und Diagramme aus dem Bericht" | **Multimodal** — images retrieved and displayed alongside text | 3 chart images with captions (revenue, CO₂, tech stack) |
-| 5 | "Was berichten aktuelle Nachrichten über KI und Robotik in Deutschland?" | **Live news** — real RSS content with source links | Mix of seeded + real articles from spiegel, heise, tagesschau |
-| 6 | "Vergleiche TechVisions KI-Strategie aus ihrem Jahresbericht mit den aktuellen Branchentrends aus den Nachrichten. Nutze sowohl den PDF-Bericht als auch RSS-Nachrichtenquellen." | **Cross-source synthesis** — PDF + news combined | Side-by-side analysis: TechVision strategy vs. industry trends |
-| 7 | "@Nachhaltigkeit Welche Megatrends nennt Siemens in ihrem Nachhaltigkeitsbericht?" | **Multi-document** — works across different companies | Siemens megatrends from real PDF with page refs |
-| 8 | "@BMWGroup Zeige mir Bilder von BMW Fahrzeugen aus dem Geschäftsbericht" | **Real annual-report images** — image extraction from real documents | 2-3 BMW car photos with AI-generated captions |
+| 4 | "@TechVision Zeige die wichtigsten Diagramme aus dem Bericht und beschreibe jedes Bild in einem kurzen Satz." | **Multimodal** — images retrieved and displayed alongside text | Chart images with cleaned captions (revenue, CO₂, tech stack) |
+| 5 | "Was berichten aktuelle Nachrichten über KI, Robotik und industrielle Automatisierung in Deutschland? Fasse maximal vier Punkte mit Quellen zusammen." | **Live news** — real RSS content with source links | Mix of seeded + real articles from spiegel, heise, tagesschau |
+| 6 | "Vergleiche TechVisions KI-Strategie aus dem Jahresbericht mit aktuellen Nachrichten zu KI, Robotik und industrieller Automatisierung. Nutze PDF- und RSS-Quellen." | **Cross-source synthesis** — PDF + news combined | Side-by-side analysis: TechVision strategy vs. industry trends |
+| 7 | "@Nachhaltigkeit Welche konkreten Nachhaltigkeitsziele und Maßnahmen beschreibt der Siemens-Bericht? Bitte mit Quellenangaben." | **Multi-document** — works across different companies | Siemens DEGREE goals, emissions targets, DEI and compliance measures |
+| 8 | "@BMWGroup Welche Bilder oder Grafiken zeigen Fahrzeuge, Produktionsstandorte oder Personen? Beschreibe sie kurz und nenne die Seitenzahl wenn möglich." | **Real annual-report images** — image extraction from real documents | BMW image retrieval with realistic caveats, captions and PDF page metadata |
 
 **Timing note:** With `gemma4:26b` warm, the fixed eval averaged 7.0s total latency and the guided prompts typically land in the ~3-14s range. First query after idle can still be slower if models expired from memory.
 

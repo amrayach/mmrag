@@ -41,7 +41,7 @@ No host port binding for: ollama, pdf-ingest, rag-gateway (internal only).
 ## GPU Rules
 
 - Only the `ollama` container gets GPU access (`gpus: all` in compose).
-- Concurrency: `OLLAMA_NUM_PARALLEL=3`, `OLLAMA_MAX_LOADED_MODELS=3` (all 3 production models stay loaded, ~28 GB total: `gemma4:26b` ≈ 21 GB, `qwen2.5vl:7b` ≈ 6 GB, `bge-m3` ≈ 1.3 GB).
+- Demo-performance mode uses `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=3`, `OLLAMA_CONTEXT_LENGTH=4096`, `OLLAMA_KEEP_ALIVE=1h`, `OLLAMA_LLM_LIBRARY=cuda_v13`, `OLLAMA_KV_CACHE_TYPE=q8_0`, and no artificial Ollama VRAM cap. The three production models must stay loaded on GPU (`gemma4:26b`, `qwen2.5vl:7b`, `bge-m3`) without falling back to CPU/system RAM.
 - Do not run any GPU-heavy commands outside the ollama container.
 
 ## DGX Spark Server Guidelines (from admin)
@@ -110,7 +110,7 @@ The frozen spec is the baseline, but the running demo intentionally diverges in 
 - `rag-gateway` runs in `CONTEXT_MODE=direct`: it embeds queries, searches Postgres/pgvector, builds context, and streams Ollama output as OpenAI-compatible SSE.
 - Text generation now uses `gemma4:26b` on `ollama/ollama:0.23.1`. The previous `qwen2.5:7b-instruct` model is a rollback baseline, not the active default.
 - n8n Chat Brain is context-only now: Webhook -> Extract Query -> Embed -> Vector Literal -> Vector Search -> Build Context. Do not move LLM generation back into n8n.
-- Demo readiness lives at `scripts/demo_readiness_check.sh`. Run it before demos or after changes that affect containers, models, webhooks, context retrieval, streaming, demo mode, Tailscale Serve, or tailnet URLs.
+- Demo readiness lives at `scripts/demo_readiness_check.sh`. Run it before demos or after changes that affect containers, models, webhooks, context retrieval, streaming, demo mode, Tailscale Serve, or tailnet URLs. It must fail if required Ollama models are missing from GPU residency.
 
 ### Retrieval And Embeddings
 
@@ -160,6 +160,55 @@ The frozen spec is the baseline, but the running demo intentionally diverges in 
 
 - `.mcp.json`, `.claude/`, and `.codex/` are gitignored because they contain local agent wiring and credentials. A fresh clone will not be fully MCP-ready without recreating those local files.
 - `AGENTS.md` is a symlink to this file, so edits here are shared by Claude Code and Codex.
+
+## UI/UX & Frontend Quality Tools
+
+Use these tools and skills when improving the Control Center or `demo-site` frontend. The current frontend stack is intentionally lightweight:
+
+- Control Center: FastAPI backend with static HTML, CSS, and plain JavaScript under `services/controlcenter/app/static/`.
+- Demo site: dependency-free Node.js backend with static HTML, CSS, and plain JavaScript under `demo-site/frontend/`.
+- Do not introduce React, Next.js, shadcn/ui, Tailwind, Cloudflare starters, or new build tooling unless the user explicitly asks for a frontend stack migration.
+
+### Default design workflow
+
+1. Use `redesign-existing-projects` for existing UI refreshes. Preserve behavior and API contracts while removing generic dashboard/AI-site patterns.
+2. Use `ui-ux-pro-max` as a lookup layer for style, palette, typography, dashboard, chat, data table, and operational-tool recommendations before major visual changes.
+3. Use `web-design-methodology` for CSS architecture, responsive layout, accessibility, spacing systems, dark mode, and maintainable static frontend work.
+4. Use `ux-audit` and `responsiveness-check` before and after meaningful UI changes. Capture breakpoints, overflow, click friction, empty/loading/error states, and mobile sidebar behavior.
+5. Use `playwright` or `playwright-cli` for browser automation, screenshots, console errors, and interaction checks. Prefer `claude-in-chrome` MCP when an actual Chrome session, visual inspection, GIF recording, network logs, or manual dogfooding is needed.
+
+### Visual direction by surface
+
+- Control Center should feel like a serious operational console: dense but calm, readable under pressure, strong hierarchy, restrained motion, high contrast, excellent tables/forms/logs/status states, and no marketing hero sections.
+- Demo site should feel polished and credible for external reviewers: clear German-first copy where appropriate, confident brand presence, strong chat/source rendering, and visual assets that explain the multimodal RAG value without looking like generic SaaS marketing.
+- Prefer `minimalist-ui` for a quiet Linear/Notion-style refresh, `high-end-visual-design` when the demo site needs a more premium client-facing feel, and `taste-skill` when component polish, layout metrics, and interaction details are the main problem.
+- Use `impeccable` only for larger redesigns where a `PRODUCT.md`/shape brief can be created and confirmed first.
+- Use `full-output-enforcement` for long static HTML/CSS/JS rewrites to avoid truncated files or placeholder comments.
+
+### Theme, brand, and assets
+
+- Use `brandkit` to define or tighten the MMRAG visual identity before broad redesign work.
+- Use `color-palette` for accessible color scales, semantic tokens, dark-mode variants, and WCAG contrast checks.
+- Use `icon-set-generator` when project-specific SVG icons are needed; otherwise prefer existing lightweight markup and avoid adding icon libraries without a clear reason.
+- Use `favicon-gen` if the demo site or Control Center needs a complete favicon/app-icon bundle.
+- Use `image-processing` for resizing, cropping, thumbnails, WebP/JPG/PNG conversion, OG cards, and preparing demo assets.
+- Use `imagegen` or `imagegen-frontend-web` only when the demo site needs new raster hero/section imagery or visual concepts. Keep generated assets local to the project and document them.
+- Use `image-to-code-skill` only when intentionally implementing from a generated or supplied design image.
+
+### MCPs and documentation lookup
+
+- Use `context7` for current docs when touching frontend libraries or browser APIs that may have changed. If a new library is being evaluated, prefer official docs via `context7` before web search.
+- Use `21st-dev/magic` only if a React component prototype or inspiration is explicitly useful; this project does not currently use React components.
+- Use `deepwiki` only for unfamiliar GitHub UI libraries or frameworks under evaluation.
+- Use `pdfcrowd-export-pdf` only if a rendered demo page, report, or design artifact must be exported to PDF.
+
+### Tools that are not default for this project
+
+- Do not use app scaffolding skills (`tanstack-start`, `vite-flare-starter`, `cloudflare-worker-builder`, `hono-api-scaffolder`, `d1-drizzle-schema`) for normal UI improvements.
+- Do not use deployment skills (`netlify-deploy`, `cloudflare-deploy`) unless the user explicitly changes the local-only/Tailscale-only deployment model.
+- Do not use 3D/Three.js skills unless the user explicitly asks for an interactive 3D visualization.
+- Do not use `seo-local-business`; this is not a local-business marketing site.
+- Treat `brutalist-ui`, `gpt-taste`, `stitch-design-taste`, `huashu-design`, and mobile mockup/image-only skills as optional concepting tools, not implementation defaults.
 
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph

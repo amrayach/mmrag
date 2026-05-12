@@ -43,6 +43,8 @@ data/demo_snapshot*.sql
 # Eval per-prompt outputs (keep summary.json, scorecard.md, run.json, prompts.json)
 data/eval/runs/*/p[0-9]*.json
 data/eval/runs/_latest_progress.log
+backups/
+scripts/TechVision_AG_Jahresbericht_2025.pdf
 
 # RAG retrieval traces (only written when RAG_TRACE=true; large JSONL files)
 data/rag-traces/*

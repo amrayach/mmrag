@@ -494,16 +494,16 @@ meta         JSONB</pre>
     </div>
 
     <div class="overview-session-label">Session 1 &mdash; Multi-turn (P1&ndash;P4 in one chat)</div>
-    ${_promptCard(1, 'Welche f\u00fcnf strategischen Megatrends nennt TechVision AG in ihrem Jahresbericht 2025? Liste alle f\u00fcnf auf.', ['Deep PDF retrieval'], '5 megatrends listed with page refs, strategy diagram image')}
-    ${_promptCard(2, 'Welche konkreten Umsatzzahlen und Wachstumsziele hat sich das Unternehmen dabei gesetzt?', ['Multi-turn follow-up'], '"dabei" triggers context rewriting from P1. Revenue targets: 1.05\u20131.10 Mrd 2026')}
+    ${_promptCard(1, '@TechVision Welche strategischen Megatrends nennt TechVision AG im Jahresbericht 2025? Liste sie vollst\u00e4ndig auf und nenne die Seiten.', ['Deep PDF retrieval'], 'Megatrend overview with page refs, including the strategy diagram')}
+    ${_promptCard(2, 'Welche Umsatzentwicklung, Umsatzziele und EBIT-Ziele nennt der Bericht dazu? Nenne konkrete Zahlen und Jahre.', ['Multi-turn follow-up'], '"dazu" triggers context rewriting from P1. 847 Mio 2025, 1.05\u20131.10 Mrd 2026, 1.5 Mrd 2028, EBIT targets')}
     ${_promptCard(3, '@TechVision Welche Nachhaltigkeitsziele und CO\u2082-Reduktionszahlen werden im Bericht genannt?', ['Document scoping'], '@filename restricts search. 42% CO\u2082 reduction, EcoVadis 91/100')}
-    ${_promptCard(4, '@TechVision Zeige mir die Produktbilder und Diagramme aus dem Bericht', ['Multimodal images'], '3 chart images with captions (revenue, CO\u2082, tech stack)')}
+    ${_promptCard(4, '@TechVision Zeige die wichtigsten Diagramme aus dem Bericht und beschreibe jedes Bild in einem kurzen Satz.', ['Multimodal images'], 'Chart images with cleaned captions (revenue, CO\u2082, tech stack)')}
 
     <div class="overview-session-label">Session 2 &mdash; Standalone prompts (P5&ndash;P8, new chats)</div>
-    ${_promptCard(5, 'Was berichten aktuelle Nachrichten \u00fcber KI und Robotik in Deutschland?', ['Live RSS news'], 'Mix of seeded + real articles from spiegel, heise, tagesschau with source links')}
-    ${_promptCard(6, 'Vergleiche TechVisions KI-Strategie aus ihrem Jahresbericht mit den aktuellen Branchentrends aus den Nachrichten. Nutze sowohl den PDF-Bericht als auch RSS-Nachrichtenquellen.', ['Cross-source synthesis'], 'PDF + news combined. Side-by-side analysis of TechVision vs. industry trends')}
-    ${_promptCard(7, '@Nachhaltigkeit Welche Megatrends nennt Siemens in ihrem Nachhaltigkeitsbericht?', ['Structured PDF retrieval'], 'Siemens megatrends from real PDF with heading context and page refs')}
-    ${_promptCard(8, '@BMWGroup Zeige mir Bilder von BMW Fahrzeugen aus dem Gesch\u00e4ftsbericht', ['Real annual report images'], 'BMW car photos with AI-generated captions and PDF page metadata')}
+    ${_promptCard(5, 'Was berichten aktuelle Nachrichten \u00fcber KI, Robotik und industrielle Automatisierung in Deutschland? Fasse maximal vier Punkte mit Quellen zusammen.', ['Live RSS news'], 'Mix of seeded + real articles from spiegel, heise, tagesschau with source links')}
+    ${_promptCard(6, 'Vergleiche TechVisions KI-Strategie aus dem Jahresbericht mit aktuellen Nachrichten zu KI, Robotik und industrieller Automatisierung. Nutze PDF- und RSS-Quellen.', ['Cross-source synthesis'], 'PDF + news combined via source-reserved retrieval. Side-by-side analysis of TechVision vs. industry trends')}
+    ${_promptCard(7, '@Nachhaltigkeit Welche konkreten Nachhaltigkeitsziele und Ma\u00dfnahmen beschreibt der Siemens-Bericht? Bitte mit Quellenangaben.', ['Structured PDF retrieval'], 'Siemens DEGREE goals, emissions targets, DEI and compliance measures with page refs')}
+    ${_promptCard(8, '@BMWGroup Welche Bilder oder Grafiken zeigen Fahrzeuge, Produktionsstandorte oder Personen? Beschreibe sie kurz und nenne die Seitenzahl wenn m\u00f6glich.', ['Real annual report images'], 'BMW image retrieval with realistic caveats, captions and PDF page metadata')}
 
     <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.8rem">
       Warm response envelope after the gemma4:26b promotion: roughly 3\u201314 seconds in the eval set, with 7.0s average total latency. First query after idle can still be slower if models expired from memory.
