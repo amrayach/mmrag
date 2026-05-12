@@ -1,0 +1,11 @@
+{
+  "label": "command_r_35b",
+  "started_at": "2026-05-05T23:09:18+00:00",
+  "model": "command-r:35b-08-2024-q4_K_M",
+  "gateway": "http://127.0.0.1:56155",
+  "stream": true,
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "repeat": 1,
+  "prompts_file": "data/eval/prompts.json"
+}

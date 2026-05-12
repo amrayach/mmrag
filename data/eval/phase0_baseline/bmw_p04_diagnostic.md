@@ -1,6 +1,6 @@
 # Phase 0.4 — BMW p04 targeted diagnostic
 
-- **Captured at:** 2026-05-06T12:44:58+00:00
+- **Captured at:** 2026-05-11T18:40:30+00:00
 - **Resolved expected doc:** `BMWGroup_Bericht2023.pdf`
 - **All candidates from prompts.json:** ['BMWGroup_Bericht2023.pdf']
 - **doc_id:** `955cd062-4e76-59c4-a28c-c210d70c19df`
@@ -26,7 +26,7 @@
 | 36980 | 55 | text | Y |  | [] | section | 1488 | N | — | — | N | — |
 | 37032 | 69 | text | Y |  | [] | section | 1494 | N | — | — | N | — |
 | 37033 | 69 | text | Y |  | [] | section | 1169 | N | — | — | N | — |
-| 37039 | 71 | text | N | ollama_embed_failed | [] | section | 1263 | N | — | — | N | — |
+| 37039 | 71 | text | Y |  | [] | section | 1263 | N | — | — | N | — |
 | 37040 | 71 | text | Y |  | [] | section | 1488 | N | — | — | N | — |
 | 37041 | 71 | text | Y |  | [] | section | 216 | N | — | — | N | — |
 | 37047 | 71 | text | Y |  | [] | section | 1341 | N | — | — | N | — |

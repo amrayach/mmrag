@@ -1,0 +1,60 @@
+{
+  "label": "phase0_post_backfill_p04_p07_gemma4",
+  "started_at": "2026-05-06T14:21:28+00:00",
+  "model": "gemma4:26b",
+  "gateway": "http://127.0.0.1:56155",
+  "stream": false,
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "repeat": 1,
+  "prompts_file": "data/eval/prompts.json",
+  "prewarm": false,
+  "ollama_ps_at_start": {
+    "models": [
+      {
+        "name": "qwen2.5:7b-instruct",
+        "model": "qwen2.5:7b-instruct",
+        "size": 4806766592,
+        "digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "7.6B",
+          "quantization_level": "Q4_K_M"
+        },
+        "expires_at": "2026-05-06T15:21:00.637870347Z",
+        "size_vram": 4806766592,
+        "context_length": 4096
+      },
+      {
+        "name": "bge-m3:latest",
+        "model": "bge-m3:latest",
+        "size": 1209536512,
+        "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "bert",
+          "families": [
+            "bert"
+          ],
+          "parameter_size": "566.70M",
+          "quantization_level": "F16"
+        },
+        "expires_at": "2026-05-06T15:20:47.65898418Z",
+        "size_vram": 1209536512,
+        "context_length": 4096
+      }
+    ]
+  },
+  "rag_trace_path": "data/rag-traces/retrieval.jsonl",
+  "rag_trace_capture_enabled": true,
+  "rag_trace_offset_at_start": 20154,
+  "rag_trace_enabled": true,
+  "rag_trace_record_count": 2,
+  "rag_trace_run_path": "data/eval/runs/20260506_162128__phase0_post_backfill_p04_p07_gemma4/traces/retrieval.jsonl"
+}

@@ -1,0 +1,11 @@
+{
+  "label": "gemma4_31b_smoke",
+  "started_at": "2026-05-06T00:22:53+00:00",
+  "model": "gemma4:31b",
+  "gateway": "http://127.0.0.1:56155",
+  "stream": true,
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "repeat": 1,
+  "prompts_file": "data/eval/prompts.json"
+}

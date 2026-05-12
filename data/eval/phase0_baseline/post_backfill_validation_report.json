@@ -1,0 +1,338 @@
+{
+  "captured_at": "2026-05-06T14:25:59+00:00",
+  "status": "post_backfill_read_only_validation_complete",
+  "run_dir": "data/eval/runs/20260506_162128__phase0_post_backfill_p04_p07_gemma4",
+  "phase0_commit": "76938b9",
+  "backfill_outcome": {
+    "target_chunks_before_execution": 486,
+    "successful_backfills": 12,
+    "failed_backfills": 474,
+    "bmw_null_embeddings_after": 476,
+    "bmw_null_gibberish_after": 474,
+    "bmw_null_no_error_after": 2,
+    "chunk_37039_embedded": true,
+    "chunk_37039_dim": 1024
+  },
+  "extraction_quality": {
+    "sample_label_counts": {
+      "genuine_gibberish": 5
+    },
+    "distinct_pages_with_null_embeddings": 200,
+    "page_distribution_top20": [
+      {
+        "page": 143,
+        "failed_chunks": 19
+      },
+      {
+        "page": 275,
+        "failed_chunks": 19
+      },
+      {
+        "page": 274,
+        "failed_chunks": 17
+      },
+      {
+        "page": 48,
+        "failed_chunks": 14
+      },
+      {
+        "page": 128,
+        "failed_chunks": 12
+      },
+      {
+        "page": 269,
+        "failed_chunks": 12
+      },
+      {
+        "page": 139,
+        "failed_chunks": 10
+      },
+      {
+        "page": 276,
+        "failed_chunks": 9
+      },
+      {
+        "page": 281,
+        "failed_chunks": 9
+      },
+      {
+        "page": 73,
+        "failed_chunks": 6
+      },
+      {
+        "page": 99,
+        "failed_chunks": 6
+      },
+      {
+        "page": 204,
+        "failed_chunks": 6
+      },
+      {
+        "page": 46,
+        "failed_chunks": 5
+      },
+      {
+        "page": 67,
+        "failed_chunks": 5
+      },
+      {
+        "page": 71,
+        "failed_chunks": 5
+      },
+      {
+        "page": 80,
+        "failed_chunks": 5
+      },
+      {
+        "page": 257,
+        "failed_chunks": 5
+      },
+      {
+        "page": 332,
+        "failed_chunks": 5
+      },
+      {
+        "page": 18,
+        "failed_chunks": 4
+      },
+      {
+        "page": 45,
+        "failed_chunks": 4
+      }
+    ],
+    "null_no_error_chunks": [
+      {
+        "id": 38082,
+        "page": 73,
+        "chunk_type": "image",
+        "char_count": 0,
+        "preview": "",
+        "meta": {
+          "bbox": [
+            33.648,
+            95.388,
+            281.112,
+            245.172
+          ],
+          "page": 73,
+          "source": "pdf_image",
+          "extractor": "opendataloader-pdf@2.4.1",
+          "page_size": [
+            842.0399780273438,
+            595.3200073242188
+          ],
+          "bbox_order": "left,bottom,right,top",
+          "bbox_units": "pdf_points",
+          "element_id": null,
+          "element_ids": [],
+          "image_index": 0,
+          "element_type": "image",
+          "heading_path": [],
+          "image_sha256": "7546cf3e814569a2cb4eca9a75c90be268c214ead6caa9f903fbee51749bf2ad",
+          "split_strategy": "image"
+        }
+      },
+      {
+        "id": 38090,
+        "page": 115,
+        "chunk_type": "image",
+        "char_count": 0,
+        "preview": "",
+        "meta": {
+          "bbox": [
+            31.368,
+            34.068,
+            278.472,
+            204.372
+          ],
+          "page": 115,
+          "source": "pdf_image",
+          "extractor": "opendataloader-pdf@2.4.1",
+          "page_size": [
+            842.0399780273438,
+            595.3200073242188
+          ],
+          "bbox_order": "left,bottom,right,top",
+          "bbox_units": "pdf_points",
+          "element_id": null,
+          "element_ids": [],
+          "image_index": 0,
+          "element_type": "image",
+          "heading_path": [],
+          "image_sha256": "c660c66eb79684a42373cabf1abfe3cb216378a6427eb073f08f43d8985130ee",
+          "split_strategy": "image"
+        }
+      }
+    ],
+    "classification": "broad_bmw_extraction_noise",
+    "interpretation": "Failures are clustered on some layout/table-heavy pages but span many pages, indicating a broad BMW extraction/noise issue rather than one isolated page pair."
+  },
+  "p04_post_backfill": {
+    "mechanical_classification": "generation",
+    "corrected_classification": "mixed_failure",
+    "classification": "mixed_failure",
+    "classification_explanation": "The live trace's mechanical classification was generation, but the only original brand-term match in final context was chunk 36880, a table-of-contents chunk. True answer-bearing partial evidence exists in chunks 37032, 37033, 37039, 37040, 37041, and 37047, all of which are now embedded, but none of those reached retrieval candidates or final context. The corrected substantive classification is therefore mixed: ranking/evidence-quality failure for p04 plus a broader BMW extraction/noise problem shown by the remaining NULL-embedding cohort.",
+    "gold_chunks": [
+      {
+        "chunk_id": 37032,
+        "has_embedding": true,
+        "in_retrieval_candidates": false,
+        "rank_in_candidates": null,
+        "score_in_candidates": null,
+        "in_final_context": false,
+        "order_in_final_context": null,
+        "label_note": "Substantive MINI and Rolls-Royce section text; partial evidence for the brand list."
+      },
+      {
+        "chunk_id": 37033,
+        "has_embedding": true,
+        "in_retrieval_candidates": false,
+        "rank_in_candidates": null,
+        "score_in_candidates": null,
+        "in_final_context": false,
+        "order_in_final_context": null,
+        "label_note": "MINI and Rolls-Royce delivery table; partial evidence for the brand list."
+      },
+      {
+        "chunk_id": 37040,
+        "has_embedding": true,
+        "in_retrieval_candidates": false,
+        "rank_in_candidates": null,
+        "score_in_candidates": null,
+        "in_final_context": false,
+        "order_in_final_context": null,
+        "label_note": "BMW Motorrad market launches/deliveries text; partial evidence for business/brand coverage."
+      },
+      {
+        "chunk_id": 37041,
+        "has_embedding": true,
+        "in_retrieval_candidates": false,
+        "rank_in_candidates": null,
+        "score_in_candidates": null,
+        "in_final_context": false,
+        "order_in_final_context": null,
+        "label_note": "BMW motorcycle deliveries / markets table; partial evidence for the Motorrad business."
+      },
+      {
+        "chunk_id": 37047,
+        "has_embedding": true,
+        "in_retrieval_candidates": false,
+        "rank_in_candidates": null,
+        "score_in_candidates": null,
+        "in_final_context": false,
+        "order_in_final_context": null,
+        "label_note": "BMW Motorrad new-model discussion; partial evidence for the Motorrad business."
+      },
+      {
+        "chunk_id": 37039,
+        "has_embedding": true,
+        "in_retrieval_candidates": false,
+        "rank_in_candidates": null,
+        "score_in_candidates": null,
+        "in_final_context": false,
+        "order_in_final_context": null,
+        "label_note": "BMW Motorrad segment introduction; partial evidence, but embedding is NULL."
+      }
+    ],
+    "recall_metrics": {
+      "n_gold": 6,
+      "n_candidates": 8,
+      "n_final_context": 8,
+      "first_hit_rank": null,
+      "mrr": 0.0,
+      "recall@1": 0.0,
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "recall@20": 0.0,
+      "gold_chunk_reached_final_context": false
+    },
+    "answer_excerpt": "Basierend auf den bereitgestellten Dokumenten des BMW Group Berichts 2023 lassen sich folgende Informationen zu Marken, Geschäftsbereichen oder Beteiligungen entnehmen:\n\n*   **BMW Group**: Der Konzern selbst wird als übergeordnete Einheit genannt (siehe Seite 1, Seite 4 und Seite 325).\n*   **Geschäftsbereiche / Themenbereiche**: Der Bericht führt verschiedene operative und strategische Bereiche auf, darunter:\n    *   Produkte (Seite 325, Seite 37)\n    *   Produktion und Lieferantennetzwerk (Seite 325, Seite 37)\n    *   Einkauf und Lieferantennetzwerk (Seite 325)\n    *   Elektromobilität und digitalisierte Mobilität (Seite 1)\n    *   Nachhaltige Kreislaufwirtschaft (Seite 1)\n\n**Hinweis zu den Bildern:**\nDas Bild auf Seite 1 zeigt ein futuristisches Auto der BMW Group in einem grünen Park, w"
+  },
+  "p07_trace": {
+    "classification": "mixed_pdf_rss_context_no_definitive_failure_without_gold",
+    "text_candidate_count": 6,
+    "final_context_count": 6,
+    "pdf_final_count": 2,
+    "rss_final_count": 4,
+    "final_chunks": [
+      {
+        "chunk_id": 37073,
+        "doc_id": "955cd062-4e76-59c4-a28c-c210d70c19df",
+        "filename": "BMWGroup_Bericht2023.pdf",
+        "source_label": "pdf-text",
+        "page": 78,
+        "score": 0.5709,
+        "order_in_context": 0,
+        "chunk_type": "text"
+      },
+      {
+        "chunk_id": 33829,
+        "doc_id": "689f1717-914d-50d5-9bfb-ee2cee894879",
+        "filename": "Nachhaltigkeit-bei-Siemens.pdf",
+        "source_label": "pdf-text",
+        "page": 28,
+        "score": 0.5585,
+        "order_in_context": 1,
+        "chunk_type": "text"
+      },
+      {
+        "chunk_id": 25722,
+        "doc_id": "8ad49231-b856-5cc2-bfb6-41e8f5139aae",
+        "filename": "https://www.spektrum.de/kolumne/steigende-spritpreise-da-hilft-nur-noch-die-energiewende/2314677",
+        "source_label": "rss-text",
+        "page": 1,
+        "score": 0.5584,
+        "order_in_context": 2,
+        "chunk_type": "text"
+      },
+      {
+        "chunk_id": 38265,
+        "doc_id": "fbdc19b5-a0b2-53c8-be0d-4c2e9570bccd",
+        "filename": "https://www.tagesschau.de/wissen/klima/klimabilanz-regierung-merz-100.html",
+        "source_label": "rss-text",
+        "page": 1,
+        "score": 0.5512,
+        "order_in_context": 3,
+        "chunk_type": "text"
+      },
+      {
+        "chunk_id": 23524,
+        "doc_id": "f0322637-b4ac-5451-9a47-711c7f1c040a",
+        "filename": "https://www.spektrum.de/news/warum-es-auch-in-deutschland-zu-wasserknappheit-kommen-kann/2315432",
+        "source_label": "rss-text",
+        "page": 1,
+        "score": 0.551,
+        "order_in_context": 4,
+        "chunk_type": "text"
+      },
+      {
+        "chunk_id": 25337,
+        "doc_id": "921bf6ea-25af-58fe-9129-a1a11ed86828",
+        "filename": "https://www.spektrum.de/news/walstrandungen-warum-wale-stranden/2258404",
+        "source_label": "rss-text",
+        "page": 1,
+        "score": 0.5455,
+        "order_in_context": 5,
+        "chunk_type": "text"
+      }
+    ],
+    "sources_in_final_suffix": [
+      "[BMWGroup Bericht2023 — Seite 78](https://spark-e010.tail907fce.ts.net:8454/pdf/BMWGroup_Bericht2023.pdf#page=78)",
+      "[Nachhaltigkeit-bei-Siemens — Seite 28](https://spark-e010.tail907fce.ts.net:8454/pdf/Nachhaltigkeit-bei-Siemens.pdf#page=28)",
+      "[Spektrum der Wissenschaft: Energiekrise: Zurück in die Zukunft, bitte!](https://www.spektrum.de/kolumne/steigende-spritpreise-da-hilft-nur-noch-die-energiewende/2314677)",
+      "[Tagesschau: Ein Jahr Merz-Regierung: Kann Schwarz-Rot die Klimaziele ein](https://www.tagesschau.de/wissen/klima/klimabilanz-regierung-merz-100.html)",
+      "[Spektrum der Wissenschaft: Niederschlagsschwankungen: Manchmal ist Wasser zur falschen ](https://www.spektrum.de/news/warum-es-auch-in-deutschland-zu-wasserknappheit-kommen-kann/2315432)",
+      "[Spektrum der Wissenschaft: Walstrandungen: Warum Giganten auf Grund laufen](https://www.spektrum.de/news/walstrandungen-warum-wale-stranden/2258404)"
+    ],
+    "answer_excerpt": "Die deutschen Quellen behandeln das Thema Nachhaltigkeit aus verschiedenen Perspektiven, von politischen Zielen über industrielle Partnerschaften bis hin zu ökologischen Herausforderungen:\n\n*   **Politische Klimaziele und Energiewende:** Laut der *Tagesschau* hat sich die deutsche Regierung (im Kontext der Merz-Regierung) zum Ziel gesetzt, bis 2045 klimaneutral zu werden. Ein wichtiger Baustein ist der Ausbau erneuerbarer Energien auf 80 % bis 2030. Es gibt jedoch Bedenken, dass Klimaschutzprogramme die bestehenden Lücken nicht vollständig schließen könnten, was ein Verfehlen der Ziele bis 2040 zur Folge haben könnte. Die Quelle *Spektrum der Wissenschaft* ergänzt, dass die Energiewende den Ausbau von Netzen, intelligenten Netzen und Speichern erfordert, aber auch ein Problem mit der Verfü"
+  },
+  "gateway_reset": {
+    "rag_trace_expected": false,
+    "diagnostic_endpoint_expected_http": 404
+  },
+  "recommended_next_branch": {
+    "primary": "D: deterministic metadata prefixing for BMW/PDF text chunks",
+    "reason": "For p04, all six answer-bearing gold chunks are now embedded, but recall@20 and MRR remain 0.0 because none reached candidates/final context. That is ranking/evidence-quality, not generation or context packing. The 474 remaining NULL chunks are a real extraction/noise risk, but they are not the immediate p04 gold-chunk visibility blocker after 37039 was repaired.",
+    "secondary_risk": "BMW extraction/chunking cleanup remains required for the broad 474-chunk gibberish cohort before claiming BMW-wide retrieval quality."
+  }
+}

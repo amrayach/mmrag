@@ -1,0 +1,41 @@
+{
+  "label": "phase0_post_backfill_p04_p07",
+  "started_at": "2026-05-06T14:20:30+00:00",
+  "model": "qwen2.5:7b-instruct",
+  "gateway": "http://127.0.0.1:56155",
+  "stream": false,
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "repeat": 1,
+  "prompts_file": "data/eval/prompts.json",
+  "prewarm": false,
+  "ollama_ps_at_start": {
+    "models": [
+      {
+        "name": "bge-m3:latest",
+        "model": "bge-m3:latest",
+        "size": 1209536512,
+        "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "bert",
+          "families": [
+            "bert"
+          ],
+          "parameter_size": "566.70M",
+          "quantization_level": "F16"
+        },
+        "expires_at": "2026-05-06T15:18:59.953466185Z",
+        "size_vram": 1209536512,
+        "context_length": 4096
+      }
+    ]
+  },
+  "rag_trace_path": "data/rag-traces/retrieval.jsonl",
+  "rag_trace_capture_enabled": true,
+  "rag_trace_offset_at_start": 0,
+  "rag_trace_enabled": true,
+  "rag_trace_record_count": 2,
+  "rag_trace_run_path": "data/eval/runs/20260506_162030__phase0_post_backfill_p04_p07/traces/retrieval.jsonl"
+}

@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-06T12:37:39+00:00",
+  "captured_at": "2026-05-06T14:17:57+00:00",
   "phase": "0.3",
   "host": "127.0.0.1",
   "results": {
@@ -33,14 +33,14 @@
         "n": 94
       }
     ],
-    "chunks_null_embedding_total": 493,
+    "chunks_null_embedding_total": 481,
     "chunks_with_embedding_error": [
       {
-        "err": "ollama_embed_failed",
-        "n": 486
+        "err": "ValueError: empty or gibberish embedding input after ingest cleanup",
+        "n": 474
       }
     ],
-    "pdf_text_with_content_but_null_embedding": 486,
+    "pdf_text_with_content_but_null_embedding": 474,
     "image_chunks_with_asset_no_caption": 5,
     "very_short_content_total": 207,
     "very_long_content_total": 0,
@@ -49,7 +49,7 @@
     "top_filenames_missing_embedding": [
       {
         "filename": "BMWGroup_Bericht2023.pdf",
-        "n_missing": 488
+        "n_missing": 476
       },
       {
         "filename": "Nachhaltigkeit-bei-Siemens.pdf",
@@ -60,7 +60,7 @@
         "n_missing": 1
       }
     ],
-    "production_excluded_by_null_embedding": 493,
+    "production_excluded_by_null_embedding": 481,
     "very_short_text_per_filename": [
       {
         "filename": "BMWGroup_Bericht2023.pdf",
@@ -78,6 +78,6 @@
     "very_long_text_per_filename": [],
     "heading_path_coverage_pct": 10.4,
     "element_type_coverage_pct": 10.4,
-    "null_embedding_pct": 3.11
+    "null_embedding_pct": 3.04
   }
 }

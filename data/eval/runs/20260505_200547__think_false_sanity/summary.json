@@ -1,0 +1,65 @@
+{
+  "run": {
+    "label": "think_false_sanity",
+    "started_at": "2026-05-05T18:05:47+00:00",
+    "model": "qwen2.5:7b-instruct",
+    "gateway": "http://127.0.0.1:56155",
+    "stream": true,
+    "temperature": 0.2,
+    "max_tokens": 800,
+    "repeat": 1,
+    "prompts_file": "data/eval/prompts.json"
+  },
+  "num_prompts": 2,
+  "num_turns": 3,
+  "num_errors": 0,
+  "averages": {
+    "ttft_ms": 787.3333333333334,
+    "total_latency_ms": 8453.0,
+    "answer_chars": 895.6666666666666,
+    "answer_lines": 11.333333333333334,
+    "n_sources": 6.0,
+    "n_images": 1.6666666666666667
+  },
+  "rows": [
+    {
+      "prompt_id": "p01_bmw_kennzahlen",
+      "turn": 1,
+      "category": "pdf_factual_de",
+      "ttft_ms": 1176,
+      "total_latency_ms": 10952,
+      "answer_chars": 1094,
+      "answer_lines": 18,
+      "sse_events": 374,
+      "n_images": 2,
+      "n_sources": 8,
+      "error": null
+    },
+    {
+      "prompt_id": "p11_followup_deictic",
+      "turn": 1,
+      "category": "followup_de",
+      "ttft_ms": 560,
+      "total_latency_ms": 5758,
+      "answer_chars": 706,
+      "answer_lines": 9,
+      "sse_events": 201,
+      "n_images": 1,
+      "n_sources": 5,
+      "error": null
+    },
+    {
+      "prompt_id": "p11_followup_deictic",
+      "turn": 2,
+      "category": "followup_de",
+      "ttft_ms": 626,
+      "total_latency_ms": 8649,
+      "answer_chars": 887,
+      "answer_lines": 7,
+      "sse_events": 305,
+      "n_images": 2,
+      "n_sources": 5,
+      "error": null
+    }
+  ]
+}

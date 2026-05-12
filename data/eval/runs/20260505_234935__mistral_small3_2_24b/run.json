@@ -1,0 +1,11 @@
+{
+  "label": "mistral_small3_2_24b",
+  "started_at": "2026-05-05T21:49:35+00:00",
+  "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
+  "gateway": "http://127.0.0.1:56155",
+  "stream": true,
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "repeat": 1,
+  "prompts_file": "data/eval/prompts.json"
+}

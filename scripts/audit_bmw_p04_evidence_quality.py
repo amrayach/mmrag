@@ -257,23 +257,56 @@ def build_payload() -> dict[str, Any]:
     ]
     answer_bearing_final = [c for c in answer_bearing if c["in_final_context"]]
     final_matched = [c for c in labelled if c["in_final_context"]]
+    chunk_37039 = next((c for c in labelled if c["chunk_id"] == 37039), None)
+    chunk_37039_state = (
+        "embedded"
+        if chunk_37039 and chunk_37039["has_embedding"]
+        else "NULL embedding"
+    )
 
     expanded_ids = {int(c["id"]) for c in expanded}
     expanded_intersect_candidates = sorted(expanded_ids & set(cand_map))
     expanded_intersect_final = sorted(expanded_ids & set(ctx_map))
 
     classification = "mixed_failure"
-    explanation = (
-        "The live trace's mechanical classification was generation, but the "
-        "only original brand-term match in final context was chunk 36880, a "
-        "table-of-contents chunk. True answer-bearing partial evidence exists "
-        "in embedded chunks 37032, 37033, 37040, 37041, and 37047, but none "
-        "of those reached retrieval candidates or final context. Chunk 37039 "
-        "is also answer-bearing for BMW Motorrad but has a NULL embedding. "
-        "The corrected substantive classification is therefore mixed: "
-        "ranking/evidence-quality failure plus a missing-embedding component, "
-        "with extraction noise on the BMW overview pages as a secondary risk."
-    )
+    if chunk_37039 and chunk_37039["has_embedding"]:
+        explanation = (
+            "The live trace's mechanical classification was generation, but the "
+            "only original brand-term match in final context was chunk 36880, a "
+            "table-of-contents chunk. True answer-bearing partial evidence exists "
+            "in chunks 37032, 37033, 37039, 37040, 37041, and 37047, all of which "
+            "are now embedded, but none of those reached retrieval candidates or "
+            "final context. The corrected substantive classification is therefore "
+            "mixed: ranking/evidence-quality failure for p04 plus a broader BMW "
+            "extraction/noise problem shown by the remaining NULL-embedding cohort."
+        )
+        recommendation = (
+            "Do not start Phase 1 from the mechanical generation label. The "
+            "p04 answer-bearing chunks are embedded but still do not rank into "
+            "retrieval candidates, while the wider BMW NULL-embedding cohort is "
+            "mostly extraction/noise. After explicit approval, choose between "
+            "retrieval/evidence-quality work and BMW extraction cleanup based on "
+            "the post-backfill evidence and p07 trace."
+        )
+    else:
+        explanation = (
+            "The live trace's mechanical classification was generation, but the "
+            "only original brand-term match in final context was chunk 36880, a "
+            "table-of-contents chunk. True answer-bearing partial evidence exists "
+            "in embedded chunks 37032, 37033, 37040, 37041, and 37047, but none "
+            "of those reached retrieval candidates or final context. Chunk 37039 "
+            "is also answer-bearing for BMW Motorrad but has a NULL embedding. "
+            "The corrected substantive classification is therefore mixed: "
+            "ranking/evidence-quality failure plus a missing-embedding component, "
+            "with extraction noise on the BMW overview pages as a secondary risk."
+        )
+        recommendation = (
+            "Do not start Phase 1 from the mechanical generation label. After "
+            "explicit approval, first run a targeted BMW missing-embedding "
+            "backfill and re-run p04; if answer-bearing embedded chunks still "
+            "do not rank, move to retrieval/evidence-quality work such as "
+            "metadata prefixes or another approved retrieval branch."
+        )
 
     return {
         "captured_at": now_iso(),
@@ -300,6 +333,7 @@ def build_payload() -> dict[str, Any]:
         },
         "chunk_36880_answer_bearing": False,
         "chunk_37039_matters": True,
+        "chunk_37039_state": chunk_37039_state,
         "final_matched_chunks": final_matched,
         "labelled_chunks": labelled,
         "expanded_match_count": len(expanded),
@@ -327,13 +361,7 @@ def build_payload() -> dict[str, Any]:
             }
             for item in neighbors
         ],
-        "recommended_phase1_branch": (
-            "Do not start Phase 1 from the mechanical generation label. After "
-            "explicit approval, first run a targeted BMW missing-embedding "
-            "backfill and re-run p04; if answer-bearing embedded chunks still "
-            "do not rank, move to retrieval/evidence-quality work such as "
-            "metadata prefixes or another approved retrieval branch."
-        ),
+        "recommended_phase1_branch": recommendation,
     }
 
 
@@ -352,7 +380,8 @@ def render_md(payload: dict[str, Any]) -> str:
     lines.append("")
     lines.append("- **Chunk 36880 answer-bearing?** No. It is table-of-contents style evidence.")
     lines.append(
-        "- **Chunk 37039 matters?** Yes. It is BMW Motorrad evidence, but has a NULL embedding."
+        "- **Chunk 37039 matters?** Yes. It is BMW Motorrad evidence; "
+        f"current state: {payload['chunk_37039_state']}."
     )
     lines.append(
         "- **Any true answer-bearing original brand-term chunk reached final context?** "

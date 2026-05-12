@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-06T12:44:58+00:00",
+  "captured_at": "2026-05-11T18:40:30+00:00",
   "phase": "0.4",
   "p04_query": "@BMWGroup Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören.",
   "expected_doc": "BMWGroup_Bericht2023.pdf",
@@ -98,8 +98,8 @@
       "id": 37039,
       "page": 71,
       "chunk_type": "text",
-      "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "has_embedding": true,
+      "embedding_error": null,
       "heading_path": "[]",
       "element_type": "section",
       "content_chars": 1263,
@@ -330,8 +330,8 @@
       "page": 71,
       "chunk_type": "text",
       "exists_in_rag_chunks": true,
-      "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "has_embedding": true,
+      "embedding_error": null,
       "heading_path": "[]",
       "element_type": "section",
       "content_chars": 1263,
@@ -534,11 +534,11 @@
   "retrieval_skipped": false,
   "retrieval_error": null,
   "retrieval": {
-    "req_id": "diag-06a4c701",
+    "req_id": "diag-6326d3ab",
     "model_requested": "gemma4:26b",
     "trace": {
-      "req_id": "diag-06a4c701",
-      "timestamp": "2026-05-06T12:44:56.087+00:00",
+      "req_id": "diag-6326d3ab",
+      "timestamp": "2026-05-11T18:40:30.352+00:00",
       "model_requested": "gemma4:26b",
       "raw_user_query": "@BMWGroup Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören.",
       "rewritten_query": "Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören.",
@@ -574,7 +574,22 @@
           "meta_source": "pdf_text",
           "heading_path": [],
           "element_type": "section",
-          "content_preview": "4  BMW Group Bericht 2023  ���������������������� ������������������������������ ����������������� ����������������������������������� ������������������ ����������������������\n\n���������\n\n3   –   K O N Z E R N A B S C H L U S S\n\n6   –   W E I T E R E   I N F O R M A T I O N E N\n\n�� ����������������"
+          "content_preview": "4  BMW Group Bericht 2023  ���������������������� ������������������������������ ����������������� ����������������������������������� ������������������ ����������������������\n\n���������\n\n3   –   K O N Z E R N A B S C H L U S S\n\n6   –   W E I T E R E   I N F O R M A T I O N E N\n\n�� ����������������",
+          "content_length": 1469,
+          "split_strategy": "size",
+          "bbox_present": true,
+          "page_size_present": true,
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 38005,
@@ -587,7 +602,20 @@
           "meta_source": "pdf_text",
           "heading_path": [],
           "element_type": "section",
-          "content_preview": "������������\n\nNFE­INDEX\n\nPflichtangabe gemäß § 289 c­e HGB  BMW Group Bericht 2023  ���������������� ↗ Organisation und Geschäftsmodell\n\n↗ Die BMW Group Strategie  �����������������������������������\n\n↗ Die BMW Group Strategie   — ↗ Eckpfeiler der Strategie  — ↗ Leistungsindikatoren und Steuerung\n\n�"
+          "content_preview": "������������\n\nNFE­INDEX\n\nPflichtangabe gemäß § 289 c­e HGB  BMW Group Bericht 2023  ���������������� ↗ Organisation und Geschäftsmodell\n\n↗ Die BMW Group Strategie  �����������������������������������\n\n↗ Die BMW Group Strategie   — ↗ Eckpfeiler der Strategie  — ↗ Leistungsindikatoren und Steuerung\n\n�",
+          "content_length": 1202,
+          "split_strategy": "page_continuation",
+          "bbox_present": true,
+          "page_size_present": true,
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": false,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": []
         },
         {
           "chunk_id": 37968,
@@ -600,7 +628,20 @@
           "meta_source": "pdf_text",
           "heading_path": [],
           "element_type": "section",
-          "content_preview": "307  ����������������������� ���������������������� ������������������������������ ����������������� ����������������������������������� ������������������ Weitere Informationen\n\n����������������������������\n\nWEITERE GRI­INFORMATIONEN\n\nPRODUKTION, EINKAUF UND LIEFERANTENNETZWERK\n\nCO2­Bilanz der BMW "
+          "content_preview": "307  ����������������������� ���������������������� ������������������������������ ����������������� ����������������������������������� ������������������ Weitere Informationen\n\n����������������������������\n\nWEITERE GRI­INFORMATIONEN\n\nPRODUKTION, EINKAUF UND LIEFERANTENNETZWERK\n\nCO2­Bilanz der BMW ",
+          "content_length": 1012,
+          "split_strategy": "page_continuation",
+          "bbox_present": true,
+          "page_size_present": true,
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": false,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": []
         },
         {
           "chunk_id": 36755,
@@ -613,7 +654,22 @@
           "meta_source": "pdf_text",
           "heading_path": [],
           "element_type": "section",
-          "content_preview": "DRIVING THE NEXT ERA\n\nBMW GROUP BERICHT 2023\n\nAuf dem Weg zur elektrischen und digitalisierten Mobilität in einer   nachhaltigen Kreislaufwirtschaft. Bericht über die ökonomische Leistung  der BMW Group und ihren ökologischen und gesellschaftlichen Beitrag.\n\n�������������������������"
+          "content_preview": "DRIVING THE NEXT ERA\n\nBMW GROUP BERICHT 2023\n\nAuf dem Weg zur elektrischen und digitalisierten Mobilität in einer   nachhaltigen Kreislaufwirtschaft. Bericht über die ökonomische Leistung  der BMW Group und ihren ökologischen und gesellschaftlichen Beitrag.\n\n�������������������������",
+          "content_length": 284,
+          "split_strategy": "size",
+          "bbox_present": true,
+          "page_size_present": true,
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 36774,
@@ -626,7 +682,22 @@
           "meta_source": "pdf_text",
           "heading_path": [],
           "element_type": "section",
-          "content_preview": "8  ����������������������� An unsere Stakeholder  ������������������������������ ����������������� ����������������������������������� ������������������ ����������������������\n\n9  BMW Group in Zahlen\n\n12  Bericht des Aufsichtsrats\n\n20  Vorwort des Vorstandsvorsitzenden\n\n27  Der Vorstand\n\n2�  Zusamm"
+          "content_preview": "8  ����������������������� An unsere Stakeholder  ������������������������������ ����������������� ����������������������������������� ������������������ ����������������������\n\n9  BMW Group in Zahlen\n\n12  Bericht des Aufsichtsrats\n\n20  Vorwort des Vorstandsvorsitzenden\n\n27  Der Vorstand\n\n2�  Zusamm",
+          "content_length": 433,
+          "split_strategy": "size",
+          "bbox_present": true,
+          "page_size_present": true,
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 36880,
@@ -639,7 +710,20 @@
           "meta_source": "pdf_text",
           "heading_path": [],
           "element_type": "section",
-          "content_preview": "37 ����������������������� ���������������������� Zusammengefasster Lagebericht ����������������� ����������������������������������� ������������������ ���������������������� 38 Die BMW Group im Überblick 78 EU­Taxonomie 123 Prognose 126 Angemessenheit und Wirksamkeit des Internen Kontrollsystems 9"
+          "content_preview": "37 ����������������������� ���������������������� Zusammengefasster Lagebericht ����������������� ����������������������������������� ������������������ ���������������������� 38 Die BMW Group im Überblick 78 EU­Taxonomie 123 Prognose 126 Angemessenheit und Wirksamkeit des Internen Kontrollsystems 9",
+          "content_length": 1474,
+          "split_strategy": "sentence_fallback",
+          "bbox_present": true,
+          "page_size_present": true,
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": false,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": []
         }
       ],
       "candidates_image_before_selection": [
@@ -651,8 +735,26 @@
           "score": 0.8571,
           "caption_preview": "Das Bild zeigt den Inhaltsverzeichnisblatt eines BMW Group Berichts für das Jahr 2023. Es enthält eine Übersicht über verschiedene Abschnitte wie den Konzernabschluss, den Bilanz- und Vermögensbericht",
           "asset_path": "955cd062-4e76-59c4-a28c-c210d70c19df_p4_i0.jpeg",
+          "heading_path": [],
+          "element_type": "image",
           "dropped_by_image_score_min": false,
-          "dropped_by_cross_doc_id_guard": false
+          "dropped_by_cross_doc_id_guard": false,
+          "caption_length": 239,
+          "split_strategy": "image",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_image",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 38053,
@@ -662,8 +764,26 @@
           "score": 0.6463,
           "caption_preview": "Das Bild zeigt ein futuristisches Auto der BMW Group auf einer gepflasterten Straße inmitten eines grünen Parks. Der Text \"Driving the next era\" betont die fortschrittliche Technologie und den künftig",
           "asset_path": "955cd062-4e76-59c4-a28c-c210d70c19df_p1_i0.jpeg",
+          "heading_path": [],
+          "element_type": "image",
           "dropped_by_image_score_min": false,
-          "dropped_by_cross_doc_id_guard": false
+          "dropped_by_cross_doc_id_guard": false,
+          "caption_length": 235,
+          "split_strategy": "image",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_image",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         }
       ],
       "final_context_chunks": [
@@ -675,7 +795,23 @@
           "page": 4,
           "score": 0.8571,
           "order_in_context": 0,
-          "chunk_type": "image"
+          "chunk_type": "image",
+          "caption_length": 239,
+          "split_strategy": "image",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_image",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 36761,
@@ -685,7 +821,23 @@
           "page": 4,
           "score": 0.7123,
           "order_in_context": 1,
-          "chunk_type": "text"
+          "chunk_type": "text",
+          "content_length": 1469,
+          "split_strategy": "size",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_text",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 38005,
@@ -695,7 +847,21 @@
           "page": 325,
           "score": 0.7101,
           "order_in_context": 2,
-          "chunk_type": "text"
+          "chunk_type": "text",
+          "content_length": 1202,
+          "split_strategy": "page_continuation",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_text",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": false,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": []
         },
         {
           "chunk_id": 37968,
@@ -705,7 +871,21 @@
           "page": 307,
           "score": 0.6941,
           "order_in_context": 3,
-          "chunk_type": "text"
+          "chunk_type": "text",
+          "content_length": 1012,
+          "split_strategy": "page_continuation",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_text",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": false,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": []
         },
         {
           "chunk_id": 36755,
@@ -715,7 +895,23 @@
           "page": 1,
           "score": 0.6933,
           "order_in_context": 4,
-          "chunk_type": "text"
+          "chunk_type": "text",
+          "content_length": 284,
+          "split_strategy": "size",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_text",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 36774,
@@ -725,7 +921,23 @@
           "page": 8,
           "score": 0.6926,
           "order_in_context": 5,
-          "chunk_type": "text"
+          "chunk_type": "text",
+          "content_length": 433,
+          "split_strategy": "size",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_text",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         },
         {
           "chunk_id": 36880,
@@ -735,7 +947,21 @@
           "page": 37,
           "score": 0.6926,
           "order_in_context": 6,
-          "chunk_type": "text"
+          "chunk_type": "text",
+          "content_length": 1474,
+          "split_strategy": "sentence_fallback",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_text",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": false,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": []
         },
         {
           "chunk_id": 38053,
@@ -745,7 +971,23 @@
           "page": 1,
           "score": 0.6463,
           "order_in_context": 7,
-          "chunk_type": "image"
+          "chunk_type": "image",
+          "caption_length": 235,
+          "split_strategy": "image",
+          "bbox_present": true,
+          "page_size_present": true,
+          "meta_source": "pdf_image",
+          "content_type": null,
+          "is_pdf": true,
+          "is_rss": false,
+          "meta_embedding_error": null,
+          "doc_pages": 339,
+          "doc_lang": "de",
+          "front_matter_like": true,
+          "back_matter_like": false,
+          "front_or_back_matter_reason": [
+            "page_in_first_10"
+          ]
         }
       ],
       "context_char_count": 6675,
@@ -770,15 +1012,15 @@
       ],
       "timings_ms": {
         "last_user_message_extraction_ms": 0.0,
-        "followup_rewrite_and_filter_parsing_ms": 0.07,
-        "query_embedding_ms": 2551.61,
-        "vector_sql_text_ms": 214.07,
-        "vector_sql_image_ms": 14.94,
-        "vector_sql_total_ms": 229.03,
+        "followup_rewrite_and_filter_parsing_ms": 0.09,
+        "query_embedding_ms": 91.55,
+        "vector_sql_text_ms": 19.33,
+        "vector_sql_image_ms": 8.97,
+        "vector_sql_total_ms": 28.31,
         "merge_sort_fusion_ms": 0.01,
         "image_filter_and_cross_doc_guard_ms": 0.01,
-        "context_assembly_ms": 0.08,
-        "total_retrieval_before_llm_ms": 2781.05
+        "context_assembly_ms": 0.13,
+        "total_retrieval_before_llm_ms": 120.41
       }
     },
     "image_objects": [

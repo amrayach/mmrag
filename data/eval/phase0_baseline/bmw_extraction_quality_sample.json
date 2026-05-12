@@ -1,0 +1,237 @@
+{
+  "captured_at": "2026-05-06T14:17:46+00:00",
+  "doc": "BMWGroup_Bericht2023.pdf",
+  "sampling_method": "Five remaining NULL-embedding chunks from the gibberish-error cohort. IDs came from ORDER BY random() LIMIT 5, then were persisted by ID for reproducibility.",
+  "sample_ids": [
+    37068,
+    37025,
+    37190,
+    38012,
+    38028
+  ],
+  "sampled_chunks": [
+    {
+      "id": 37068,
+      "page": 77,
+      "chunk_type": "text",
+      "char_count": 1434,
+      "preview": "������������������������������������������������������������� �������������������������������������������������������� ���������������������������������������������������������������� ���������������\n\n���������������������������������������������������������� ���������������������������������������������������������������� ������������������������������������������������������������� �������������������������������������������������������������� �����������\n\n��������������������������������������������������������� �������������������������������������������������������������� ����� ���� ������������������ ���������� ���� ����� ����������������������������������\n\n���� �������� ���� �������� ������������ ���� ���������� ������ ���������������������������������������������������������� ��������������������������������������������������������� ��������������������������\n\n��������������������������������������������������������������� �������������������������������������������������������",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
+      "meta_source": "pdf_text",
+      "element_type": "section",
+      "heading_path": "[]",
+      "label": "genuine_gibberish",
+      "label_reason": "Preview is dominated by replacement characters and repeated undecodable runs; no recoverable prose or table semantics."
+    },
+    {
+      "id": 37025,
+      "page": 67,
+      "chunk_type": "text",
+      "char_count": 12,
+      "preview": "�������� ���",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
+      "meta_source": "pdf_text",
+      "element_type": "section",
+      "heading_path": "[]",
+      "label": "genuine_gibberish",
+      "label_reason": "Only 12 characters, all undecodable replacement/noise; no useful semantic content."
+    },
+    {
+      "id": 37190,
+      "page": 100,
+      "chunk_type": "text",
+      "char_count": 213,
+      "preview": "�\n\n������������������������������������������������������������������������������������������������\n\n������������������������������������������������������������������������������ ���������������������������������",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
+      "meta_source": "pdf_text",
+      "element_type": "section",
+      "heading_path": "[]",
+      "label": "genuine_gibberish",
+      "label_reason": "Short chunk dominated by replacement characters; no readable words or numbers with context."
+    },
+    {
+      "id": 38012,
+      "page": 328,
+      "chunk_type": "text",
+      "char_count": 953,
+      "preview": "������������� � ������� � �������� � �������� � �������� � ������� � �������� � ������� � ������� � ������� � ������� � ������� ������������ � �� � ����� � ����� � ����� � ����� � ����� � ����� � ����� � ����� � ����� � ����� ���������������������������� � ������� � ������� � ������� � ������� � ������ � ������ � ������ � ������ � ������ � ������ � ������ ��������������������� � ������� � ������� � ������� � ������� � ������ � ������ � ������ � ������� � ������ � ������ � ������ �������������������������������������������������� � �� � ����� � ����� � ����� � ���� � ���� � ���� � ����� � ����� � ����� � ����� �������������� � ������� � ������ � ������ � ������ � ������ � ������ � ������ � ������ � ������ � ������ � ������ ������������ � �� � ����� � ����� � ����� � ����� � ����� � ����� � ����� � ����� � ����� � ����� ����������������� � ������� � ������� � ������� � ������� � ������ � ������ � ������ � ������ � ������ � ������ � ������\n\n�",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
+      "meta_source": "pdf_text",
+      "element_type": "section",
+      "heading_path": "[]",
+      "label": "genuine_gibberish",
+      "label_reason": "Looks like a table extraction fragment, but all labels/cells are replacement-character noise and repeated separators; not meaningfully embeddable."
+    },
+    {
+      "id": 38028,
+      "page": 332,
+      "chunk_type": "text",
+      "char_count": 1227,
+      "preview": "���������������������������������������������������������� ����������������������������������������������������������� ����������������������������������������������������������������� ��������� ���� ���������� ���������������� ������������������ ��������������\n\n���������������������������������������������������������� ��������������������������������������������������������������\n\n�������������������������������������������������������������� ������������������������������������������������������������� ����������������������������������������������������������� ������������������������������������������������������������� ��������������������������������������������������������������� ���� �������� ������������ ������������ ������������������ ���� ������������������������������������������������������������� ����������������������������������������������������������� ����������������������� ���� ����������� ���� ������ �������� ������ ���������� ���� �������� �������������� ��������",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
+      "meta_source": "pdf_text",
+      "element_type": "section",
+      "heading_path": "[]",
+      "label": "genuine_gibberish",
+      "label_reason": "Long chunk dominated by replacement-character runs and repeated filler; no stable answer-bearing text."
+    }
+  ],
+  "label_counts": {
+    "genuine_gibberish": 5
+  },
+  "page_distribution_top20": [
+    {
+      "page": 143,
+      "failed_chunks": 19
+    },
+    {
+      "page": 275,
+      "failed_chunks": 19
+    },
+    {
+      "page": 274,
+      "failed_chunks": 17
+    },
+    {
+      "page": 48,
+      "failed_chunks": 14
+    },
+    {
+      "page": 128,
+      "failed_chunks": 12
+    },
+    {
+      "page": 269,
+      "failed_chunks": 12
+    },
+    {
+      "page": 139,
+      "failed_chunks": 10
+    },
+    {
+      "page": 276,
+      "failed_chunks": 9
+    },
+    {
+      "page": 281,
+      "failed_chunks": 9
+    },
+    {
+      "page": 73,
+      "failed_chunks": 6
+    },
+    {
+      "page": 99,
+      "failed_chunks": 6
+    },
+    {
+      "page": 204,
+      "failed_chunks": 6
+    },
+    {
+      "page": 46,
+      "failed_chunks": 5
+    },
+    {
+      "page": 67,
+      "failed_chunks": 5
+    },
+    {
+      "page": 71,
+      "failed_chunks": 5
+    },
+    {
+      "page": 80,
+      "failed_chunks": 5
+    },
+    {
+      "page": 257,
+      "failed_chunks": 5
+    },
+    {
+      "page": 332,
+      "failed_chunks": 5
+    },
+    {
+      "page": 18,
+      "failed_chunks": 4
+    },
+    {
+      "page": 45,
+      "failed_chunks": 4
+    }
+  ],
+  "distribution_summary": {
+    "bmw_null_embeddings": 476,
+    "bmw_null_with_gibberish_error": 474,
+    "distinct_pages_with_null_embeddings": 200,
+    "min_page_with_null_embedding": 6,
+    "max_page_with_null_embedding": 333,
+    "interpretation": "Failures are clustered on some layout/table-heavy pages but span many pages, indicating a broad BMW extraction/noise issue rather than one isolated page pair."
+  },
+  "null_no_error_chunks": [
+    {
+      "id": 38082,
+      "page": 73,
+      "chunk_type": "image",
+      "char_count": 0,
+      "preview": "",
+      "meta": {
+        "bbox": [
+          33.648,
+          95.388,
+          281.112,
+          245.172
+        ],
+        "page": 73,
+        "source": "pdf_image",
+        "extractor": "opendataloader-pdf@2.4.1",
+        "page_size": [
+          842.0399780273438,
+          595.3200073242188
+        ],
+        "bbox_order": "left,bottom,right,top",
+        "bbox_units": "pdf_points",
+        "element_id": null,
+        "element_ids": [],
+        "image_index": 0,
+        "element_type": "image",
+        "heading_path": [],
+        "image_sha256": "7546cf3e814569a2cb4eca9a75c90be268c214ead6caa9f903fbee51749bf2ad",
+        "split_strategy": "image"
+      }
+    },
+    {
+      "id": 38090,
+      "page": 115,
+      "chunk_type": "image",
+      "char_count": 0,
+      "preview": "",
+      "meta": {
+        "bbox": [
+          31.368,
+          34.068,
+          278.472,
+          204.372
+        ],
+        "page": 115,
+        "source": "pdf_image",
+        "extractor": "opendataloader-pdf@2.4.1",
+        "page_size": [
+          842.0399780273438,
+          595.3200073242188
+        ],
+        "bbox_order": "left,bottom,right,top",
+        "bbox_units": "pdf_points",
+        "element_id": null,
+        "element_ids": [],
+        "image_index": 0,
+        "element_type": "image",
+        "heading_path": [],
+        "image_sha256": "c660c66eb79684a42373cabf1abfe3cb216378a6427eb073f08f43d8985130ee",
+        "split_strategy": "image"
+      }
+    }
+  ],
+  "null_no_error_interpretation": "Both no-error NULL rows are pdf_image chunks with empty content_text and no caption text; they are not part of the BMW text backfill target and likely need image-caption/backfill handling, not text embedding cleanup."
+}

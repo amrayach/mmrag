@@ -1,13 +1,13 @@
 # Phase 0.3 — RAG index integrity report
 
-- **Captured at:** 2026-05-06T12:37:39+00:00
+- **Captured at:** 2026-05-06T14:17:57+00:00
 - **Connection:** TCP host=127.0.0.1
 
 ## Totals
 
 - **Documents:** 4,098
 - **Chunks:** 15,845
-- **Chunks with NULL embedding:** 493 (3.11% — production silently excludes these via `WHERE embedding IS NOT NULL`)
+- **Chunks with NULL embedding:** 481 (3.04% — production silently excludes these via `WHERE embedding IS NOT NULL`)
 - **Chunks with `meta.embedding_error`:** see breakdown below
 
 ## Chunks by chunk_type
@@ -30,11 +30,11 @@
 
 | embedding_error | n |
 |---|---|
-| ollama_embed_failed | 486 |
+| ValueError: empty or gibberish embedding input after ingest cleanup | 474 |
 
 ## Cohort: PDF text chunks, content_text non-empty, embedding NULL
 
-- **Count:** 486
+- **Count:** 474
 
 ## Cohort: image chunks with asset_path but empty caption
 
@@ -66,11 +66,11 @@ _(no rows)_
 
 | filename | n_missing |
 |---|---|
-| BMWGroup_Bericht2023.pdf | 488 |
+| BMWGroup_Bericht2023.pdf | 476 |
 | Nachhaltigkeit-bei-Siemens.pdf | 4 |
 | Siemens-Annual-Report-2024.pdf | 1 |
 
 ## Production-visibility gap
 
 rag-gateway's vector search uses `WHERE embedding IS NOT NULL` so any chunk with a NULL embedding is silently excluded from retrieval. The table above reports those by filename, and the count is mirrored here:
-- **Chunks excluded from retrieval (NULL embedding):** 493
+- **Chunks excluded from retrieval (NULL embedding):** 481

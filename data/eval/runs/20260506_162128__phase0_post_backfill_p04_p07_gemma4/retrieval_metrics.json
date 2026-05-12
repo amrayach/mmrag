@@ -1,0 +1,57 @@
+{
+  "run_dir": "data/eval/runs/20260506_162128__phase0_post_backfill_p04_p07_gemma4",
+  "gold_path": "data/eval/gold_chunks.phase0.json",
+  "prompts_total": 7,
+  "prompts_with_gold": 1,
+  "prompts_mapped": 1,
+  "per_prompt": {
+    "p01": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p02": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p03": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p04": {
+      "status": "computed",
+      "gold_ids": [
+        37032,
+        37033,
+        37040,
+        37041,
+        37047,
+        37039
+      ],
+      "trace_req_id": "eecf5cb7c802",
+      "metrics": {
+        "n_gold": 6,
+        "n_candidates": 8,
+        "n_final_context": 8,
+        "first_hit_rank": null,
+        "mrr": 0.0,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "recall@20": 0.0,
+        "gold_chunk_reached_final_context": false
+      }
+    },
+    "p05": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p06": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p07": {
+      "status": "no_gold",
+      "gold_ids": []
+    }
+  }
+}

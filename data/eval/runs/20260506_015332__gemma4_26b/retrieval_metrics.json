@@ -1,0 +1,45 @@
+{
+  "run_dir": "data/eval/runs/20260506_015332__gemma4_26b",
+  "gold_path": "data/eval/gold_chunks.phase0.json",
+  "prompts_total": 7,
+  "prompts_with_gold": 1,
+  "prompts_mapped": 0,
+  "per_prompt": {
+    "p01": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p02": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p03": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p04": {
+      "status": "unmapped",
+      "gold_ids": [
+        37032,
+        37033,
+        37040,
+        37041,
+        37047,
+        37039
+      ],
+      "reason": "no trace record matched this prompt's query"
+    },
+    "p05": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p06": {
+      "status": "no_gold",
+      "gold_ids": []
+    },
+    "p07": {
+      "status": "no_gold",
+      "gold_ids": []
+    }
+  }
+}

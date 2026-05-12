@@ -1,0 +1,112 @@
+{
+  "captured_at": "2026-05-06T13:58:00+00:00",
+  "status": "stopped_after_backfill_anomaly",
+  "target_count_before": 486,
+  "execute_results": {
+    "ok": 12,
+    "failed": 474,
+    "skipped": 0
+  },
+  "bmw_counts_after": {
+    "bmw_null": 476,
+    "bmw_null_ollama_failed": 0,
+    "bmw_null_gibberish": 474,
+    "bmw_null_no_error": 2
+  },
+  "successful_target_chunks": [
+    {
+      "id": 37019,
+      "page": 67,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1498
+    },
+    {
+      "id": 37039,
+      "page": 71,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1263
+    },
+    {
+      "id": 37211,
+      "page": 106,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1316
+    },
+    {
+      "id": 37276,
+      "page": 120,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1494
+    },
+    {
+      "id": 37277,
+      "page": 120,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 211
+    },
+    {
+      "id": 37328,
+      "page": 131,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1438
+    },
+    {
+      "id": 37562,
+      "page": 189,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1438
+    },
+    {
+      "id": 37596,
+      "page": 202,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 814
+    },
+    {
+      "id": 37721,
+      "page": 247,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 841
+    },
+    {
+      "id": 37990,
+      "page": 317,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1077
+    },
+    {
+      "id": 37991,
+      "page": 318,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1473
+    },
+    {
+      "id": 38045,
+      "page": 336,
+      "dim": 1024,
+      "error_state": null,
+      "chars": 1351
+    }
+  ],
+  "chunk_37039": {
+    "id": 37039,
+    "page": 71,
+    "has_embedding": true,
+    "dim": 1024,
+    "error_state": null,
+    "preview": "SEGMENT MOTORRÄDER\n\nBMW Motorrad mit Absatzbestwert im Jubiläumsjahr ���������������������������������������������������������� �������������������������������������������������������������� ���������"
+  },
+  "stop_reason": "474 of 486 target chunks failed ingest-cleanup validation; live traced p04/p07 diagnostics were not run.",
+  "failure_interpretation": "Original ollama_embed_failed was replaced for 474 chunks by ValueError: empty or gibberish embedding input after ingest cleanup, indicating extraction/noise quality rather than transient Ollama availability for most failed BMW chunks."
+}

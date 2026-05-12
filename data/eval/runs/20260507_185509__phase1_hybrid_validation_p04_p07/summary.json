@@ -1,0 +1,105 @@
+{
+  "run": {
+    "label": "phase1_hybrid_validation_p04_p07",
+    "started_at": "2026-05-07T16:55:09+00:00",
+    "model": "gemma4:26b",
+    "gateway": "http://127.0.0.1:56155",
+    "stream": true,
+    "temperature": 0.2,
+    "max_tokens": 800,
+    "repeat": 1,
+    "prompts_file": "data/eval/prompts.json",
+    "prewarm": false,
+    "ollama_ps_at_start": {
+      "models": [
+        {
+          "name": "bge-m3:latest",
+          "model": "bge-m3:latest",
+          "size": 1209536512,
+          "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "bert",
+            "families": [
+              "bert"
+            ],
+            "parameter_size": "566.70M",
+            "quantization_level": "F16"
+          },
+          "expires_at": "2026-05-07T17:50:27.870136914Z",
+          "size_vram": 1209536512,
+          "context_length": 4096
+        },
+        {
+          "name": "gemma4:26b",
+          "model": "gemma4:26b",
+          "size": 19311149056,
+          "digest": "5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "gemma4",
+            "families": [
+              "gemma4"
+            ],
+            "parameter_size": "25.8B",
+            "quantization_level": "Q4_K_M"
+          },
+          "expires_at": "2026-05-07T17:48:53.320542301Z",
+          "size_vram": 19311149056,
+          "context_length": 4096
+        }
+      ]
+    },
+    "rag_trace_path": "data/rag-traces/retrieval.jsonl",
+    "rag_trace_capture_enabled": true,
+    "rag_trace_offset_at_start": 482909,
+    "rag_trace_enabled": true,
+    "rag_trace_record_count": 2,
+    "rag_trace_run_path": "data/eval/runs/20260507_185509__phase1_hybrid_validation_p04_p07/traces/retrieval.jsonl"
+  },
+  "num_prompts": 2,
+  "num_turns": 2,
+  "num_errors": 0,
+  "rag_trace_enabled": true,
+  "rag_trace_path": "data/rag-traces/retrieval.jsonl",
+  "rag_trace_captured_path": "data/eval/runs/20260507_185509__phase1_hybrid_validation_p04_p07/traces/retrieval.jsonl",
+  "trace_record_count": 2,
+  "averages": {
+    "ttft_ms": 1371.5,
+    "total_latency_ms": 7246.5,
+    "answer_chars": 1266.0,
+    "answer_lines": 9.5,
+    "n_sources": 6.0,
+    "n_images": 1.0
+  },
+  "rows": [
+    {
+      "prompt_id": "p04_bmw_list_completeness",
+      "turn": 1,
+      "category": "pdf_list_completeness",
+      "ttft_ms": 1268,
+      "total_latency_ms": 3193,
+      "answer_chars": 348,
+      "answer_lines": 5,
+      "sse_events": 101,
+      "n_images": 2,
+      "n_sources": 6,
+      "error": null
+    },
+    {
+      "prompt_id": "p07_no_filter_german",
+      "turn": 1,
+      "category": "no_filter_de",
+      "ttft_ms": 1475,
+      "total_latency_ms": 11300,
+      "answer_chars": 2184,
+      "answer_lines": 14,
+      "sse_events": 524,
+      "n_images": 0,
+      "n_sources": 6,
+      "error": null
+    }
+  ]
+}

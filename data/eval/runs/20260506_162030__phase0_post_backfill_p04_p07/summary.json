@@ -1,0 +1,86 @@
+{
+  "run": {
+    "label": "phase0_post_backfill_p04_p07",
+    "started_at": "2026-05-06T14:20:30+00:00",
+    "model": "qwen2.5:7b-instruct",
+    "gateway": "http://127.0.0.1:56155",
+    "stream": false,
+    "temperature": 0.2,
+    "max_tokens": 800,
+    "repeat": 1,
+    "prompts_file": "data/eval/prompts.json",
+    "prewarm": false,
+    "ollama_ps_at_start": {
+      "models": [
+        {
+          "name": "bge-m3:latest",
+          "model": "bge-m3:latest",
+          "size": 1209536512,
+          "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "bert",
+            "families": [
+              "bert"
+            ],
+            "parameter_size": "566.70M",
+            "quantization_level": "F16"
+          },
+          "expires_at": "2026-05-06T15:18:59.953466185Z",
+          "size_vram": 1209536512,
+          "context_length": 4096
+        }
+      ]
+    },
+    "rag_trace_path": "data/rag-traces/retrieval.jsonl",
+    "rag_trace_capture_enabled": true,
+    "rag_trace_offset_at_start": 0,
+    "rag_trace_enabled": true,
+    "rag_trace_record_count": 2,
+    "rag_trace_run_path": "data/eval/runs/20260506_162030__phase0_post_backfill_p04_p07/traces/retrieval.jsonl"
+  },
+  "num_prompts": 2,
+  "num_turns": 2,
+  "num_errors": 0,
+  "rag_trace_enabled": true,
+  "rag_trace_path": "data/rag-traces/retrieval.jsonl",
+  "rag_trace_captured_path": "data/eval/runs/20260506_162030__phase0_post_backfill_p04_p07/traces/retrieval.jsonl",
+  "trace_record_count": 2,
+  "averages": {
+    "ttft_ms": null,
+    "total_latency_ms": 15214.5,
+    "answer_chars": 1586.0,
+    "answer_lines": 12.0,
+    "n_sources": 6.0,
+    "n_images": 1.0
+  },
+  "rows": [
+    {
+      "prompt_id": "p04_bmw_list_completeness",
+      "turn": 1,
+      "category": "pdf_list_completeness",
+      "ttft_ms": null,
+      "total_latency_ms": 15575,
+      "answer_chars": 1611,
+      "answer_lines": 15,
+      "sse_events": 0,
+      "n_images": 2,
+      "n_sources": 6,
+      "error": null
+    },
+    {
+      "prompt_id": "p07_no_filter_german",
+      "turn": 1,
+      "category": "no_filter_de",
+      "ttft_ms": null,
+      "total_latency_ms": 14854,
+      "answer_chars": 1561,
+      "answer_lines": 9,
+      "sse_events": 0,
+      "n_images": 0,
+      "n_sources": 6,
+      "error": null
+    }
+  ]
+}

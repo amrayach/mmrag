@@ -1,12 +1,12 @@
 {
-  "captured_at": "2026-05-06T12:56:22+00:00",
+  "captured_at": "2026-05-07T16:46:29+00:00",
   "phase": "0 evidence-quality audit",
   "source_diagnostic": "data/eval/phase0_baseline/bmw_p04_diagnostic.json",
   "p04_query": "@BMWGroup Liste alle Marken, Geschäftsbereiche oder Beteiligungen auf, die im BMW Group Bericht 2023 erwähnt werden. Bitte vollständige Liste, nicht nach 3 Punkten aufhören.",
   "doc_id": "955cd062-4e76-59c4-a28c-c210d70c19df",
   "mechanical_classification": "generation",
   "corrected_classification": "mixed_failure",
-  "classification_explanation": "The live trace's mechanical classification was generation, but the only original brand-term match in final context was chunk 36880, a table-of-contents chunk. True answer-bearing partial evidence exists in embedded chunks 37032, 37033, 37040, 37041, and 37047, but none of those reached retrieval candidates or final context. Chunk 37039 is also answer-bearing for BMW Motorrad but has a NULL embedding. The corrected substantive classification is therefore mixed: ranking/evidence-quality failure plus a missing-embedding component, with extraction noise on the BMW overview pages as a secondary risk.",
+  "classification_explanation": "The live trace's mechanical classification was generation, but the only original brand-term match in final context was chunk 36880, a table-of-contents chunk. True answer-bearing partial evidence exists in chunks 37032, 37033, 37039, 37040, 37041, and 37047, all of which are now embedded, but none of those reached retrieval candidates or final context. The corrected substantive classification is therefore mixed: ranking/evidence-quality failure for p04 plus a broader BMW extraction/noise problem shown by the remaining NULL-embedding cohort.",
   "expanded_terms": [
     "Konzernmarken",
     "Markenportfolio",
@@ -33,15 +33,14 @@
   },
   "answer_bearing_summary": {
     "total": 6,
-    "embedded": 5,
+    "embedded": 6,
     "in_retrieval_candidates": 0,
     "in_final_context": 0,
-    "null_embedding_chunk_ids": [
-      37039
-    ]
+    "null_embedding_chunk_ids": []
   },
   "chunk_36880_answer_bearing": false,
   "chunk_37039_matters": true,
+  "chunk_37039_state": "embedded",
   "final_matched_chunks": [
     {
       "chunk_id": 36880,
@@ -177,8 +176,8 @@
       "chunk_id": 37039,
       "page": 71,
       "chunk_type": "text",
-      "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "has_embedding": true,
+      "embedding_error": null,
       "content_chars": 1263,
       "label": "answer_bearing",
       "label_note": "BMW Motorrad segment introduction; partial evidence, but embedding is NULL.",
@@ -592,8 +591,8 @@
       "id": 37039,
       "page": 71,
       "chunk_type": "text",
-      "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "has_embedding": true,
+      "embedding_error": null,
       "content_chars": 1263,
       "preview": "SEGMENT MOTORRÄDER BMW Motorrad mit Absatzbestwert im Jubiläumsjahr ���������������������������������������������������������� �������������������������������������������������������������� �������������������������������������������������������������� �������",
       "in_retrieval_candidates": false,
@@ -790,7 +789,7 @@
       "page": 37,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 235,
       "preview": "����������������� ��� ���������������������������������������������������������� ���� ���������������������������������������������������� ��� ����������������� ���� ���������������������������������� ��� ������������������������������"
     },
@@ -826,7 +825,7 @@
       "page": 38,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 739,
       "preview": "������������������������������������������������������������� ����������������������������������������������������������� ����� �������� ���� ���� ������ �������� ������ ���� ���� ��� ���������������������������������������������������������������� �����������"
     },
@@ -844,7 +843,7 @@
       "page": 38,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 161,
       "preview": "� � � �������������������������������������������������������� ��������������������������������������������������������������� ���������������������������������"
     },
@@ -925,7 +924,7 @@
       "page": 66,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 1,
       "preview": "�"
     },
@@ -997,7 +996,7 @@
       "page": 69,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 40,
       "preview": "� � � � �������������������������������"
     },
@@ -1042,7 +1041,7 @@
       "page": 70,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 1413,
       "preview": "���������������������������������������������������������� ������ ������ �������� ����� ������ ���� ���������� ������� ����������������������������������������������������������� �������������������������������������������������������������� ������������������"
     },
@@ -1051,7 +1050,7 @@
       "page": 70,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 1443,
       "preview": "������������������������������������������������������������ ������������������������������������������������������������� �������������������������������������������������������������� ������������������������������������������ �������������������������������"
     },
@@ -1068,8 +1067,8 @@
       "id": 37039,
       "page": 71,
       "chunk_type": "text",
-      "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "has_embedding": true,
+      "embedding_error": null,
       "content_chars": 1263,
       "preview": "SEGMENT MOTORRÄDER BMW Motorrad mit Absatzbestwert im Jubiläumsjahr ���������������������������������������������������������� �������������������������������������������������������������� �������������������������������������������������������������� �������"
     },
@@ -1096,7 +1095,7 @@
       "page": 71,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 16,
       "preview": "����������� ����"
     },
@@ -1105,7 +1104,7 @@
       "page": 71,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 15,
       "preview": "���������� ����"
     },
@@ -1114,7 +1113,7 @@
       "page": 71,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 11,
       "preview": "������� ���"
     },
@@ -1123,7 +1122,7 @@
       "page": 71,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 22,
       "preview": "�������� ���� ��� ���"
     },
@@ -1132,7 +1131,7 @@
       "page": 71,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 13,
       "preview": "��������� ���"
     },
@@ -1195,10 +1194,10 @@
       "page": 72,
       "chunk_type": "text",
       "has_embedding": false,
-      "embedding_error": "ollama_embed_failed",
+      "embedding_error": "ValueError: empty or gibberish embedding input after ingest cleanup",
       "content_chars": 147,
       "preview": "���������������������������������������������������������������������������������������������� ����������������������������������������������������"
     }
   ],
-  "recommended_phase1_branch": "Do not start Phase 1 from the mechanical generation label. After explicit approval, first run a targeted BMW missing-embedding backfill and re-run p04; if answer-bearing embedded chunks still do not rank, move to retrieval/evidence-quality work such as metadata prefixes or another approved retrieval branch."
+  "recommended_phase1_branch": "Do not start Phase 1 from the mechanical generation label. The p04 answer-bearing chunks are embedded but still do not rank into retrieval candidates, while the wider BMW NULL-embedding cohort is mostly extraction/noise. After explicit approval, choose between retrieval/evidence-quality work and BMW extraction cleanup based on the post-backfill evidence and p07 trace."
 }
