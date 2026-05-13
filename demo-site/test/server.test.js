@@ -87,6 +87,20 @@ async function assertRedeemOk(baseUrl, code) {
   return result.data;
 }
 
+function jsonResponse(body, status = 200, headers = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    }
+  });
+}
+
+function parseFetchBody(options) {
+  return options.body ? JSON.parse(options.body) : null;
+}
+
 test("parseAssistantContent separates Quellen links", () => {
   const parsed = parseAssistantContent(
     "Antwort\n\nQuellen:\n- [RSS: Titel](https://example.test/a)\n- Seite 3"
@@ -232,6 +246,188 @@ test("chat without a token returns 401", async () => {
       body: JSON.stringify({ message: "Hallo" })
     });
     assert.equal(response.status, 401);
+  } finally {
+    await appContext.cleanup();
+  }
+});
+
+test("OpenWebUI start returns 503 when hybrid mode is disabled", async () => {
+  let openWebuiCalls = 0;
+  const appContext = await startApp({}, {
+    fetchImpl: async () => {
+      openWebuiCalls += 1;
+      return jsonResponse({});
+    }
+  });
+  try {
+    const created = await adminCreateCode(appContext.baseUrl);
+    const session = await assertRedeemOk(appContext.baseUrl, created.code);
+    const response = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    const data = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(data.error, "openwebui_disabled");
+    assert.equal(openWebuiCalls, 0);
+  } finally {
+    await appContext.cleanup();
+  }
+});
+
+test("OpenWebUI start without a demo session returns 401", async () => {
+  let openWebuiCalls = 0;
+  const appContext = await startApp(
+    { openWebuiEnabled: true },
+    {
+      fetchImpl: async () => {
+        openWebuiCalls += 1;
+        return jsonResponse({});
+      }
+    }
+  );
+  try {
+    const response = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST"
+    });
+    const data = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(data.error, "invalid_or_expired_session");
+    assert.equal(openWebuiCalls, 0);
+  } finally {
+    await appContext.cleanup();
+  }
+});
+
+test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({
+      url: String(url),
+      method: options.method,
+      headers: options.headers,
+      body: parseFetchBody(options)
+    });
+    if (String(url).endsWith("/api/v1/auths/signin") && calls.length === 1) {
+      return jsonResponse({ token: "admin-jwt" });
+    }
+    if (String(url).endsWith("/api/v1/auths/add")) {
+      return jsonResponse({ id: "reviewer-id" });
+    }
+    return jsonResponse(
+      { token: "reviewer-jwt" },
+      200,
+      { "set-cookie": "token=reviewer-cookie; Path=/; HttpOnly; SameSite=Lax" }
+    );
+  };
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: "http://openwebui.test/",
+      openWebuiAdminEmail: "admin@mmrag.invalid",
+      openWebuiAdminPassword: "admin-pass"
+    },
+    { fetchImpl }
+  );
+
+  try {
+    const created = await adminCreateCode(appContext.baseUrl);
+    const session = await assertRedeemOk(appContext.baseUrl, created.code);
+    const prefix = session.token.slice(0, 8);
+    const reviewerEmail = `demo-${prefix}@mmrag.invalid`;
+    const reviewerName = `Demo Reviewer ${prefix}`;
+
+    const response = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(data, { ok: true, redirect: "/" });
+    assert.match(response.headers.get("set-cookie"), /token=reviewer-cookie/);
+    assert.equal(calls.length, 3);
+
+    assert.equal(calls[0].url, "http://openwebui.test/api/v1/auths/signin");
+    assert.equal(calls[0].method, "POST");
+    assert.equal(calls[0].headers["X-Demo-Email"], "admin@mmrag.invalid");
+    assert.equal(calls[0].headers["X-Demo-Name"], "Demo Admin");
+    assert.deepEqual(calls[0].body, {
+      email: "admin@mmrag.invalid",
+      password: "admin-pass"
+    });
+
+    assert.equal(calls[1].url, "http://openwebui.test/api/v1/auths/add");
+    assert.equal(calls[1].headers.authorization, "Bearer admin-jwt");
+    assert.equal(calls[1].body.name, reviewerName);
+    assert.equal(calls[1].body.email, reviewerEmail);
+    assert.equal(calls[1].body.role, "user");
+    assert.equal(typeof calls[1].body.password, "string");
+    assert.ok(calls[1].body.password.length >= 20);
+    assert.equal(calls[1].body.password.includes(prefix), false);
+
+    assert.equal(calls[2].url, "http://openwebui.test/api/v1/auths/signin");
+    assert.equal(calls[2].headers["X-Demo-Email"], reviewerEmail);
+    assert.equal(calls[2].headers["X-Demo-Name"], reviewerName);
+    assert.deepEqual(calls[2].body, {
+      email: reviewerEmail,
+      password: ""
+    });
+    assert.equal(JSON.stringify(calls).includes(session.token), false);
+    assert.equal(JSON.stringify(calls).includes(session.token.slice(8)), false);
+  } finally {
+    await appContext.cleanup();
+  }
+});
+
+test("OpenWebUI duplicate reviewer creation still bootstraps session", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({
+      url: String(url),
+      method: options.method,
+      headers: options.headers,
+      body: parseFetchBody(options)
+    });
+    if (String(url).endsWith("/api/v1/auths/signin") && calls.length === 1) {
+      return jsonResponse({ token: "admin-jwt" });
+    }
+    if (String(url).endsWith("/api/v1/auths/add")) {
+      return jsonResponse(
+        {
+          detail:
+            "Uh-oh! This email is already registered. Sign in with your existing account or choose another email to start anew."
+        },
+        400
+      );
+    }
+    return jsonResponse(
+      { token: "reviewer-jwt" },
+      200,
+      { "set-cookie": "token=reviewer-cookie; Path=/; HttpOnly" }
+    );
+  };
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: "http://openwebui.test",
+      openWebuiAdminEmail: "admin@mmrag.invalid",
+      openWebuiAdminPassword: "admin-pass"
+    },
+    { fetchImpl }
+  );
+
+  try {
+    const created = await adminCreateCode(appContext.baseUrl);
+    const session = await assertRedeemOk(appContext.baseUrl, created.code);
+    const response = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.deepEqual(data, { ok: true, redirect: "/" });
+    assert.equal(calls.length, 3);
   } finally {
     await appContext.cleanup();
   }

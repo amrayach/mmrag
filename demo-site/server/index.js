@@ -47,6 +47,13 @@ function stripTrailingSlash(value) {
   return String(value || "").replace(/\/+$/, "");
 }
 
+function envString(overrides, key, envName, fallback = "") {
+  if (Object.prototype.hasOwnProperty.call(overrides, key)) {
+    return String(overrides[key] || "");
+  }
+  return String(process.env[envName] || fallback);
+}
+
 function hoursToMs(hours) {
   return Math.max(0.000001, Number(hours) || 1) * 60 * 60 * 1000;
 }
@@ -83,6 +90,21 @@ function createConfig(overrides = {}) {
       overrides.maxQueriesPerHour || intFromEnv("DEMO_SITE_MAX_QUERIES_PER_HOUR", 10, 1, 100),
     maxTokensCap: overrides.maxTokensCap || 800,
     chatTimeoutMs: overrides.chatTimeoutMs || intFromEnv("DEMO_SITE_CHAT_TIMEOUT_MS", 60_000, 1_000, 300_000),
+    openWebuiEnabled:
+      typeof overrides.openWebuiEnabled === "boolean"
+        ? overrides.openWebuiEnabled
+        : envFlag(process.env.DEMO_SITE_OPENWEBUI_ENABLED),
+    openWebuiUrl:
+      stripTrailingSlash(envString(overrides, "openWebuiUrl", "OPENWEBUI_URL", "http://openwebui:8080")) ||
+      "http://openwebui:8080",
+    openWebuiAdminEmail: envString(overrides, "openWebuiAdminEmail", "OPENWEBUI_ADMIN_EMAIL", ""),
+    openWebuiAdminPassword: envString(overrides, "openWebuiAdminPassword", "OPENWEBUI_ADMIN_PASSWORD", ""),
+    openWebuiTrustedEmailHeader:
+      envString(overrides, "openWebuiTrustedEmailHeader", "OPENWEBUI_TRUSTED_EMAIL_HEADER", "X-Demo-Email") ||
+      "X-Demo-Email",
+    openWebuiTrustedNameHeader:
+      envString(overrides, "openWebuiTrustedNameHeader", "OPENWEBUI_TRUSTED_NAME_HEADER", "X-Demo-Name") ||
+      "X-Demo-Name",
     mockGateway:
       typeof overrides.mockGateway === "boolean"
         ? overrides.mockGateway
@@ -144,6 +166,15 @@ function nowIso() {
 
 function tokenPrefix(token) {
   return String(token || "").slice(0, 8);
+}
+
+function reviewerIdentity(session) {
+  const prefix = tokenPrefix(session?.token);
+  return {
+    token_prefix: prefix,
+    email: `demo-${prefix}@mmrag.invalid`,
+    name: `Demo Reviewer ${prefix}`
+  };
 }
 
 function remoteAddress(req) {
@@ -473,6 +504,152 @@ function tokenFromRequest(req) {
 async function getSession(req, authStore) {
   const token = tokenFromRequest(req);
   return authStore.validateSession(token, req);
+}
+
+function trustedHeaders(config, identity) {
+  return {
+    [config.openWebuiTrustedEmailHeader]: identity.email,
+    [config.openWebuiTrustedNameHeader]: identity.name
+  };
+}
+
+async function openWebuiResponseBody(response) {
+  const text = await response.text().catch(() => "");
+  if (!text.trim()) {
+    return { text, json: null };
+  }
+  try {
+    return { text, json: JSON.parse(text) };
+  } catch {
+    return { text, json: null };
+  }
+}
+
+function responseSetCookies(response) {
+  if (typeof response.headers.getSetCookie === "function") {
+    return response.headers.getSetCookie();
+  }
+  const cookie = response.headers.get("set-cookie");
+  return cookie ? [cookie] : [];
+}
+
+function openWebuiError(message, statusCode = 502) {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  return err;
+}
+
+function isOpenWebuiDuplicateUser(response, body) {
+  const detail = String(body.json?.detail || body.json?.message || body.text || "");
+  return response.status === 400 && detail.includes("This email is already registered");
+}
+
+async function openWebuiAdminSignin(config, fetchImpl) {
+  const adminIdentity = {
+    email: config.openWebuiAdminEmail,
+    name: "Demo Admin"
+  };
+  const response = await fetchImpl(`${config.openWebuiUrl}/api/v1/auths/signin`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...trustedHeaders(config, adminIdentity)
+    },
+    body: JSON.stringify({
+      email: config.openWebuiAdminEmail,
+      password: config.openWebuiAdminPassword
+    })
+  });
+  const body = await openWebuiResponseBody(response);
+  if (!response.ok) {
+    throw openWebuiError(`openwebui_admin_signin_${response.status}`);
+  }
+  const token = body.json?.token || body.json?.access_token;
+  if (!token) {
+    throw openWebuiError("openwebui_admin_token_missing");
+  }
+  return token;
+}
+
+async function openWebuiEnsureReviewer(config, fetchImpl, identity) {
+  if (!config.openWebuiAdminEmail || !config.openWebuiAdminPassword) {
+    return { skipped: true };
+  }
+
+  const adminToken = await openWebuiAdminSignin(config, fetchImpl);
+  const throwawayPassword = crypto.randomBytes(24).toString("base64url");
+  const response = await fetchImpl(`${config.openWebuiUrl}/api/v1/auths/add`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      name: identity.name,
+      email: identity.email,
+      password: throwawayPassword,
+      role: "user"
+    })
+  });
+  const body = await openWebuiResponseBody(response);
+  if (response.ok || isOpenWebuiDuplicateUser(response, body)) {
+    return { skipped: false };
+  }
+  throw openWebuiError(`openwebui_add_user_${response.status}`);
+}
+
+async function openWebuiReviewerSignin(config, fetchImpl, identity) {
+  const response = await fetchImpl(`${config.openWebuiUrl}/api/v1/auths/signin`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...trustedHeaders(config, identity)
+    },
+    body: JSON.stringify({
+      email: identity.email,
+      password: ""
+    })
+  });
+  await openWebuiResponseBody(response);
+  if (!response.ok) {
+    throw openWebuiError(`openwebui_reviewer_signin_${response.status}`);
+  }
+  return { cookies: responseSetCookies(response) };
+}
+
+async function handleOpenWebuiStart(req, res, app) {
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "method_not_allowed" });
+    return true;
+  }
+
+  const auth = await getSession(req, app.authStore);
+  if (auth.status !== "ok") {
+    sendJson(res, 401, { error: "invalid_or_expired_session" });
+    return true;
+  }
+
+  if (!app.config.openWebuiEnabled) {
+    sendJson(res, 503, {
+      error: "openwebui_disabled",
+      message: "OpenWebUI ist fuer diese Demo nicht aktiviert."
+    });
+    return true;
+  }
+
+  const identity = reviewerIdentity(auth.session);
+  try {
+    await openWebuiEnsureReviewer(app.config, app.fetchImpl, identity);
+    const signin = await openWebuiReviewerSignin(app.config, app.fetchImpl, identity);
+    const headers = signin.cookies.length > 0 ? { "set-cookie": signin.cookies } : {};
+    sendJson(res, 200, { ok: true, redirect: "/" }, headers);
+  } catch {
+    sendJson(res, 502, {
+      error: "openwebui_bootstrap_failed",
+      message: "OpenWebUI konnte nicht gestartet werden."
+    });
+  }
+  return true;
 }
 
 function checkRateLimit(session, config, now = Date.now()) {
@@ -817,6 +994,13 @@ async function handleRequest(req, res, app) {
       { "set-cookie": cookieHeader(result.token, maxAgeSeconds) }
     );
     return;
+  }
+
+  if (url.pathname === "/api/openwebui/start") {
+    const handled = await handleOpenWebuiStart(req, res, app);
+    if (handled) {
+      return;
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/chat") {
