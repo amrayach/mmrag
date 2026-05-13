@@ -17,6 +17,7 @@ const App = {
     timeline:      { render: Pages.timeline,       title: 'Timeline' },
     docs:          { render: Pages.docs,           title: 'Docs' },
     system:        { render: Pages.system,         title: 'System' },
+    demo_access:   { render: Pages.demo_access,    title: 'Demo-Zugang' },
   },
 
   init() {
