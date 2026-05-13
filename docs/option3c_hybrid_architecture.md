@@ -107,6 +107,12 @@ Running the check writes the usual `data/eval/demo_health` output and, when the
 admin token is present, short-lived demo-site auth-store records. It does not
 change containers, ports, models, volumes, Tailscale state, or public exposure.
 
+The check gates Ollama text-model GPU residency before `rag_query`. If
+`gemma4:26b` is loaded on CPU, it fails fast with a recovery hint instead of
+waiting for the p01 RAG query to time out. Before S6, warm the demo models and
+confirm `docker compose -p ammer-mmragv2 exec -T ollama ollama ps` reports
+`gemma4:26b` as `100% GPU`.
+
 ## Public Exposure Rules
 
 The default project rule remains Tailscale Serve only, no Funnel.

@@ -92,6 +92,19 @@ Rollback for hybrid mode: set `DEMO_SITE_OPENWEBUI_ENABLED=false`, restart the a
 
 ### Optional S5 Hybrid Local Check
 
+Before any S6/public exposure attempt, verify the Ollama text model is resident
+on GPU. If `ollama ps` shows `gemma4:26b` as `100% CPU`, recover with:
+
+```bash
+docker compose -p ammer-mmragv2 restart ollama
+docker compose -p ammer-mmragv2 exec -T ollama ollama run gemma4:26b "Antworte mit genau einem Wort: bereit"
+docker compose -p ammer-mmragv2 exec -T ollama ollama ps
+```
+
+Continue only when `gemma4:26b` is `100% GPU`. The health check now fails before
+`rag_query` if the text model is missing from GPU residency, so CPU fallback does
+not appear as a misleading retrieval timeout.
+
 After the stack is already running and the operator approves runtime auth-store
 writes, run the optional local hybrid check:
 

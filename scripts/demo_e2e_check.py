@@ -1117,8 +1117,9 @@ def check_ollama_text_model_gpu_placement(model: str, timeout: float) -> CheckRe
     start = time.perf_counter()
     require_gpu = env_bool("DEMO_HEALTH_REQUIRE_TEXT_GPU", True)
     recovery_hint = (
-        "Recovery: docker compose restart ollama; wait 20s; send one warm-up "
-        "request; docker compose exec ollama ollama ps"
+        "Recovery: docker compose -p ammer-mmragv2 restart ollama; send one "
+        "warm-up request; docker compose -p ammer-mmragv2 exec -T ollama ollama ps; "
+        "rerun health check"
     )
     json_cp = run_cmd(
         ["docker", "compose", "exec", "-T", "ollama", "ollama", "ps", "--format", "json"],
@@ -1178,8 +1179,8 @@ def check_ollama_text_model_gpu_placement(model: str, timeout: float) -> CheckRe
         loaded_names = [row.get("name") for row in rows if row.get("name")]
         details["loaded_model_names"] = loaded_names
         details["message"] = (
-            f"text model {model} is not currently loaded after rag_query; "
-            "rag_query should have loaded it, so re-run after a warm-up request if Ollama evicted it between checks"
+            f"Ollama text model {model} is not currently loaded; warm the model "
+            "before demo exposure and rerun health check"
         )
         status = "WARN" if not require_gpu else "FAIL"
         required = require_gpu
@@ -1202,7 +1203,12 @@ def check_ollama_text_model_gpu_placement(model: str, timeout: float) -> CheckRe
         )
         return result("WARN", False, start, details, details["message"])
 
-    if gpu_percent is None:
+    if gpu_percent == 0:
+        details["message"] = (
+            f"Ollama text model {model} is on CPU; restart ollama and rerun health check. "
+            f"{recovery_hint}"
+        )
+    elif gpu_percent is None:
         details["message"] = f"text model {model} processor is {processor}; unable to parse GPU percentage"
     else:
         details["message"] = f"text model {model} processor is {processor}; {recovery_hint}"
@@ -1415,14 +1421,14 @@ def main() -> int:
             if add("health_endpoints", check_health_endpoints(gateway_url, timeout, env)):
                 if add("ollama_models", check_ollama_models(model, timeout)):
                     if add("embedding_spot_check", check_embedding_spot(timeout)):
-                        if add("trace_dir_writable", check_trace_dir()):
-                            if add("rag_query", check_rag_query(gateway_url, model, golden, timeout)):
-                                if (not hybrid_check_enabled) or add(
-                                    "demo_site_hybrid_flow",
-                                    check_demo_site_hybrid_flow(gateway_url, model, timeout, env),
-                                ):
-                                    add("ollama_text_model_gpu_placement", check_ollama_text_model_gpu_placement(model, timeout))
-                                    add("recent_ingest", check_recent_ingest(timeout, env))
+                        if add("ollama_text_model_gpu_placement", check_ollama_text_model_gpu_placement(model, timeout)):
+                            if add("trace_dir_writable", check_trace_dir()):
+                                if add("rag_query", check_rag_query(gateway_url, model, golden, timeout)):
+                                    if (not hybrid_check_enabled) or add(
+                                        "demo_site_hybrid_flow",
+                                        check_demo_site_hybrid_flow(gateway_url, model, timeout, env),
+                                    ):
+                                        add("recent_ingest", check_recent_ingest(timeout, env))
 
     status = "FAIL" if failed_check else "PASS"
     timestamp = ts.isoformat(timespec="seconds")
