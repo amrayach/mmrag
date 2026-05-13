@@ -38,12 +38,12 @@ cp .env.example .env
 - Default login: `admin` / `admin`
 - **Change the password immediately** (Settings > Users)
 
-## 4) Configure Reverse Proxy or Tailscale Serve
+## 4) Configure Reverse Proxy, Tailscale Serve, or Approved Hybrid Funnel
 
-All services bind to `127.0.0.1` only. To access from other machines, set up a reverse proxy or Tailscale Serve:
+All host ports bind to `127.0.0.1` only. To access from other machines on the tailnet, set up a reverse proxy or Tailscale Serve. These commands change system state and require explicit operator approval before execution.
 
 ```bash
-# Example with Tailscale Serve (adjust ports as needed):
+# Tailnet-only Tailscale Serve example for standard internal operation:
 tailscale serve --bg --https=8450 http://127.0.0.1:56150   # n8n
 tailscale serve --bg --https=8451 http://127.0.0.1:56151   # OpenWebUI
 tailscale serve --bg --https=8452 http://127.0.0.1:56152   # FileBrowser
@@ -51,6 +51,8 @@ tailscale serve --bg --https=8453 http://127.0.0.1:56153   # Adminer
 tailscale serve --bg --https=8454 http://127.0.0.1:56157   # Assets
 tailscale serve --bg --https=8455 http://127.0.0.1:56156   # Control Center
 ```
+
+**Option 3C hybrid demo mode:** the default rule remains Serve-only/no Funnel. The approved exception allows Funnel only for the hybrid public demo, only after explicit operator approval, and only for demo-site. Do not expose OpenWebUI directly in hybrid mode; remove any direct OpenWebUI Serve/Funnel rule first. The S6/operator step must expose demo-site as the public root and verify the URL from off-tailnet.
 
 **Client prerequisites:** Tailscale must be running and connected on the accessing device. Verify with `tailscale status`.
 
@@ -75,12 +77,18 @@ curl -k https://spark-e010.tail907fce.ts.net:8450   # Test directly
 # macOS DNS cache flush: sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
 ```
 
+For hybrid mode, also confirm that direct OpenWebUI exposure is absent and that the demo-site root is the only public entrypoint.
+
 ## 5) OpenWebUI Provider
 
 In OpenWebUI Admin panel:
 - Add an OpenAI-compatible provider:
   - Base URL: `http://rag-gateway:8000/v1`
   - API key: any non-empty string (e.g. `sk-dummy`)
+
+For Option 3C hybrid mode, OpenWebUI authentication is configured through trusted headers but still requires a session cookie. demo-site performs the `/api/openwebui/start` bootstrap by validating `demo_session`, pre-creating the reviewer user when admin credentials are configured, signing in with trusted headers, and relaying OpenWebUI `Set-Cookie` headers to the browser. Header-only requests do not authenticate.
+
+Rollback for hybrid mode: set `DEMO_SITE_OPENWEBUI_ENABLED=false`, restart the affected service after approval, and use the classic demo-site chat (`/classic`) backed by the existing `/api/chat` endpoint.
 
 ## 6) OpenWebUI Welcome Banner & Starter Questions
 

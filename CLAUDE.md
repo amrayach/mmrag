@@ -11,7 +11,8 @@
 
 - **DO NOT** stop, modify, restart, or inspect containers/stacks/volumes that don't belong to this project.
 - **DO NOT** bind any port to `0.0.0.0`. All host port bindings must use `127.0.0.1` only.
-- **DO NOT** expose anything publicly. Tailscale Serve only (not Funnel).
+- **DO NOT** expose anything publicly by default. Tailscale Serve only (not Funnel), except the explicitly approved Option 3C hybrid demo mode documented in `docs/option3c_hybrid_architecture.md`.
+- For Option 3C hybrid demo mode, Funnel may expose **demo-site only** after explicit operator approval. Never expose OpenWebUI directly through Serve or Funnel in hybrid mode.
 - **DO NOT** install system packages with `apt` or modify anything outside the project directory.
 - **DO NOT** run `docker system prune`, `docker volume prune`, or any broad cleanup commands.
 - **ASK before executing** any command that changes system state (docker compose up, docker compose down, tailscale serve, chown, etc.). Show me the command and wait for confirmation.
@@ -111,6 +112,15 @@ The frozen spec is the baseline, but the running demo intentionally diverges in 
 - Text generation now uses `gemma4:26b` on `ollama/ollama:0.23.1`. The previous `qwen2.5:7b-instruct` model is a rollback baseline, not the active default.
 - n8n Chat Brain is context-only now: Webhook -> Extract Query -> Embed -> Vector Literal -> Vector Search -> Build Context. Do not move LLM generation back into n8n.
 - Demo readiness lives at `scripts/demo_readiness_check.sh`. Run it before demos or after changes that affect containers, models, webhooks, context retrieval, streaming, demo mode, Tailscale Serve, or tailnet URLs. It must fail if required Ollama models are missing from GPU residency.
+
+### Option 3C Hybrid Demo Access
+
+- Option 3C is configured but disabled by default with `DEMO_SITE_OPENWEBUI_ENABLED=false`.
+- In hybrid mode, demo-site is the only public/root entrypoint. It validates the demo session, performs OpenWebUI session bootstrap at `/api/openwebui/start`, and root-mux proxies authenticated non-reserved paths to OpenWebUI.
+- OpenWebUI trusted-header auth requires a signed-in OpenWebUI session cookie after `/api/v1/auths/signin`; header-only requests are not authenticated. Duplicate `/api/v1/auths/add` responses with HTTP 400 and already-registered detail are treated as success by the planned admin pre-creation flow.
+- OpenWebUI must not be exposed directly with Tailscale Serve or Funnel in hybrid mode. Any existing direct OpenWebUI Serve/Funnel rule must be removed before exposing demo-site.
+- The approved Funnel exception applies only to hybrid demo mode, only after explicit operator approval, and only for demo-site. SSE-through-Funnel remains an unresolved validation item until S6/off-tailnet testing proves incremental streaming.
+- Rollback path: set `DEMO_SITE_OPENWEBUI_ENABLED=false`, restart the affected service after approval, and use the classic demo-site chat flow (`/classic` and existing `/api/chat`).
 
 ### Retrieval And Embeddings
 

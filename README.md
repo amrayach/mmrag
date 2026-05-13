@@ -6,7 +6,7 @@ A self-hosted, GPU-accelerated **Retrieval-Augmented Generation** pipeline that 
 
 ```
 Chat flow (streaming):
-  OpenWebUI → rag-gateway (OpenAI SSE)
+  demo-site access gate/root-mux → OpenWebUI → rag-gateway (OpenAI SSE)
     → PostgreSQL/pgvector (direct vector search)
     → Ollama (streaming LLM)
     → OpenWebUI (token-by-token)
@@ -19,7 +19,7 @@ Ingestion flows:
   RSS feeds → rss-ingest (scheduled) → PostgreSQL/pgvector + assets/ (nginx)
 ```
 
-### Services (11 containers)
+### Services (12 containers)
 
 | Service | Description |
 |---------|-------------|
@@ -30,6 +30,7 @@ Ingestion flows:
 | **pdf-ingest** | PDF processing: OpenDataLoader layout extraction, image captioning, embedding generation |
 | **rss-ingest** | RSS feed ingestion: article scraping, image captioning, embedding generation |
 | **openwebui** | Chat UI frontend |
+| **demo-site** | Access-code gate, classic chat fallback, and Option 3C root-mux entrypoint |
 | **filebrowser** | Web-based file manager for PDF uploads |
 | **adminer** | Database admin UI |
 | **controlcenter** | Project dashboard, readiness checks, ingestion controls, docs browser |
@@ -114,6 +115,20 @@ make demo-start   # Stops rss-ingest, pre-warms models, shows dashboard
 make demo-stop    # Restarts rss-ingest
 ```
 
+### Option 3C Hybrid Demo Access
+
+Option 3C keeps demo-site as the access-code gate and lets authenticated reviewers launch OpenWebUI through `/api/openwebui/start`. demo-site owns the root reverse proxy in hybrid mode, so OpenWebUI continues to run behind the Docker network and is not exposed directly.
+
+Hybrid mode is disabled by default:
+
+```bash
+DEMO_SITE_OPENWEBUI_ENABLED=false
+```
+
+When enabled, demo-site bootstraps an OpenWebUI session because trusted headers alone do not authenticate OpenWebUI requests; the browser must receive the OpenWebUI session cookie from the signin response. The classic demo-site chat remains the rollback path at `/classic` using the existing `/api/chat` endpoint.
+
+Public exposure remains Tailscale Serve-only by default. The only approved Funnel exception is for hybrid demo mode after explicit operator approval, and it must expose demo-site only. Remove any direct OpenWebUI Tailscale Serve/Funnel rule before using hybrid mode. See [docs/option3c_hybrid_architecture.md](docs/option3c_hybrid_architecture.md).
+
 ### Reset demo data
 
 ```bash
@@ -137,7 +152,7 @@ All ports bind to `127.0.0.1` only (not publicly exposed).
 | 56156 | Control Center |
 | 56157 | Assets (nginx + gallery) |
 
-Use a reverse proxy or Tailscale Serve to expose services on your network.
+Use a reverse proxy or Tailscale Serve to expose services on your tailnet. For Option 3C hybrid public-demo mode, expose demo-site only and keep OpenWebUI private behind the root-mux proxy.
 
 ## Project Structure
 

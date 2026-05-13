@@ -4,6 +4,8 @@
 **Date:** 2026-05-06
 **Authors:** drafted in collaboration with Claude Code
 
+> **Superseded access note:** Option 3C hybrid demo access replaces the direct-OpenWebUI public exposure described in this early feasibility report. Funnel, when explicitly approved for the hybrid demo, must expose demo-site only. Direct OpenWebUI Tailscale Serve/Funnel exposure must be removed in hybrid mode. See `docs/option3c_hybrid_architecture.md`.
+
 ---
 
 ## Context
@@ -39,10 +41,10 @@ Confirmed during initial discussion:
 
 Two viable paths:
 
-**A. Tailscale Funnel** *(recommended for simplicity)*
-- One command exposes OpenWebUI: `tailscale funnel 56151`
+**A. Tailscale Funnel** *(historical recommendation; superseded by Option 3C)*
+- The original idea was to expose OpenWebUI directly. Option 3C changes this: expose demo-site only and keep OpenWebUI private behind demo-site's root-mux proxy.
 - Public URL: `https://<dgx-host>.<tailnet>.ts.net`, port 443, Tailscale-managed Let's Encrypt cert (auto-renewing)
-- **Only OpenWebUI is exposed.** n8n, Postgres, Adminer, FileBrowser remain tailnet-only.
+- **Only demo-site is exposed in Option 3C.** OpenWebUI, n8n, Postgres, Adminer, FileBrowser, and internal services remain private.
 - Reversible (`tailscale funnel reset`); Tailscale logs every connection (source IP + timestamp) for audit.
 
 **B. Cloudflare Tunnel + Cloudflare Access** *(more setup, better access control)*
@@ -51,9 +53,9 @@ Two viable paths:
 
 **Recommendation:** Funnel for this demo. Move to Cloudflare later if we want to keep public access running between demos.
 
-**Risk surface either way:** OpenWebUI's login is the only barrier between the public URL and the demo data. Mitigations:
-- Disable OpenWebUI public signup; admin pre-creates accounts only.
-- Strong per-account passwords on a printed handout, rotated after the demo.
+**Risk surface either way:** demo-site's access-code gate and OpenWebUI's session are the barriers between the public URL and the demo data. Mitigations for Option 3C:
+- Keep OpenWebUI private and reachable only through demo-site's authenticated root-mux proxy.
+- Pre-create per-session OpenWebUI users via the admin API.
 - Funnel disabled immediately after the session.
 
 ### 2. Temporary user accounts
@@ -118,7 +120,7 @@ The DGX is sized for one heavy local generation at a time (~5–30s per Gemma re
 
 - The CLAUDE.md hard rule "Tailscale Serve only (not Funnel)" — boss's exception is **demo-specific**. Funnel must be disabled immediately after the demo, and the rule remains in force for any non-demo work.
 - Once Funnel is enabled, the Tailscale hostname enters the public TLS cert log (crt.sh) — assume it's discoverable by scrapers within hours of going live.
-- DGX is shared infrastructure: any public exposure also sits next to other tenants' services. We're only exposing 56151 (OpenWebUI), but worth pinging the DGX admin before flipping the switch.
+- DGX is shared infrastructure: any public exposure also sits next to other tenants' services. Option 3C exposes demo-site only; still ping the DGX admin before flipping the switch.
 - `rag-gateway` already speaks OpenAI-compatible streaming SSE, so adding an OpenAI upstream is routing config, not protocol work. Look at `services/rag-gateway/app/main.py` and `context.py` for the existing Ollama call paths.
 - OpenAI key: store in `.env` (already gitignored), never in `docker-compose.yml`. Set the budget cap on the OpenAI dashboard side as a **hard** limit (not a soft alert).
 - Cleanup script for demo accounts should also wipe uploaded files in OpenWebUI's data volume — they persist across login sessions otherwise.
