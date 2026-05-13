@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
+const http = require("node:http");
 const path = require("node:path");
 const test = require("node:test");
 const { createApp, parseAssistantContent } = require("../server/index.js");
@@ -21,6 +22,44 @@ async function close(server) {
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+}
+
+function readStubBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+async function startOpenWebuiStub(handler) {
+  const calls = [];
+  const server = http.createServer((req, res) => {
+    Promise.resolve()
+      .then(async () => {
+        const call = {
+          method: req.method,
+          url: req.url,
+          headers: req.headers,
+          body: await readStubBody(req)
+        };
+        calls.push(call);
+        await handler(req, res, calls, call);
+      })
+      .catch((error) => {
+        if (!res.headersSent) {
+          res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+        }
+        res.end(error.message);
+      });
+  });
+  const baseUrl = await listen(server);
+  return {
+    baseUrl,
+    calls,
+    cleanup: () => close(server)
+  };
 }
 
 async function tempStorePath() {
@@ -85,6 +124,15 @@ async function assertRedeemOk(baseUrl, code) {
   const result = await redeem(baseUrl, code);
   assert.equal(result.response.status, 200);
   return result.data;
+}
+
+async function createSession(baseUrl) {
+  const created = await adminCreateCode(baseUrl);
+  return assertRedeemOk(baseUrl, created.code);
+}
+
+function sessionCookie(token) {
+  return `demo_session=${encodeURIComponent(token)}`;
 }
 
 function jsonResponse(body, status = 200, headers = {}) {
@@ -430,6 +478,292 @@ test("OpenWebUI duplicate reviewer creation still bootstraps session", async () 
     assert.equal(calls.length, 3);
   } finally {
     await appContext.cleanup();
+  }
+});
+
+test("hybrid disabled root serves demo-site UI without proxying", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: false,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const response = await fetch(`${appContext.baseUrl}/`);
+    const text = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(text, /MMRAG Demo/);
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid enabled root without a session serves demo-site UI without proxying", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const response = await fetch(`${appContext.baseUrl}/`);
+    const text = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(text, /MMRAG Demo/);
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid enabled root with a valid session proxies to OpenWebUI with reviewer headers", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(201, {
+      "content-type": "text/plain; charset=utf-8",
+      "x-openwebui-stub": "root"
+    });
+    res.end("proxied root");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const prefix = session.token.slice(0, 8);
+    const response = await fetch(`${appContext.baseUrl}/`, {
+      headers: { cookie: sessionCookie(session.token) }
+    });
+    const text = await response.text();
+
+    assert.equal(response.status, 201);
+    assert.equal(response.headers.get("x-openwebui-stub"), "root");
+    assert.equal(text, "proxied root");
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].method, "GET");
+    assert.equal(upstream.calls[0].url, "/");
+    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers["x-demo-name"], `Demo Reviewer ${prefix}`);
+    assert.equal(upstream.calls[0].headers.cookie, undefined);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid proxy strips incoming X-Demo spoof headers and preserves request details", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(202, { "content-type": "text/plain; charset=utf-8" });
+    res.end("accepted");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const prefix = session.token.slice(0, 8);
+    const response = await fetch(`${appContext.baseUrl}/owui/api/test?x=1`, {
+      method: "POST",
+      headers: {
+        cookie: `${sessionCookie(session.token)}; token=openwebui-cookie`,
+        "content-type": "text/plain; charset=utf-8",
+        "x-demo-email": "attacker@example.test",
+        "x-demo-name": "Spoofed User",
+        "x-demo-extra": "strip-me",
+        "x-regular-header": "keep-me"
+      },
+      body: "request-body"
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(await response.text(), "accepted");
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].method, "POST");
+    assert.equal(upstream.calls[0].url, "/owui/api/test?x=1");
+    assert.equal(upstream.calls[0].body, "request-body");
+    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers["x-demo-name"], `Demo Reviewer ${prefix}`);
+    assert.equal(upstream.calls[0].headers["x-demo-extra"], undefined);
+    assert.equal(upstream.calls[0].headers["x-regular-header"], "keep-me");
+    assert.equal(upstream.calls[0].headers.cookie, "token=openwebui-cookie");
+    assert.equal(JSON.stringify(upstream.calls[0]).includes(session.token), false);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("reserved api chat path stays local in hybrid mode", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const response = await fetch(`${appContext.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: {
+        cookie: sessionCookie(session.token),
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ message: "Was steht im Siemens-Bericht?" })
+    });
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.match(data.message.content, /Mock-Antwort/);
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("expired and revoked hybrid sessions do not proxy", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const expiredSession = await createSession(appContext.baseUrl);
+    const expiredRecord = appContext.app.authStore.data.sessions.find(
+      (item) => item.token === expiredSession.token
+    );
+    expiredRecord.expires_at = new Date(Date.now() - 1000).toISOString();
+    await appContext.app.authStore.persist();
+
+    const expiredResponse = await fetch(`${appContext.baseUrl}/`, {
+      headers: { cookie: sessionCookie(expiredSession.token) }
+    });
+    assert.equal(expiredResponse.status, 200);
+    assert.match(await expiredResponse.text(), /MMRAG Demo/);
+
+    const revokedSession = await createSession(appContext.baseUrl);
+    const revokedRecord = appContext.app.authStore.data.sessions.find(
+      (item) => item.token === revokedSession.token
+    );
+    revokedRecord.revoked_at = new Date().toISOString();
+    await appContext.app.authStore.persist();
+
+    const revokedResponse = await fetch(`${appContext.baseUrl}/`, {
+      headers: { cookie: sessionCookie(revokedSession.token) }
+    });
+    assert.equal(revokedResponse.status, 200);
+    assert.match(await revokedResponse.text(), /MMRAG Demo/);
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid proxy relays OpenWebUI Set-Cookie headers", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(200, {
+      "content-type": "text/plain; charset=utf-8",
+      "set-cookie": [
+        "token=openwebui-cookie; Path=/; HttpOnly; SameSite=Lax",
+        "theme=dark; Path=/; SameSite=Lax"
+      ]
+    });
+    res.end("cookie response");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const response = await fetch(`${appContext.baseUrl}/cookie-check`, {
+      headers: { cookie: sessionCookie(session.token) }
+    });
+    const setCookie = response.headers.get("set-cookie") || "";
+    assert.equal(response.status, 200);
+    assert.match(setCookie, /token=openwebui-cookie/);
+    assert.match(setCookie, /theme=dark/);
+    assert.equal(await response.text(), "cookie response");
+    assert.equal(upstream.calls.length, 1);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid proxy streams SSE chunks without buffering the upstream response", async () => {
+  let secondChunkSent = false;
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache"
+    });
+    res.write("data: first\n\n");
+    setTimeout(() => {
+      secondChunkSent = true;
+      res.write("data: second\n\n");
+      res.end();
+    }, 300);
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const response = await fetch(`${appContext.baseUrl}/api/sse-stream`, {
+      headers: {
+        accept: "text/event-stream",
+        cookie: sessionCookie(session.token)
+      }
+    });
+    assert.equal(response.status, 200);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const first = await reader.read();
+    assert.equal(first.done, false);
+    const firstText = decoder.decode(first.value);
+    assert.match(firstText, /data: first/);
+    assert.equal(firstText.includes("data: second"), false);
+    assert.equal(secondChunkSent, false);
+
+    let rest = "";
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        break;
+      }
+      rest += decoder.decode(chunk.value, { stream: true });
+    }
+    rest += decoder.decode();
+    assert.match(rest, /data: second/);
+    assert.equal(secondChunkSent, true);
+    assert.equal(upstream.calls.length, 1);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
   }
 });
 

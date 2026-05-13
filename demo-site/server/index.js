@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const http = require("node:http");
+const https = require("node:https");
 const path = require("node:path");
 const { URL } = require("node:url");
 
@@ -20,6 +21,24 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg",
   ".ico": "image/x-icon"
 };
+
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade"
+]);
+
+const LOCAL_STATIC_PATHS = new Set([
+  "/app.js",
+  "/styles.css",
+  "/favicon.ico",
+  "/index.html"
+]);
 
 function envFlag(value) {
   return String(value || "").toLowerCase() === "true";
@@ -652,6 +671,175 @@ async function handleOpenWebuiStart(req, res, app) {
   return true;
 }
 
+function isReservedLocalPath(pathname) {
+  return (
+    pathname === "/health" ||
+    pathname === "/api/chat" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/admin" ||
+    pathname.startsWith("/api/admin/") ||
+    pathname === "/api/openwebui" ||
+    pathname.startsWith("/api/openwebui/") ||
+    pathname === "/classic" ||
+    pathname.startsWith("/classic/") ||
+    LOCAL_STATIC_PATHS.has(pathname)
+  );
+}
+
+function connectionHeaderNames(headers) {
+  return String(headers.connection || "")
+    .split(",")
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function openWebuiRequestPath(targetUrl, reqUrl) {
+  const basePath = targetUrl.pathname === "/" ? "" : targetUrl.pathname.replace(/\/+$/, "");
+  const requestPath = String(reqUrl || "/").startsWith("/") ? String(reqUrl || "/") : `/${reqUrl || ""}`;
+  return `${basePath}${requestPath}`;
+}
+
+function openWebuiCookieHeader(value) {
+  const raw = Array.isArray(value) ? value.join("; ") : String(value || "");
+  return raw
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => part.split("=")[0].trim() !== "demo_session")
+    .join("; ");
+}
+
+function openWebuiRequestHeaders(req, config, identity, targetUrl) {
+  const headers = {};
+  const connectionScoped = new Set(connectionHeaderNames(req.headers));
+  const trustedEmailHeader = config.openWebuiTrustedEmailHeader.toLowerCase();
+  const trustedNameHeader = config.openWebuiTrustedNameHeader.toLowerCase();
+
+  for (const [name, value] of Object.entries(req.headers)) {
+    const lowerName = name.toLowerCase();
+    if (
+      lowerName === "host" ||
+      HOP_BY_HOP_HEADERS.has(lowerName) ||
+      connectionScoped.has(lowerName) ||
+      lowerName === trustedEmailHeader ||
+      lowerName === trustedNameHeader ||
+      lowerName.startsWith("x-demo-")
+    ) {
+      continue;
+    }
+    if (lowerName === "cookie") {
+      const cookie = openWebuiCookieHeader(value);
+      if (cookie) {
+        headers[name] = cookie;
+      }
+      continue;
+    }
+    headers[name] = value;
+  }
+
+  headers.host = targetUrl.host;
+  Object.assign(headers, trustedHeaders(config, identity));
+  return headers;
+}
+
+function openWebuiResponseHeaders(upstreamHeaders) {
+  const connectionScoped = new Set(connectionHeaderNames(upstreamHeaders));
+  const headers = {};
+  for (const [name, value] of Object.entries(upstreamHeaders)) {
+    const lowerName = name.toLowerCase();
+    if (HOP_BY_HOP_HEADERS.has(lowerName) || connectionScoped.has(lowerName)) {
+      continue;
+    }
+    headers[name] = value;
+  }
+  return headers;
+}
+
+function sendOpenWebuiProxyError(req, res) {
+  if (res.headersSent) {
+    res.destroy();
+    return;
+  }
+
+  const wantsJson =
+    String(req.headers.accept || "").includes("application/json") ||
+    String(req.url || "").startsWith("/api/");
+  if (wantsJson) {
+    sendJson(res, 502, {
+      error: "openwebui_upstream_unavailable",
+      message: "OpenWebUI upstream is unavailable."
+    });
+    return;
+  }
+
+  const body = "OpenWebUI upstream is unavailable.";
+  res.writeHead(502, {
+    "content-type": "text/plain; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "no-store"
+  });
+  res.end(body);
+}
+
+function proxyOpenWebuiRequest(req, res, app, identity) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+
+    let targetUrl;
+    try {
+      targetUrl = new URL(app.config.openWebuiUrl);
+    } catch {
+      sendOpenWebuiProxyError(req, res);
+      settle();
+      return;
+    }
+
+    const transport = targetUrl.protocol === "https:" ? https : http;
+    const upstreamReq = transport.request(
+      {
+        protocol: targetUrl.protocol,
+        hostname: targetUrl.hostname,
+        port: targetUrl.port,
+        method: req.method,
+        path: openWebuiRequestPath(targetUrl, req.url),
+        headers: openWebuiRequestHeaders(req, app.config, identity, targetUrl)
+      },
+      (upstreamRes) => {
+        const responseHeaders = openWebuiResponseHeaders(upstreamRes.headers);
+        if (upstreamRes.statusMessage) {
+          res.writeHead(upstreamRes.statusCode || 502, upstreamRes.statusMessage, responseHeaders);
+        } else {
+          res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
+        }
+        upstreamRes.pipe(res);
+        upstreamRes.on("end", settle);
+        upstreamRes.on("error", () => {
+          if (!res.destroyed) {
+            res.destroy();
+          }
+          settle();
+        });
+      }
+    );
+
+    upstreamReq.on("error", () => {
+      sendOpenWebuiProxyError(req, res);
+      settle();
+    });
+    req.on("aborted", () => {
+      upstreamReq.destroy();
+      settle();
+    });
+    req.pipe(upstreamReq);
+  });
+}
+
 function checkRateLimit(session, config, now = Date.now()) {
   const windowStart = now - 60 * 60 * 1000;
   session.queryTimes = (Array.isArray(session.queryTimes) ? session.queryTimes : session.query_times || []).filter(
@@ -1037,6 +1225,14 @@ async function handleRequest(req, res, app) {
       }
     });
     return;
+  }
+
+  if (app.config.openWebuiEnabled && !isReservedLocalPath(url.pathname)) {
+    const auth = await getSession(req, app.authStore);
+    if (auth.status === "ok") {
+      await proxyOpenWebuiRequest(req, res, app, reviewerIdentity(auth.session));
+      return;
+    }
   }
 
   if (req.method === "GET" || req.method === "HEAD") {
