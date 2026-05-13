@@ -10,12 +10,15 @@ const state = {
 const views = {
   landing: document.getElementById("landingView"),
   login: document.getElementById("loginView"),
-  chat: document.getElementById("chatView")
+  launch: document.getElementById("launchView"),
+  classic: document.getElementById("chatView")
 };
 
 const loginForm = document.getElementById("loginForm");
 const codeInput = document.getElementById("codeInput");
 const loginStatus = document.getElementById("loginStatus");
+const openWebuiButton = document.getElementById("openWebuiButton");
+const launchStatus = document.getElementById("launchStatus");
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const messageList = document.getElementById("messageList");
@@ -25,16 +28,36 @@ function hasValidLocalToken() {
   return Boolean(state.token && state.expiresAt && Date.parse(state.expiresAt) > Date.now());
 }
 
+function normalizeRoute(route) {
+  return route === "chat" ? "classic" : route;
+}
+
+function routePath(route) {
+  if (route === "login") {
+    return "/login";
+  }
+  if (route === "classic") {
+    return "/classic";
+  }
+  return "/";
+}
+
 function setRoute(route) {
-  const nextRoute = route === "chat" && !hasValidLocalToken() ? "login" : route;
+  const requestedRoute = normalizeRoute(route);
+  const requiresToken = requestedRoute === "launch" || requestedRoute === "classic";
+  const nextRoute = requiresToken && !hasValidLocalToken() ? "login" : requestedRoute;
   for (const [name, element] of Object.entries(views)) {
     element.hidden = name !== nextRoute;
   }
-  history.replaceState(null, "", nextRoute === "landing" ? "/" : `/${nextRoute}`);
+  history.replaceState(null, "", routePath(nextRoute));
   if (nextRoute === "login") {
     codeInput.focus();
   }
-  if (nextRoute === "chat") {
+  if (nextRoute === "launch") {
+    launchStatus.textContent = "";
+    openWebuiButton.focus();
+  }
+  if (nextRoute === "classic") {
     messageInput.focus();
     renderMessages();
   }
@@ -52,6 +75,12 @@ function clearToken() {
   state.expiresAt = "";
   localStorage.removeItem("demoToken");
   localStorage.removeItem("demoTokenExpiresAt");
+}
+
+function clearSessionState() {
+  clearToken();
+  state.messages = [];
+  state.pending = false;
 }
 
 function messageLabel(role) {
@@ -150,6 +179,56 @@ async function redeemCode(code) {
   saveToken(data.token, data.expires_at);
 }
 
+function openWebuiErrorMessage(response, data) {
+  if (response.status === 503 && data.error === "openwebui_disabled") {
+    return "OpenWebUI ist fuer diese Demo derzeit nicht aktiviert. Der klassische Chat bleibt verfuegbar.";
+  }
+  if (response.status === 502 && data.error === "openwebui_bootstrap_failed") {
+    return "OpenWebUI konnte nicht gestartet werden. Der klassische Chat bleibt verfuegbar.";
+  }
+  return data.message || data.error || "OpenWebUI konnte nicht gestartet werden. Der klassische Chat bleibt verfuegbar.";
+}
+
+async function startOpenWebui() {
+  if (!hasValidLocalToken()) {
+    clearSessionState();
+    loginStatus.textContent = "Die Demo-Sitzung ist abgelaufen. Bitte erneut anmelden.";
+    setRoute("login");
+    return;
+  }
+
+  launchStatus.textContent = "";
+  openWebuiButton.disabled = true;
+
+  try {
+    const response = await fetch("/api/openwebui/start", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Authorization: `Bearer ${state.token}`
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+      clearSessionState();
+      loginStatus.textContent = "Die Demo-Sitzung ist abgelaufen. Bitte erneut anmelden.";
+      openWebuiButton.disabled = false;
+      setRoute("login");
+      return;
+    }
+    if (!response.ok) {
+      throw new Error(openWebuiErrorMessage(response, data));
+    }
+
+    const redirect = typeof data.redirect === "string" && data.redirect ? data.redirect : "/";
+    window.location.assign(redirect);
+  } catch (error) {
+    launchStatus.textContent = error.message;
+    openWebuiButton.disabled = false;
+  }
+}
+
 async function sendChatMessage(text) {
   state.messages.push({ role: "user", content: text });
   const pendingMessage = { role: "assistant", content: "", pending: true, sources: [] };
@@ -228,13 +307,15 @@ loginForm.addEventListener("submit", async (event) => {
   try {
     await redeemCode(codeInput.value);
     codeInput.value = "";
-    setRoute("chat");
+    setRoute("launch");
   } catch (error) {
     loginStatus.textContent = error.message;
   } finally {
     submitButton.disabled = false;
   }
 });
+
+openWebuiButton.addEventListener("click", startOpenWebui);
 
 chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -246,5 +327,12 @@ chatForm.addEventListener("submit", async (event) => {
   await sendChatMessage(text);
 });
 
-const initialPath = window.location.pathname.replace(/^\/+/, "") || "landing";
-setRoute(["landing", "login", "chat"].includes(initialPath) ? initialPath : "landing");
+const initialPath = window.location.pathname.replace(/^\/+/, "");
+const initialRoute = {
+  "": hasValidLocalToken() ? "launch" : "landing",
+  landing: "landing",
+  login: "login",
+  chat: "classic",
+  classic: "classic"
+}[initialPath] || "landing";
+setRoute(initialRoute);

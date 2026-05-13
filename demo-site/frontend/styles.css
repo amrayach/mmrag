@@ -85,6 +85,7 @@ button {
 
 .ghost-button,
 .primary-button,
+.secondary-button,
 .example-button {
   min-height: 42px;
   border-radius: 8px;
@@ -125,6 +126,20 @@ button {
 .primary-button:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+.secondary-button {
+  padding: 0 18px;
+  background: #fff;
+  color: var(--primary-dark);
+  border-color: var(--line);
+  font-weight: 700;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  border-color: var(--primary);
+  background: #f7fbfa;
 }
 
 main {
@@ -219,9 +234,45 @@ h2 {
   padding: 42px 0;
 }
 
+.launch-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  align-items: center;
+  gap: clamp(20px, 5vw, 56px);
+  padding: clamp(42px, 7vw, 76px) 0;
+}
+
 .auth-panel {
   width: min(520px, 100%);
   padding: clamp(22px, 5vw, 34px);
+}
+
+.launch-panel,
+.launch-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.launch-panel {
+  padding: clamp(24px, 5vw, 38px);
+}
+
+.launch-copy {
+  margin-bottom: 24px;
+}
+
+.launch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.launch-summary {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
 }
 
 .auth-panel label {
@@ -435,6 +486,7 @@ textarea:focus {
   }
 
   .landing-view,
+  .launch-view,
   .chat-view {
     grid-template-columns: 1fr;
   }
@@ -464,6 +516,10 @@ textarea:focus {
   }
 
   .primary-button {
+    width: 100%;
+  }
+
+  .secondary-button {
     width: 100%;
   }
 
