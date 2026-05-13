@@ -4,11 +4,13 @@ import os
 import time
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from threading import Lock
 from typing import List, Optional
 
 import requests
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app import context
@@ -36,6 +38,47 @@ N8N_HEALTH_URL = N8N_WEBHOOK.rsplit("/webhook/", 1)[0] + "/healthz"
 CONTEXT_MODE = os.getenv("CONTEXT_MODE", "direct")  # "direct" or "n8n"
 
 _VALID_THINK_LEVELS = {"low", "medium", "high"}
+_DEMO_RATE_LIMIT_WINDOW_SECS = 3600
+# Demo-only in-process state. It intentionally resets on rag-gateway restart.
+_DEMO_RATE_LIMIT_STATE: dict[str, tuple[int, int]] = {}
+_DEMO_RATE_LIMIT_LOCK = Lock()
+
+
+def _parse_bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off", ""}:
+        return False
+    logger.warning("Invalid %s=%r; falling back to %s", name, raw, default)
+    return default
+
+
+def _parse_int_env(name: str, default: int, min_value: int, max_value: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except (TypeError, ValueError):
+        logger.warning("Invalid %s=%r; falling back to %d", name, raw, default)
+        return default
+    if value < min_value:
+        logger.warning("Invalid %s=%r; using minimum %d", name, raw, min_value)
+        return min_value
+    if value > max_value:
+        logger.warning("Invalid %s=%r; using maximum %d", name, raw, max_value)
+        return max_value
+    return value
+
+
+RAG_DEMO_RATE_LIMIT_ENABLED = _parse_bool_env("RAG_DEMO_RATE_LIMIT_ENABLED", False)
+RAG_DEMO_MAX_QUERIES_PER_HOUR = _parse_int_env(
+    "RAG_DEMO_MAX_QUERIES_PER_HOUR", 10, 1, 1000
+)
 
 
 def _parse_think_env() -> bool | str:
@@ -103,6 +146,127 @@ def last_user_text(messages: List[ChatMessage]) -> str:
         if m.role == "user":
             return m.content
     return messages[-1].content if messages else ""
+
+
+# ---------------------------------------------------------------------------
+# Demo reviewer identity + in-process hourly quota
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DemoRateLimitResult:
+    allowed: bool
+    remaining: Optional[int]
+    retry_after: Optional[int]
+    limit: int
+
+
+def demo_reviewer_id(request: Request) -> str:
+    for header_name in (
+        "X-OpenWebUI-User-Email",
+        "X-Demo-Email",
+        "X-Forwarded-User",
+    ):
+        value = request.headers.get(header_name)
+        if value and value.strip():
+            return value.strip()
+
+    # Explicit fallback for demo mode when upstream identity headers are absent.
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None)
+    if host:
+        return f"anonymous:{host}"
+    return "anonymous"
+
+
+def check_demo_rate_limit(reviewer_id: str, now: float) -> DemoRateLimitResult:
+    limit = RAG_DEMO_MAX_QUERIES_PER_HOUR
+    if not RAG_DEMO_RATE_LIMIT_ENABLED:
+        return DemoRateLimitResult(
+            allowed=True,
+            remaining=None,
+            retry_after=None,
+            limit=limit,
+        )
+
+    identity = reviewer_id or "anonymous"
+    now_int = int(now)
+    window_start = (now_int // _DEMO_RATE_LIMIT_WINDOW_SECS) * _DEMO_RATE_LIMIT_WINDOW_SECS
+
+    with _DEMO_RATE_LIMIT_LOCK:
+        current_window, count = _DEMO_RATE_LIMIT_STATE.get(identity, (window_start, 0))
+        if current_window != window_start:
+            current_window, count = window_start, 0
+
+        if count >= limit:
+            retry_after = max(1, current_window + _DEMO_RATE_LIMIT_WINDOW_SECS - now_int)
+            _DEMO_RATE_LIMIT_STATE[identity] = (current_window, count)
+            return DemoRateLimitResult(
+                allowed=False,
+                remaining=0,
+                retry_after=retry_after,
+                limit=limit,
+            )
+
+        count += 1
+        _DEMO_RATE_LIMIT_STATE[identity] = (current_window, count)
+        return DemoRateLimitResult(
+            allowed=True,
+            remaining=max(0, limit - count),
+            retry_after=None,
+            limit=limit,
+        )
+
+
+def _rate_limit_message(result: DemoRateLimitResult) -> str:
+    return (
+        f"Das Demo-Limit von {result.limit} Fragen pro Stunde ist erreicht. "
+        "Bitte später erneut versuchen."
+    )
+
+
+def openai_rate_limit_error_payload(result: DemoRateLimitResult) -> dict:
+    return {
+        "error": {
+            "message": _rate_limit_message(result),
+            "type": "rate_limit_exceeded",
+            "code": "rate_limit_exceeded",
+        }
+    }
+
+
+def sse_rate_limit_error_generator(
+    resp_id: str,
+    model: str,
+    now: int,
+    result: DemoRateLimitResult,
+):
+    chunk = {
+        "id": resp_id,
+        "object": "chat.completion.chunk",
+        "created": now,
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "role": "assistant",
+                    "content": f"\n\n[{_rate_limit_message(result)}]",
+                },
+                "finish_reason": None,
+            }
+        ],
+    }
+    yield f"data: {json.dumps(chunk)}\n\n"
+    stop = {
+        "id": resp_id,
+        "object": "chat.completion.chunk",
+        "created": now,
+        "model": model,
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+    }
+    yield f"data: {json.dumps(stop)}\n\n"
+    yield "data: [DONE]\n\n"
 
 
 # ---------------------------------------------------------------------------
@@ -453,14 +617,54 @@ if _trace.RAG_TRACE_ENABLED:
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(req: ChatRequest):
+async def chat_completions(req: ChatRequest, request: Request):
     req_id = uuid.uuid4().hex[:12]
     now = int(time.time())
     resp_id = f"chatcmpl-{uuid.uuid4().hex}"
     model = req.model or DEFAULT_MODEL
+    reviewer_id = demo_reviewer_id(request)
+    rate_limit = check_demo_rate_limit(reviewer_id, now)
 
-    logger.info("[%s] Chat request: model=%s, messages=%d, stream=%s, context_mode=%s",
-                req_id, model, len(req.messages), req.stream, CONTEXT_MODE)
+    logger.info(
+        "[%s] Chat request: req_id=%s reviewer_id=%s model=%s messages=%d stream=%s "
+        "context_mode=%s rate_limit_allowed=%s rate_limit_blocked=%s remaining=%s",
+        req_id,
+        req_id,
+        reviewer_id,
+        model,
+        len(req.messages),
+        req.stream,
+        CONTEXT_MODE,
+        str(rate_limit.allowed).lower(),
+        str(not rate_limit.allowed).lower(),
+        rate_limit.remaining,
+    )
+
+    if not rate_limit.allowed:
+        logger.warning(
+            "[%s] Chat request blocked: req_id=%s reviewer_id=%s model=%s stream=%s "
+            "rate_limit_allowed=false rate_limit_blocked=true remaining=%s",
+            req_id,
+            req_id,
+            reviewer_id,
+            model,
+            req.stream,
+            rate_limit.remaining,
+        )
+        headers = {}
+        if rate_limit.retry_after is not None:
+            headers["Retry-After"] = str(rate_limit.retry_after)
+        if req.stream:
+            return StreamingResponse(
+                sse_rate_limit_error_generator(resp_id, model, now, rate_limit),
+                media_type="text/event-stream",
+                headers=headers,
+            )
+        return JSONResponse(
+            status_code=429,
+            content=openai_rate_limit_error_payload(rate_limit),
+            headers=headers,
+        )
 
     # Build the per-request retrieval trace. Defaults to no-op (RAG_TRACE=false);
     # when enabled, the JSONL record is appended after context is assembled.
