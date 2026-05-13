@@ -90,6 +90,28 @@ For Option 3C hybrid mode, OpenWebUI authentication is configured through truste
 
 Rollback for hybrid mode: set `DEMO_SITE_OPENWEBUI_ENABLED=false`, restart the affected service after approval, and use the classic demo-site chat (`/classic`) backed by the existing `/api/chat` endpoint.
 
+### Optional S5 Hybrid Local Check
+
+After the stack is already running and the operator approves runtime auth-store
+writes, run the optional local hybrid check:
+
+```bash
+DEMO_HEALTH_HYBRID_CHECK=true python3 scripts/demo_e2e_check.py
+```
+
+Use `DEMO_HEALTH_DEMO_SITE_URL=http://127.0.0.1:56158` if compose port discovery
+is unavailable or the service is bound to a non-default local port.
+
+This proves the local demo-site `/health`, short-lived code creation and
+redemption when `DEMO_SITE_ADMIN_TOKEN` is configured, `/api/openwebui/start`
+enabled or disabled behavior, classic `/api/chat`, direct local rag-gateway SSE,
+and revoke-deny by token prefix. It records only prefixes and cookie names, not
+full codes, tokens, admin credentials, or OpenWebUI cookies.
+
+This check intentionally does not use Tailscale Serve or Funnel. S6 must still
+validate the public hybrid entrypoint from off-tailnet, with demo-site as the
+only exposed root, and prove incremental SSE through Funnel with `curl -N`.
+
 ## 6) OpenWebUI Welcome Banner & Starter Questions
 
 In OpenWebUI **Admin > Settings > Interface**:

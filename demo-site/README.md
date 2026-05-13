@@ -77,6 +77,35 @@ healthcheck, so the demo service depends on `rag-gateway` with
 `condition: service_healthy`. Auth data is stored in the demo-site-only
 `demo_site_data` volume at `/app/data/auth.json`.
 
+## Optional Hybrid Health Check
+
+`scripts/demo_e2e_check.py` has an opt-in demo-site/OpenWebUI hybrid check. It is
+disabled unless `DEMO_HEALTH_HYBRID_CHECK=true` is set.
+
+```bash
+DEMO_HEALTH_HYBRID_CHECK=true python3 scripts/demo_e2e_check.py
+```
+
+The checker discovers demo-site with `DEMO_HEALTH_DEMO_SITE_URL` first, then
+`docker compose port demo-site 3000`, then `PORT_DEMO_SITE` or `56158`.
+
+When `DEMO_SITE_ADMIN_TOKEN` is available, the check creates one short-lived
+code, redeems it, captures only token prefixes and cookie names in the health
+report, calls `/api/openwebui/start`, verifies classic `/api/chat`, verifies
+local rag-gateway SSE at `/v1/chat/completions` with `stream:true`, revokes the
+new session by token prefix, and confirms the revoked session is denied. Running
+it writes normal demo health output and demo-site auth records.
+
+With `DEMO_SITE_OPENWEBUI_ENABLED=true`, `/api/openwebui/start` must return
+`200` with `{ "ok": true }`, a redirect, and at least one OpenWebUI
+`Set-Cookie` header. With hybrid disabled, the expected result is
+`503 openwebui_disabled`. If the admin token is absent, the checker only probes
+`/health` and records the session flow as skipped.
+
+This is a local contract check. It does not expose anything publicly, does not
+use Tailscale Funnel, and does not prove off-tailnet incremental SSE. That
+boundary remains the S6 operator validation.
+
 ## Persistent Access-Code Auth
 
 `POST /api/auth/redeem` validates a persistent temporary code and returns:
@@ -151,6 +180,9 @@ curl -s -X POST \
 - `DEMO_SITE_AUTH_STORE_PATH`: auth JSON path, default `/app/data/auth.json`.
 - `DEMO_SITE_MAX_QUERIES_PER_HOUR`: per-session rate limit, default `10`.
 - `DEMO_SITE_CHAT_TIMEOUT_MS`: gateway timeout in milliseconds, default `60000`.
+- `DEMO_SITE_OPENWEBUI_ENABLED`: enables the hybrid OpenWebUI bootstrap path.
+- `DEMO_HEALTH_HYBRID_CHECK`: opt-in local hybrid health/e2e check.
+- `DEMO_HEALTH_DEMO_SITE_URL`: optional demo-site URL override for the checker.
 
 ## Chat Limits
 

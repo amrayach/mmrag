@@ -8,6 +8,11 @@ This script is deliberately host-side and diagnostic-only:
 - no external network calls;
 - no service/retrieval/model changes.
 
+When ``DEMO_HEALTH_HYBRID_CHECK=true`` and ``DEMO_SITE_ADMIN_TOKEN`` is
+configured, the optional hybrid check creates, redeems, and revokes a
+short-lived demo-site auth session in the project auth store. It reports only
+prefixes and cookie names, never full codes, tokens, credentials, or cookies.
+
 RAG source detection note:
 ``rag-gateway`` returns OpenAI-compatible non-stream responses. In this project
 the final sources/images are appended to ``choices[0].message.content`` as a
@@ -29,6 +34,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from http.cookies import CookieError, SimpleCookie
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +50,7 @@ TRACE_DIR = ROOT / "data" / "rag-traces"
 
 REQUIRED_SERVICES = ("rag-gateway", "postgres", "ollama")
 OPTIONAL_SERVICES = (
+    "demo-site",
     "openwebui",
     "pdf-ingest",
     "rss-ingest",
@@ -61,6 +68,16 @@ class CheckResult:
     latency_ms: int
     details: dict[str, Any]
     reason: str | None = None
+
+
+@dataclass
+class HttpResponse:
+    status: int
+    json_body: Any
+    text: str
+    headers: dict[str, list[str]]
+    set_cookie: list[str]
+    latency_ms: int
 
 
 def now_local() -> datetime:
@@ -99,6 +116,19 @@ def env_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def config_value(env: dict[str, str], name: str, default: str = "") -> str:
+    return os.environ.get(name) or env.get(name) or default
+
+
+def config_bool(env: dict[str, str], name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        raw = env.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off", ""}
 
 
 def active_model(env: dict[str, str]) -> str:
@@ -159,6 +189,96 @@ def http_get_status(url: str, timeout: float = 5) -> tuple[int, int]:
     with urllib.request.urlopen(url, timeout=timeout) as resp:
         resp.read(256)
         return int(resp.status), elapsed_ms(start)
+
+
+def collect_headers(headers: Any) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for name in headers.keys():
+        values = headers.get_all(name) if hasattr(headers, "get_all") else None
+        out[name.lower()] = [str(value) for value in (values or [headers.get(name)]) if value is not None]
+    return out
+
+
+def http_request(
+    url: str,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: float = 10,
+) -> HttpResponse:
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req_headers = dict(headers or {})
+    if payload is not None and not any(key.lower() == "content-type" for key in req_headers):
+        req_headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
+    start = time.perf_counter()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read()
+            status = int(resp.status)
+            response_headers = collect_headers(resp.headers)
+    except urllib.error.HTTPError as exc:
+        body = exc.read()
+        status = int(exc.code)
+        response_headers = collect_headers(exc.headers)
+    latency = elapsed_ms(start)
+    text = body.decode("utf-8", errors="replace")
+    json_body: Any = None
+    if text.strip():
+        try:
+            json_body = json.loads(text)
+        except json.JSONDecodeError:
+            json_body = None
+    return HttpResponse(
+        status=status,
+        json_body=json_body,
+        text=text,
+        headers=response_headers,
+        set_cookie=response_headers.get("set-cookie", []),
+        latency_ms=latency,
+    )
+
+
+def secret_prefix(value: str | None, length: int = 8) -> str | None:
+    if not value:
+        return None
+    return value[:length]
+
+
+def response_error(response: HttpResponse) -> str | None:
+    if isinstance(response.json_body, dict):
+        error = response.json_body.get("error")
+        if isinstance(error, str):
+            return error
+    if response.status >= 400 and response.text:
+        return response.text[:200]
+    return None
+
+
+def set_cookie_names(set_cookie: list[str]) -> list[str]:
+    names: list[str] = []
+    for raw in set_cookie:
+        parsed = SimpleCookie()
+        try:
+            parsed.load(raw)
+        except CookieError:
+            parsed = SimpleCookie()
+        names.extend(parsed.keys())
+        if not parsed and "=" in raw:
+            names.append(raw.split(";", 1)[0].split("=", 1)[0].strip())
+    return sorted({name for name in names if name})
+
+
+def cookie_value_from_set_cookie(set_cookie: list[str], name: str) -> str | None:
+    for raw in set_cookie:
+        parsed = SimpleCookie()
+        try:
+            parsed.load(raw)
+        except CookieError:
+            continue
+        if name in parsed:
+            return parsed[name].value
+    return None
 
 
 def atomic_write(path: Path, content: str) -> None:
@@ -243,6 +363,17 @@ def gateway_url_from_compose(timeout: float) -> str:
             if m:
                 return f"http://127.0.0.1:{m.group(1)}"
     return "http://127.0.0.1:56155"
+
+
+def demo_site_url_from_compose(timeout: float, env: dict[str, str]) -> str:
+    override = config_value(env, "DEMO_HEALTH_DEMO_SITE_URL")
+    if override:
+        return override.rstrip("/")
+    discovered = compose_port("demo-site", "3000", timeout)
+    if discovered:
+        return discovered.rstrip("/")
+    port = config_value(env, "PORT_DEMO_SITE", "56158")
+    return f"http://127.0.0.1:{port}"
 
 
 def compose_port(service: str, target_port: str, timeout: float) -> str | None:
@@ -608,6 +739,308 @@ def check_rag_query(gateway_url: str, model: str, golden: dict[str, Any], timeou
     return result("PASS", True, start, details)
 
 
+def gateway_sse_probe(gateway_url: str, model: str, timeout: float) -> tuple[bool, dict[str, Any], str | None]:
+    start = time.perf_counter()
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": "Antworte auf Deutsch mit genau einem kurzen Satz: Demo-Health-SSE ok.",
+            }
+        ],
+        "stream": True,
+        "temperature": 0,
+        "max_tokens": 40,
+    }
+    req = urllib.request.Request(
+        f"{gateway_url}/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    details: dict[str, Any] = {"gateway_url": gateway_url}
+    try:
+        with urllib.request.urlopen(req, timeout=min(timeout, 60)) as resp:
+            details["status_code"] = int(resp.status)
+            details["latency_ms"] = elapsed_ms(start)
+            details["header_names"] = sorted(collect_headers(resp.headers).keys())
+            if int(resp.status) != 200:
+                body = resp.read(1000).decode("utf-8", errors="replace")
+                details["body_preview"] = body[:200]
+                return False, details, f"rag-gateway SSE returned HTTP {resp.status}"
+
+            deadline = time.perf_counter() + min(timeout, 60)
+            data_events = 0
+            content_delta_events = 0
+            first_data_ms: int | None = None
+            saw_done = False
+            raw_lines = 0
+            while time.perf_counter() < deadline and raw_lines < 500:
+                line = resp.readline()
+                if not line:
+                    break
+                raw_lines += 1
+                text = line.decode("utf-8", errors="replace").strip()
+                if not text.startswith("data:"):
+                    continue
+                if first_data_ms is None:
+                    first_data_ms = elapsed_ms(start)
+                data = text[5:].strip()
+                if data == "[DONE]":
+                    saw_done = True
+                    break
+                data_events += 1
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    if isinstance(delta.get("content"), str) and delta["content"]:
+                        content_delta_events += 1
+                except Exception:
+                    pass
+                if data_events >= 6 and content_delta_events > 0:
+                    break
+
+            details.update(
+                {
+                    "raw_lines": raw_lines,
+                    "data_events": data_events,
+                    "content_delta_events": content_delta_events,
+                    "first_data_ms": first_data_ms,
+                    "saw_done": saw_done,
+                }
+            )
+            if data_events <= 0 or first_data_ms is None:
+                return False, details, "rag-gateway SSE did not emit data events"
+            return True, details, None
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        details.update({"status_code": exc.code, "latency_ms": elapsed_ms(start), "body_preview": body[:200]})
+        return False, details, f"rag-gateway SSE returned HTTP {exc.code}"
+    except Exception as exc:
+        details["latency_ms"] = elapsed_ms(start)
+        details["error_type"] = type(exc).__name__
+        return False, details, f"rag-gateway SSE failed: {type(exc).__name__}"
+
+
+def check_demo_site_hybrid_flow(gateway_url: str, model: str, timeout: float, env: dict[str, str]) -> CheckResult:
+    start = time.perf_counter()
+    demo_site_url = demo_site_url_from_compose(min(5, timeout), env)
+    hybrid_enabled = config_bool(env, "DEMO_SITE_OPENWEBUI_ENABLED", False)
+    admin_token = config_value(env, "DEMO_SITE_ADMIN_TOKEN")
+    details: dict[str, Any] = {
+        "demo_site_url": demo_site_url,
+        "hybrid_enabled_config": hybrid_enabled,
+        "admin_token_configured": bool(admin_token),
+        "created_artifacts": [],
+    }
+    session_token: str | None = None
+    demo_session_value: str | None = None
+    failure_reason: str | None = None
+
+    def fail(reason: str) -> None:
+        nonlocal failure_reason
+        if failure_reason is None:
+            failure_reason = reason
+
+    def auth_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        if extra:
+            headers.update(extra)
+        return headers
+
+    try:
+        health = http_request(f"{demo_site_url}/health", timeout=min(5, timeout))
+        health_json = health.json_body if isinstance(health.json_body, dict) else {}
+        details["demo_site_health"] = {
+            "status_code": health.status,
+            "latency_ms": health.latency_ms,
+            "ok": health_json.get("ok"),
+            "auth_store": health_json.get("auth_store"),
+            "header_names": sorted(health.headers.keys()),
+        }
+        if health.status != 200:
+            fail(f"demo-site /health returned HTTP {health.status}")
+
+        if not failure_reason and not admin_token:
+            return result(
+                "WARN",
+                False,
+                start,
+                details,
+                "DEMO_SITE_ADMIN_TOKEN is not configured; session-dependent hybrid checks skipped",
+            )
+
+        if not failure_reason:
+            create_payload = {
+                "ttl_hours": 0.05,
+                "max_redemptions": 1,
+                "label": "demo-health-s5",
+                "created_by": "scripts/demo_e2e_check.py",
+                "notes": "short-lived local hybrid health check",
+            }
+            created = http_request(
+                f"{demo_site_url}/api/admin/codes",
+                method="POST",
+                payload=create_payload,
+                headers=auth_headers(),
+                timeout=min(10, timeout),
+            )
+            created_json = created.json_body if isinstance(created.json_body, dict) else {}
+            code = created_json.get("code") if isinstance(created_json.get("code"), str) else None
+            details["admin_create_code"] = {
+                "status_code": created.status,
+                "latency_ms": created.latency_ms,
+                "code_prefix": secret_prefix(code),
+                "expires_at": created_json.get("expires_at"),
+                "max_redemptions": created_json.get("max_redemptions"),
+                "error": response_error(created),
+            }
+            if created.status != 200 or not code:
+                fail(f"demo-site code creation failed with HTTP {created.status}")
+            else:
+                details["created_artifacts"].append("access_code")
+
+        if not failure_reason:
+            redeemed = http_request(
+                f"{demo_site_url}/api/auth/redeem",
+                method="POST",
+                payload={"code": code},
+                timeout=min(10, timeout),
+            )
+            redeemed_json = redeemed.json_body if isinstance(redeemed.json_body, dict) else {}
+            token = redeemed_json.get("token") if isinstance(redeemed_json.get("token"), str) else None
+            cookie_value = cookie_value_from_set_cookie(redeemed.set_cookie, "demo_session")
+            details["redeem_code"] = {
+                "status_code": redeemed.status,
+                "latency_ms": redeemed.latency_ms,
+                "token_prefix": secret_prefix(token),
+                "set_cookie_names": set_cookie_names(redeemed.set_cookie),
+                "expires_at": redeemed_json.get("expires_at"),
+                "code_expires_at": redeemed_json.get("code_expires_at"),
+                "error": response_error(redeemed),
+            }
+            if redeemed.status != 200 or not token or not cookie_value:
+                fail(f"demo-site code redeem failed with HTTP {redeemed.status}")
+            else:
+                session_token = token
+                demo_session_value = cookie_value
+                details["created_artifacts"].append("demo_session")
+
+        cookie_header = f"demo_session={demo_session_value}" if demo_session_value else ""
+
+        if not failure_reason:
+            started = http_request(
+                f"{demo_site_url}/api/openwebui/start",
+                method="POST",
+                headers={"Cookie": cookie_header},
+                timeout=min(30, timeout),
+            )
+            started_json = started.json_body if isinstance(started.json_body, dict) else {}
+            openwebui_cookie_names = set_cookie_names(started.set_cookie)
+            details["openwebui_start"] = {
+                "status_code": started.status,
+                "latency_ms": started.latency_ms,
+                "ok": started_json.get("ok"),
+                "redirect_present": bool(started_json.get("redirect")),
+                "set_cookie_count": len(started.set_cookie),
+                "set_cookie_names": openwebui_cookie_names,
+                "error": response_error(started),
+            }
+            if hybrid_enabled:
+                if (
+                    started.status != 200
+                    or started_json.get("ok") is not True
+                    or not started_json.get("redirect")
+                    or not started.set_cookie
+                ):
+                    fail("hybrid OpenWebUI bootstrap did not return 200 ok/redirect with OpenWebUI Set-Cookie")
+            elif started.status != 503 or started_json.get("error") != "openwebui_disabled":
+                fail("disabled hybrid mode did not return 503 openwebui_disabled")
+
+        if not failure_reason:
+            chat = http_request(
+                f"{demo_site_url}/api/chat",
+                method="POST",
+                payload={
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "Antworte kurz auf Deutsch: Was prueft dieser Healthcheck?",
+                        }
+                    ],
+                    "max_tokens": 80,
+                },
+                headers={"Cookie": cookie_header},
+                timeout=min(timeout, 90),
+            )
+            chat_json = chat.json_body if isinstance(chat.json_body, dict) else {}
+            message = chat_json.get("message") if isinstance(chat_json.get("message"), dict) else {}
+            content = message.get("content") if isinstance(message.get("content"), str) else ""
+            details["classic_chat"] = {
+                "status_code": chat.status,
+                "latency_ms": chat.latency_ms,
+                "message_chars": len(content),
+                "source_count": len(chat_json.get("sources", [])) if isinstance(chat_json.get("sources"), list) else None,
+                "model": chat_json.get("model"),
+                "error": response_error(chat),
+            }
+            if chat.status != 200 or len(content.strip()) <= 0:
+                fail(f"classic demo-site /api/chat failed with HTTP {chat.status}")
+
+        if not failure_reason:
+            sse_ok, sse_details, sse_reason = gateway_sse_probe(gateway_url, model, timeout)
+            details["rag_gateway_sse"] = sse_details
+            if not sse_ok:
+                fail(sse_reason or "rag-gateway SSE check failed")
+
+    except Exception as exc:
+        fail(f"demo-site hybrid flow failed: {type(exc).__name__}")
+        details["exception"] = {"type": type(exc).__name__}
+
+    if session_token and admin_token:
+        token_prefix = secret_prefix(session_token) or ""
+        try:
+            revoked = http_request(
+                f"{demo_site_url}/api/admin/sessions/{token_prefix}/revoke",
+                method="POST",
+                headers=auth_headers(),
+                timeout=min(10, timeout),
+            )
+            revoked_json = revoked.json_body if isinstance(revoked.json_body, dict) else {}
+            details["revoke_session"] = {
+                "status_code": revoked.status,
+                "latency_ms": revoked.latency_ms,
+                "token_prefix": revoked_json.get("token_prefix") or token_prefix,
+                "revoked_at": revoked_json.get("revoked_at"),
+                "error": response_error(revoked),
+            }
+            if revoked.status != 200:
+                fail(f"session revoke by token prefix failed with HTTP {revoked.status}")
+            elif demo_session_value:
+                denied = http_request(
+                    f"{demo_site_url}/api/openwebui/start",
+                    method="POST",
+                    headers={"Cookie": f"demo_session={demo_session_value}"},
+                    timeout=min(10, timeout),
+                )
+                denied_json = denied.json_body if isinstance(denied.json_body, dict) else {}
+                details["post_revoke_openwebui_start"] = {
+                    "status_code": denied.status,
+                    "latency_ms": denied.latency_ms,
+                    "error": denied_json.get("error") if isinstance(denied_json.get("error"), str) else response_error(denied),
+                }
+                if denied.status != 401:
+                    fail(f"revoked session was not denied with 401, got HTTP {denied.status}")
+        except Exception as exc:
+            details["revoke_session"] = {"error_type": type(exc).__name__}
+            fail(f"session revoke/deny verification failed: {type(exc).__name__}")
+
+    if failure_reason:
+        return result("FAIL", True, start, details, failure_reason)
+    return result("PASS", True, start, details)
+
+
 def parse_ollama_ps_json(stdout: str) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     raw = stdout.strip()
@@ -955,6 +1388,7 @@ def main() -> int:
     project = compose_project_name(env)
     golden = load_golden_query(model)
     gateway_url = gateway_url_from_compose(timeout=min(5, timeout))
+    hybrid_check_enabled = config_bool(env, "DEMO_HEALTH_HYBRID_CHECK", False)
 
     checks: dict[str, CheckResult] = {}
     warnings: list[str] = []
@@ -983,8 +1417,12 @@ def main() -> int:
                     if add("embedding_spot_check", check_embedding_spot(timeout)):
                         if add("trace_dir_writable", check_trace_dir()):
                             if add("rag_query", check_rag_query(gateway_url, model, golden, timeout)):
-                                add("ollama_text_model_gpu_placement", check_ollama_text_model_gpu_placement(model, timeout))
-                                add("recent_ingest", check_recent_ingest(timeout, env))
+                                if (not hybrid_check_enabled) or add(
+                                    "demo_site_hybrid_flow",
+                                    check_demo_site_hybrid_flow(gateway_url, model, timeout, env),
+                                ):
+                                    add("ollama_text_model_gpu_placement", check_ollama_text_model_gpu_placement(model, timeout))
+                                    add("recent_ingest", check_recent_ingest(timeout, env))
 
     status = "FAIL" if failed_check else "PASS"
     timestamp = ts.isoformat(timespec="seconds")
@@ -999,6 +1437,7 @@ def main() -> int:
         "selected_query_id": golden.get("prompt_id") or golden.get("query_id"),
         "selected_model": model,
         "selected_query": golden.get("query"),
+        "hybrid_check_enabled": hybrid_check_enabled,
         "checks": serialize_checks(checks),
         "rag_query": {
             "latency_ms": rag_details.get("latency_ms"),

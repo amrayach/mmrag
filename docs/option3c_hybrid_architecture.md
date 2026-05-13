@@ -68,6 +68,45 @@ RAG_DEMO_MAX_QUERIES_PER_HOUR=10
 
 `DEMO_SITE_OPENWEBUI_ENABLED=false` is the kill switch. With it disabled, the system should behave like the classic Option 1 demo-site flow.
 
+## S5 Local Health Check
+
+`scripts/demo_e2e_check.py` includes an optional hybrid/demo-site flow. It is off
+by default and runs only when `DEMO_HEALTH_HYBRID_CHECK=true` is set:
+
+```bash
+DEMO_HEALTH_HYBRID_CHECK=true python3 scripts/demo_e2e_check.py
+```
+
+Discovery order for demo-site is:
+
+1. `DEMO_HEALTH_DEMO_SITE_URL`
+2. `docker compose port demo-site 3000`
+3. `PORT_DEMO_SITE`, falling back to `http://127.0.0.1:56158`
+
+When `DEMO_SITE_ADMIN_TOKEN` is configured, the local check creates one
+short-lived access code, redeems it, uses the resulting `demo_session` cookie,
+calls `/api/openwebui/start`, exercises classic `/api/chat`, verifies direct
+local rag-gateway SSE with `stream:true`, revokes the new session by token
+prefix, and verifies a later `/api/openwebui/start` is denied with `401`.
+
+The health report stores only prefixes, cookie names, status codes, JSON error
+keys, header names, and latency. It must not store full access codes, session
+tokens, admin credentials, demo cookies, or OpenWebUI cookies.
+
+Expected local outcomes:
+
+- `DEMO_SITE_OPENWEBUI_ENABLED=true`: `/api/openwebui/start` must return `200`,
+  `{ "ok": true }`, a redirect, and at least one OpenWebUI `Set-Cookie` header.
+- `DEMO_SITE_OPENWEBUI_ENABLED=false`: `/api/openwebui/start` must return
+  `503 openwebui_disabled`; classic `/api/chat` still works with the redeemed
+  demo session.
+- no `DEMO_SITE_ADMIN_TOKEN`: only `/health` is checked and the session flow is
+  recorded as skipped.
+
+Running the check writes the usual `data/eval/demo_health` output and, when the
+admin token is present, short-lived demo-site auth-store records. It does not
+change containers, ports, models, volumes, Tailscale state, or public exposure.
+
 ## Public Exposure Rules
 
 The default project rule remains Tailscale Serve only, no Funnel.
@@ -82,6 +121,11 @@ The approved exception is narrow:
 - S6 must verify the public URL from off-tailnet and prove SSE chunks arrive incrementally with `curl -N`.
 
 SSE-through-Funnel remains unvalidated until S6. Do not treat the hybrid public path as demo-ready until that check passes.
+
+The S5 health check intentionally skips Funnel and off-tailnet validation. S6
+must still expose demo-site only after explicit operator approval, test the
+public root from off-tailnet, and prove incremental SSE through Funnel with
+`curl -N`.
 
 ## Rollback
 
