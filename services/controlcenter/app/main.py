@@ -1,12 +1,14 @@
 import asyncio
 import logging
+import math
 import re
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.background import BackgroundTask
 
 from . import config, db, docker_client
@@ -33,6 +35,103 @@ eventbus = EventBus(maxlen=1000)
 
 # Background monitor tasks
 _monitor_tasks: list[asyncio.Task] = []
+
+_DEMO_CODE_CREATE_FIELDS = {"ttl_hours", "max_redemptions", "label", "notes", "created_by"}
+
+
+def _demo_admin_disabled_response():
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "admin_disabled",
+            "message": "Demo access administration is disabled because DEMO_SITE_ADMIN_TOKEN is not configured.",
+        },
+    )
+
+
+def _with_demo_public_url(data):
+    public_url = config.DEMO_PUBLIC_URL.strip()
+    if not public_url or not isinstance(data, dict):
+        return data
+    return {**data, "demo_public_url": public_url}
+
+
+def _invalid_demo_access_request(message: str):
+    return JSONResponse(
+        status_code=400,
+        content={"error": "invalid_request", "message": message},
+    )
+
+
+def _is_positive_number(value) -> bool:
+    if isinstance(value, bool):
+        return False
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(parsed) and parsed > 0
+
+
+def _validate_demo_code_payload(body):
+    if not isinstance(body, dict):
+        return None, _invalid_demo_access_request("JSON body must be an object.")
+
+    payload = {key: body[key] for key in _DEMO_CODE_CREATE_FIELDS if key in body}
+
+    ttl_hours = payload.get("ttl_hours")
+    if ttl_hours is not None and not _is_positive_number(ttl_hours):
+        return None, _invalid_demo_access_request("ttl_hours must be a positive number.")
+
+    max_redemptions = payload.get("max_redemptions")
+    if max_redemptions is not None and not _is_positive_number(max_redemptions):
+        return None, _invalid_demo_access_request("max_redemptions must be a positive number.")
+
+    for key in ("label", "notes", "created_by"):
+        value = payload.get(key)
+        if value is not None and not isinstance(value, str):
+            return None, _invalid_demo_access_request(f"{key} must be a string.")
+
+    return payload, None
+
+
+async def _proxy_demo_admin_request(method: str, path: str, json_body=None):
+    token = config.DEMO_SITE_ADMIN_TOKEN.strip()
+    if not token:
+        return _demo_admin_disabled_response()
+
+    url = f"{config.DEMO_SITE_URL}{path}"
+    try:
+        async with httpx.AsyncClient(timeout=config.TIMEOUT_STANDARD) as client:
+            resp = await client.request(
+                method,
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+                json=json_body,
+            )
+    except httpx.HTTPError:
+        logger.warning("demo-site admin proxy request failed", exc_info=True)
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "demo_site_unavailable",
+                "message": "Demo-site admin API is unavailable.",
+            },
+        )
+
+    try:
+        data = resp.json()
+    except ValueError:
+        logger.warning("demo-site admin proxy returned non-JSON response: HTTP %s", resp.status_code)
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "demo_site_bad_response",
+                "message": "Demo-site admin API returned a non-JSON response.",
+            },
+        )
+
+    return JSONResponse(status_code=resp.status_code, content=_with_demo_public_url(data))
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +224,34 @@ async def proxy_assets(path: str):
     except httpx.HTTPError:
         await client.aclose()
         raise HTTPException(status_code=502, detail="Asset service unavailable")
+
+
+# ---------------------------------------------------------------------------
+# Demo access proxy (server-side admin token only)
+# ---------------------------------------------------------------------------
+@app.get("/api/demo-access/codes")
+async def list_demo_access_codes():
+    return await _proxy_demo_admin_request("GET", "/api/admin/codes")
+
+
+@app.post("/api/demo-access/codes")
+async def create_demo_access_code(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        return _invalid_demo_access_request("Request body must be valid JSON.")
+
+    payload, error = _validate_demo_code_payload(body)
+    if error is not None:
+        return error
+
+    return await _proxy_demo_admin_request("POST", "/api/admin/codes", json_body=payload)
+
+
+@app.post("/api/demo-access/codes/{code}/revoke")
+async def revoke_demo_access_code(code: str):
+    quoted_code = quote(code, safe="")
+    return await _proxy_demo_admin_request("POST", f"/api/admin/codes/{quoted_code}/revoke")
 
 
 # ---------------------------------------------------------------------------

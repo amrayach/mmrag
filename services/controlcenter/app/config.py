@@ -27,6 +27,17 @@ RSS_INGEST_URL = "http://rss-ingest:8002"
 RAG_GATEWAY_URL = "http://rag-gateway:8000"
 
 # ---------------------------------------------------------------------------
+# Demo-site admin proxy
+# ---------------------------------------------------------------------------
+DEMO_SITE_URL = (
+    os.getenv("CONTROL_CENTER_DEMO_SITE_URL")
+    or os.getenv("DEMO_SITE_URL")
+    or "http://demo-site:3000"
+).rstrip("/")
+DEMO_SITE_ADMIN_TOKEN = os.getenv("DEMO_SITE_ADMIN_TOKEN", "")
+DEMO_PUBLIC_URL = os.getenv("DEMO_PUBLIC_URL", "")
+
+# ---------------------------------------------------------------------------
 # Public URLs
 # ---------------------------------------------------------------------------
 PUBLIC_ASSETS_BASE_URL = os.getenv("PUBLIC_ASSETS_BASE_URL", "")
