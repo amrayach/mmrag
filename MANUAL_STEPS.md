@@ -54,6 +54,8 @@ tailscale serve --bg --https=8455 http://127.0.0.1:56156   # Control Center
 
 **Option 3C hybrid demo mode:** the default rule remains Serve-only/no Funnel. The approved exception allows Funnel only for the hybrid public demo, only after explicit operator approval, and only for demo-site. Do not expose OpenWebUI directly in hybrid mode; remove any direct OpenWebUI Serve/Funnel rule first. The S6/operator step must expose demo-site as the public root and verify the URL from off-tailnet.
 
+**Control Center Demo-Zugang:** the Control Center backend proxy for demo access codes requires `DEMO_SITE_ADMIN_TOKEN` in the `controlcenter` container. After changing demo access env vars, recreate or restart only `controlcenter` after explicit operator approval. Public reviewers still use demo-site only; Control Center remains internal/tailnet-only.
+
 **Client prerequisites:** Tailscale must be running and connected on the accessing device. Verify with `tailscale status`.
 
 **Serve persistence:** Tailscale Serve rules persist across daemon restarts on Linux (stored in Tailscale state). To verify after a server reboot, run `tailscale serve status`.
