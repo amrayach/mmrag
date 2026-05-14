@@ -781,6 +781,22 @@ function sendOpenWebuiProxyError(req, res) {
   res.end(body);
 }
 
+function writeSocketHttpError(socket, statusCode, statusMessage) {
+  if (socket.destroyed) {
+    return;
+  }
+  const reason = statusMessage || "Error";
+  socket.end(
+    [
+      `HTTP/1.1 ${statusCode} ${reason}`,
+      "Connection: close",
+      "Content-Length: 0",
+      "",
+      ""
+    ].join("\r\n")
+  );
+}
+
 function proxyOpenWebuiRequest(req, res, app, identity) {
   return new Promise((resolve) => {
     let settled = false;
@@ -838,6 +854,119 @@ function proxyOpenWebuiRequest(req, res, app, identity) {
     });
     req.pipe(upstreamReq);
   });
+}
+
+function openWebuiUpgradeHeaders(req, config, identity, targetUrl) {
+  const headers = openWebuiRequestHeaders(req, config, identity, targetUrl);
+  headers.connection = "Upgrade";
+  headers.upgrade = String(req.headers.upgrade || "websocket");
+  return headers;
+}
+
+function proxyOpenWebuiUpgrade(req, socket, head, app, identity) {
+  let upstreamSocket = null;
+  let settled = false;
+  const destroyBoth = () => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    if (!socket.destroyed) {
+      socket.destroy();
+    }
+    if (upstreamSocket && !upstreamSocket.destroyed) {
+      upstreamSocket.destroy();
+    }
+  };
+
+  let targetUrl;
+  try {
+    targetUrl = new URL(app.config.openWebuiUrl);
+  } catch {
+    writeSocketHttpError(socket, 502, "Bad Gateway");
+    return;
+  }
+
+  const transport = targetUrl.protocol === "https:" ? https : http;
+  const upstreamReq = transport.request({
+    protocol: targetUrl.protocol,
+    hostname: targetUrl.hostname,
+    port: targetUrl.port,
+    method: req.method,
+    path: openWebuiRequestPath(targetUrl, req.url),
+    headers: openWebuiUpgradeHeaders(req, app.config, identity, targetUrl)
+  });
+
+  upstreamReq.on("upgrade", (upstreamRes, nextUpstreamSocket, upstreamHead) => {
+    upstreamSocket = nextUpstreamSocket;
+    const statusCode = upstreamRes.statusCode || 101;
+    const statusMessage = upstreamRes.statusMessage || "Switching Protocols";
+    socket.write(`HTTP/1.1 ${statusCode} ${statusMessage}\r\n`);
+    for (let i = 0; i < upstreamRes.rawHeaders.length; i += 2) {
+      socket.write(`${upstreamRes.rawHeaders[i]}: ${upstreamRes.rawHeaders[i + 1]}\r\n`);
+    }
+    socket.write("\r\n");
+
+    if (upstreamHead?.length) {
+      socket.write(upstreamHead);
+    }
+    if (head?.length) {
+      upstreamSocket.write(head);
+    }
+
+    socket.on("error", destroyBoth);
+    upstreamSocket.on("error", destroyBoth);
+    socket.pipe(upstreamSocket);
+    upstreamSocket.pipe(socket);
+  });
+
+  upstreamReq.on("response", (upstreamRes) => {
+    const statusCode = upstreamRes.statusCode || 502;
+    const statusMessage = upstreamRes.statusMessage || "Bad Gateway";
+    socket.write(`HTTP/1.1 ${statusCode} ${statusMessage}\r\n`);
+    for (let i = 0; i < upstreamRes.rawHeaders.length; i += 2) {
+      socket.write(`${upstreamRes.rawHeaders[i]}: ${upstreamRes.rawHeaders[i + 1]}\r\n`);
+    }
+    socket.write("\r\n");
+    upstreamRes.pipe(socket);
+    upstreamRes.on("end", () => socket.end());
+    upstreamRes.on("error", destroyBoth);
+  });
+
+  upstreamReq.on("error", () => {
+    writeSocketHttpError(socket, 502, "Bad Gateway");
+  });
+  socket.on("error", () => upstreamReq.destroy());
+  socket.on("close", () => {
+    upstreamReq.destroy();
+    if (upstreamSocket && !upstreamSocket.destroyed) {
+      upstreamSocket.destroy();
+    }
+  });
+  upstreamReq.end();
+}
+
+async function handleOpenWebuiUpgrade(req, socket, head, app) {
+  let url;
+  try {
+    url = new URL(req.url || "/", "http://127.0.0.1");
+  } catch {
+    writeSocketHttpError(socket, 400, "Bad Request");
+    return;
+  }
+
+  if (!app.config.openWebuiEnabled || isReservedLocalPath(url.pathname)) {
+    writeSocketHttpError(socket, 404, "Not Found");
+    return;
+  }
+
+  const auth = await getSession(req, app.authStore);
+  if (auth.status !== "ok") {
+    writeSocketHttpError(socket, 401, "Unauthorized");
+    return;
+  }
+
+  proxyOpenWebuiUpgrade(req, socket, head, app, reviewerIdentity(auth.session));
 }
 
 function checkRateLimit(session, config, now = Date.now()) {
@@ -1259,6 +1388,11 @@ function createApp(options = {}) {
         error: message,
         message: error.detail || undefined
       });
+    });
+  });
+  server.on("upgrade", (req, socket, head) => {
+    handleOpenWebuiUpgrade(req, socket, head, app).catch(() => {
+      writeSocketHttpError(socket, 502, "Bad Gateway");
     });
   });
 

@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const http = require("node:http");
+const net = require("node:net");
 const path = require("node:path");
 const test = require("node:test");
 const { createApp, parseAssistantContent } = require("../server/index.js");
@@ -52,6 +53,44 @@ async function startOpenWebuiStub(handler) {
           res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
         }
         res.end(error.message);
+      });
+  });
+  const baseUrl = await listen(server);
+  return {
+    baseUrl,
+    calls,
+    cleanup: () => close(server)
+  };
+}
+
+async function startOpenWebuiUpgradeStub(handler) {
+  const calls = [];
+  const server = http.createServer((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected http request");
+  });
+  server.on("upgrade", (req, socket, head) => {
+    Promise.resolve()
+      .then(async () => {
+        const call = {
+          method: req.method,
+          url: req.url,
+          headers: req.headers,
+          headLength: head.length
+        };
+        calls.push(call);
+        await handler(req, socket, head, calls, call);
+      })
+      .catch((error) => {
+        socket.end(
+          [
+            "HTTP/1.1 500 Internal Server Error",
+            "Content-Type: text/plain; charset=utf-8",
+            `Content-Length: ${Buffer.byteLength(error.message)}`,
+            "",
+            error.message
+          ].join("\r\n")
+        );
       });
   });
   const baseUrl = await listen(server);
@@ -147,6 +186,63 @@ function jsonResponse(body, status = 200, headers = {}) {
 
 function parseFetchBody(options) {
   return options.body ? JSON.parse(options.body) : null;
+}
+
+function websocketUpgrade(baseUrl, requestPath = "/ws/socket.io/?EIO=4&transport=websocket", headers = {}) {
+  const target = new URL(baseUrl);
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(
+      {
+        host: target.hostname,
+        port: Number(target.port)
+      },
+      () => {
+        const headerLines = [
+          `GET ${requestPath} HTTP/1.1`,
+          `Host: ${target.host}`,
+          "Upgrade: websocket",
+          "Connection: Upgrade",
+          "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+          "Sec-WebSocket-Version: 13"
+        ];
+        for (const [name, value] of Object.entries(headers)) {
+          headerLines.push(`${name}: ${value}`);
+        }
+        socket.write(`${headerLines.join("\r\n")}\r\n\r\n`);
+      }
+    );
+
+    let raw = "";
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("upgrade_timeout"));
+    }, 2000);
+
+    socket.setEncoding("utf8");
+    socket.on("data", (chunk) => {
+      raw += chunk;
+      if (raw.includes("\r\n\r\n")) {
+        clearTimeout(timeout);
+        socket.destroy();
+        const [head] = raw.split("\r\n\r\n");
+        const lines = head.split("\r\n");
+        const statusCode = Number.parseInt(lines[0].split(" ")[1] || "0", 10);
+        const responseHeaders = {};
+        for (const line of lines.slice(1)) {
+          const index = line.indexOf(":");
+          if (index > -1) {
+            responseHeaders[line.slice(0, index).toLowerCase()] = line.slice(index + 1).trim();
+          }
+        }
+        resolve({ raw, statusCode, headers: responseHeaders });
+      }
+    });
+    socket.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    socket.on("close", () => clearTimeout(timeout));
+  });
 }
 
 test("parseAssistantContent separates Quellen links", () => {
@@ -761,6 +857,118 @@ test("hybrid proxy streams SSE chunks without buffering the upstream response", 
     assert.match(rest, /data: second/);
     assert.equal(secondChunkSent, true);
     assert.equal(upstream.calls.length, 1);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid upgrade with a valid session proxies to OpenWebUI", async () => {
+  const upstream = await startOpenWebuiUpgradeStub((_req, socket) => {
+    socket.end(
+      [
+        "HTTP/1.1 101 Switching Protocols",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        "X-Upstream-Upgrade: ok",
+        "",
+        ""
+      ].join("\r\n")
+    );
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const response = await websocketUpgrade(appContext.baseUrl, "/ws/socket.io/?EIO=4&transport=websocket", {
+      cookie: sessionCookie(session.token)
+    });
+
+    assert.equal(response.statusCode, 101);
+    assert.equal(response.headers["x-upstream-upgrade"], "ok");
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].method, "GET");
+    assert.equal(upstream.calls[0].url, "/ws/socket.io/?EIO=4&transport=websocket");
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid upgrade without a valid session returns 401 without upstream call", async () => {
+  const upstream = await startOpenWebuiUpgradeStub((_req, socket) => {
+    socket.end("HTTP/1.1 101 Switching Protocols\r\n\r\n");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const response = await websocketUpgrade(appContext.baseUrl);
+
+    assert.equal(response.statusCode, 401);
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid upgrade strips spoofed X-Demo headers and injects reviewer identity", async () => {
+  const upstream = await startOpenWebuiUpgradeStub((_req, socket) => {
+    socket.end("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const prefix = session.token.slice(0, 8);
+    const response = await websocketUpgrade(appContext.baseUrl, "/ws/socket.io/?EIO=4&transport=websocket", {
+      cookie: sessionCookie(session.token),
+      "X-Demo-Email": "attacker@example.test",
+      "X-Demo-Name": "Spoofed User",
+      "X-Demo-Extra": "strip-me",
+      "X-Regular-Header": "keep-me"
+    });
+
+    assert.equal(response.statusCode, 101);
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers["x-demo-name"], `Demo Reviewer ${prefix}`);
+    assert.equal(upstream.calls[0].headers["x-demo-extra"], undefined);
+    assert.equal(upstream.calls[0].headers["x-regular-header"], "keep-me");
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid upgrade preserves OpenWebUI cookies and strips demo session", async () => {
+  const upstream = await startOpenWebuiUpgradeStub((_req, socket) => {
+    socket.end("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const response = await websocketUpgrade(appContext.baseUrl, "/ws/socket.io/?EIO=4&transport=websocket", {
+      cookie: `${sessionCookie(session.token)}; token=openwebui-cookie; theme=dark`
+    });
+
+    assert.equal(response.statusCode, 101);
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].headers.cookie, "token=openwebui-cookie; theme=dark");
+    assert.equal(JSON.stringify(upstream.calls[0]).includes(session.token), false);
   } finally {
     await appContext.cleanup();
     await upstream.cleanup();
