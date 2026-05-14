@@ -660,7 +660,9 @@ async function handleOpenWebuiStart(req, res, app) {
   try {
     await openWebuiEnsureReviewer(app.config, app.fetchImpl, identity);
     const signin = await openWebuiReviewerSignin(app.config, app.fetchImpl, identity);
-    const headers = signin.cookies.length > 0 ? { "set-cookie": signin.cookies } : {};
+    const maxAgeSeconds = Math.max(1, (Date.parse(auth.session.expires_at) - Date.now()) / 1000);
+    const cookies = [...signin.cookies, cookieHeader(auth.session.token, maxAgeSeconds)];
+    const headers = { "set-cookie": cookies };
     sendJson(res, 200, { ok: true, redirect: "/" }, headers);
   } catch {
     sendJson(res, 502, {

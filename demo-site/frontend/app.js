@@ -169,6 +169,7 @@ function renderMessages() {
 async function redeemCode(code) {
   const response = await fetch("/api/auth/redeem", {
     method: "POST",
+    credentials: "same-origin",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code })
   });

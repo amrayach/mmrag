@@ -437,6 +437,7 @@ test("OpenWebUI start without a demo session returns 401", async () => {
     const data = await response.json();
     assert.equal(response.status, 401);
     assert.equal(data.error, "invalid_or_expired_session");
+    assert.equal(response.headers.get("set-cookie"), null);
     assert.equal(openWebuiCalls, 0);
   } finally {
     await appContext.cleanup();
@@ -489,7 +490,11 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
 
     assert.equal(response.status, 200);
     assert.deepEqual(data, { ok: true, redirect: "/" });
-    assert.match(response.headers.get("set-cookie"), /token=reviewer-cookie/);
+    const setCookie = response.headers.get("set-cookie") || "";
+    assert.match(setCookie, /token=reviewer-cookie/);
+    assert.match(setCookie, /demo_session=/);
+    assert.match(setCookie, /Path=\//);
+    assert.match(setCookie, /HttpOnly/);
     assert.equal(calls.length, 3);
 
     assert.equal(calls[0].url, "http://openwebui.test/api/v1/auths/signin");
