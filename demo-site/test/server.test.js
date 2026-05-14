@@ -619,7 +619,10 @@ test("hybrid proxy accepts mapped OpenWebUI token cookie without demo_session", 
     assert.equal(start.status, 200);
 
     const response = await fetch(`${appContext.baseUrl}/api/models`, {
-      headers: { cookie: "token=mapped-openwebui-cookie" }
+      headers: {
+        authorization: "Bearer stale-browser-token",
+        cookie: "token=mapped-openwebui-cookie; demo_session=must-not-forward; theme=dark"
+      }
     });
     const data = await response.json();
 
@@ -628,7 +631,8 @@ test("hybrid proxy accepts mapped OpenWebUI token cookie without demo_session", 
     assert.equal(upstream.calls.length, 1);
     assert.equal(upstream.calls[0].url, "/api/models");
     assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
-    assert.equal(upstream.calls[0].headers.cookie, "token=mapped-openwebui-cookie");
+    assert.equal(upstream.calls[0].headers.authorization, undefined);
+    assert.equal(upstream.calls[0].headers.cookie, "token=mapped-openwebui-cookie; theme=dark");
   } finally {
     await appContext.cleanup();
     await upstream.cleanup();
@@ -1144,12 +1148,14 @@ test("hybrid upgrade accepts mapped OpenWebUI token cookie", async () => {
     assert.equal(start.status, 200);
 
     const response = await websocketUpgrade(appContext.baseUrl, "/ws/socket.io/?EIO=4&transport=websocket", {
+      authorization: "Bearer stale-browser-token",
       cookie: "token=mapped-upgrade-cookie"
     });
 
     assert.equal(response.statusCode, 101);
     assert.equal(response.headers["x-upstream-upgrade"], "mapped");
     assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].headers.authorization, undefined);
   } finally {
     await appContext.cleanup();
     await upstream.cleanup();

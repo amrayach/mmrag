@@ -788,6 +788,7 @@ function openWebuiRequestHeaders(req, config, identity, targetUrl) {
     const lowerName = name.toLowerCase();
     if (
       lowerName === "host" ||
+      lowerName === "authorization" ||
       HOP_BY_HOP_HEADERS.has(lowerName) ||
       connectionScoped.has(lowerName) ||
       lowerName === trustedEmailHeader ||
