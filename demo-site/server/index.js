@@ -576,7 +576,12 @@ async function getSession(req, authStore) {
 }
 
 async function getOpenWebuiMuxSession(req, authStore) {
-  const auth = await getSession(req, authStore);
+  // Mux paths host the OpenWebUI SPA, which sends its own bearer JWT in
+  // Authorization. Honouring that header here would short-circuit the
+  // demo_session cookie lookup and return 401 even with a valid demo session.
+  const demoCookie = cookieValue(req.headers.cookie, "demo_session");
+  const demoToken = demoCookie ? decodeURIComponent(demoCookie) : "";
+  const auth = await authStore.validateSession(demoToken, req);
   if (auth.status === "ok") {
     return auth;
   }

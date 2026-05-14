@@ -639,6 +639,86 @@ test("hybrid proxy accepts mapped OpenWebUI token cookie without demo_session", 
   }
 });
 
+test("hybrid proxy ignores stale OpenWebUI bearer when demo_session cookie is valid", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ data: [{ id: "gemma4:26b" }] }));
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const prefix = session.token.slice(0, 8);
+
+    const response = await fetch(`${appContext.baseUrl}/api/models`, {
+      headers: {
+        authorization: "Bearer eyJhbGciOiJIUzI1NiJ9.openwebui-spa-localstorage.jwt",
+        cookie: sessionCookie(session.token)
+      }
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(data, { data: [{ id: "gemma4:26b" }] });
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].url, "/api/models");
+    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers.authorization, undefined);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid proxy ignores stale OpenWebUI bearer after the SPA rotates the token cookie", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ data: [{ id: "gemma4:26b" }] }));
+  });
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: upstream.baseUrl
+    },
+    { fetchImpl: openWebuiSigninFetch("first-openwebui-cookie") }
+  );
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const prefix = session.token.slice(0, 8);
+    const start = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    assert.equal(start.status, 200);
+
+    // Browser SPA rotated the OpenWebUI token via /auth re-signin; the cookie
+    // value no longer matches the hash stored during /api/openwebui/start, and
+    // the SPA also sends its new JWT as Authorization. The demo_session cookie
+    // is still valid and must keep the proxy authenticated.
+    const response = await fetch(`${appContext.baseUrl}/api/models`, {
+      headers: {
+        authorization: "Bearer eyJhbGciOiJIUzI1NiJ9.rotated-spa-jwt.sig",
+        cookie: `${sessionCookie(session.token)}; token=rotated-openwebui-cookie`
+      }
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(data, { data: [{ id: "gemma4:26b" }] });
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers.authorization, undefined);
+    assert.equal(upstream.calls[0].headers.cookie, "token=rotated-openwebui-cookie");
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
 test("hybrid proxy rejects unknown OpenWebUI token cookie with JSON 401", async () => {
   const upstream = await startOpenWebuiStub((_req, res) => {
     res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
