@@ -1,0 +1,37 @@
+# Optional internal raw tailnet access override.
+#
+# Use only after explicit operator approval. This publishes selected UI ports on
+# the host's Tailscale 100.x address for fallback access such as:
+# http://100.77.150.62:56156
+#
+# The default docker-compose.yml stays localhost-only. Raw bindings must use
+# TAILSCALE_HOST_IP and must never use 0.0.0.0.
+#
+# Direct OpenWebUI raw access is intentionally omitted in hybrid mode because it
+# bypasses the demo-site code gate. Add it only as a separate, explicit
+# admin-only exception.
+
+services:
+  n8n:
+    ports:
+      - "${TAILSCALE_HOST_IP:?set TAILSCALE_HOST_IP to this host's 100.x Tailscale IP}:${PORT_N8N:-56150}:5678"
+
+  filebrowser:
+    ports:
+      - "${TAILSCALE_HOST_IP:?set TAILSCALE_HOST_IP to this host's 100.x Tailscale IP}:${PORT_FILEBROWSER:-56152}:80"
+
+  adminer:
+    ports:
+      - "${TAILSCALE_HOST_IP:?set TAILSCALE_HOST_IP to this host's 100.x Tailscale IP}:${PORT_ADMINER:-56153}:8080"
+
+  controlcenter:
+    ports:
+      - "${TAILSCALE_HOST_IP:?set TAILSCALE_HOST_IP to this host's 100.x Tailscale IP}:${PORT_CONTROLCENTER:-56156}:8000"
+
+  demo-site:
+    ports:
+      - "${TAILSCALE_HOST_IP:?set TAILSCALE_HOST_IP to this host's 100.x Tailscale IP}:${PORT_DEMO_SITE:-56158}:3000"
+
+  assets:
+    ports:
+      - "${TAILSCALE_HOST_IP:?set TAILSCALE_HOST_IP to this host's 100.x Tailscale IP}:${PORT_ASSETS:-56157}:80"

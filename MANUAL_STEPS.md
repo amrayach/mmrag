@@ -38,7 +38,7 @@ cp .env.example .env
 - Default login: `admin` / `admin`
 - **Change the password immediately** (Settings > Users)
 
-## 4) Configure Reverse Proxy, Tailscale Serve, or Approved Hybrid Funnel
+## 4) Configure Reverse Proxy, Tailscale Serve, Raw Tailnet Fallback, or Approved Hybrid Funnel
 
 All host ports bind to `127.0.0.1` only. To access from other machines on the tailnet, set up a reverse proxy or Tailscale Serve. These commands change system state and require explicit operator approval before execution.
 
@@ -59,6 +59,17 @@ tailscale serve --bg --https=8455 http://127.0.0.1:56156   # Control Center
 **Client prerequisites:** Tailscale must be running and connected on the accessing device. Verify with `tailscale status`.
 
 **Serve persistence:** Tailscale Serve rules persist across daemon restarts on Linux (stored in Tailscale state). To verify after a server reboot, run `tailscale serve status`.
+
+**Raw 100.x fallback:** raw `http://100.77.150.62:<port>` access is fallback-only
+for internal troubleshooting and requires explicit operator approval plus the
+`docker-compose.tailnet-raw.yml` override. It binds only to the Tailscale host
+IP via `TAILSCALE_HOST_IP`, never `0.0.0.0`, and intentionally omits direct
+OpenWebUI access because that bypasses the demo-site code gate. See
+`docs/internal_tailnet_access.md`.
+
+Existing Sven-owned Funnel slots `:443` and `:10000` are intentionally left
+untouched. This project's approved demo Funnel slot is `:8443` for demo-site
+only.
 
 **Quick self-diagnosis:**
 ```bash

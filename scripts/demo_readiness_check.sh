@@ -183,6 +183,9 @@ if echo "$SERVE_OUT" | grep -q "$TAILNET_HOST"; then
 else
   fail "Tailscale serve rules not found"
 fi
+if [ "${DEMO_SITE_OPENWEBUI_ENABLED:-false}" = "true" ] && echo "$SERVE_OUT" | grep -q "${TAILNET_HOST}:8451"; then
+  warn "Direct OpenWebUI Serve is active during hybrid mode; keep it internal/admin-only because it bypasses demo-site gate"
+fi
 
 # ── 8. Tailnet URLs respond ──────────────────────────────────────────────
 echo "== 8. Tailnet URLs =="
