@@ -188,6 +188,15 @@ function parseFetchBody(options) {
   return options.body ? JSON.parse(options.body) : null;
 }
 
+function openWebuiSigninFetch(openWebuiToken = "openwebui-cookie") {
+  return async () =>
+    jsonResponse(
+      { token: "reviewer-jwt" },
+      200,
+      { "set-cookie": `token=${openWebuiToken}; Path=/; HttpOnly; SameSite=Lax` }
+    );
+}
+
 function websocketUpgrade(baseUrl, requestPath = "/ws/socket.io/?EIO=4&transport=websocket", headers = {}) {
   const target = new URL(baseUrl);
   return new Promise((resolve, reject) => {
@@ -495,6 +504,11 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
     assert.match(setCookie, /demo_session=/);
     assert.match(setCookie, /Path=\//);
     assert.match(setCookie, /HttpOnly/);
+    const storedText = await fs.readFile(appContext.authStorePath, "utf8");
+    const stored = JSON.parse(storedText);
+    const storedSession = stored.sessions.find((item) => item.token === session.token);
+    assert.match(storedSession.openwebui_token_hash, /^[a-f0-9]{64}$/);
+    assert.equal(storedText.includes("reviewer-cookie"), false);
     assert.equal(calls.length, 3);
 
     assert.equal(calls[0].url, "http://openwebui.test/api/v1/auths/signin");
@@ -579,6 +593,126 @@ test("OpenWebUI duplicate reviewer creation still bootstraps session", async () 
     assert.equal(calls.length, 3);
   } finally {
     await appContext.cleanup();
+  }
+});
+
+test("hybrid proxy accepts mapped OpenWebUI token cookie without demo_session", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ data: [{ id: "gemma4:26b" }] }));
+  });
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: upstream.baseUrl
+    },
+    { fetchImpl: openWebuiSigninFetch("mapped-openwebui-cookie") }
+  );
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const prefix = session.token.slice(0, 8);
+    const start = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    assert.equal(start.status, 200);
+
+    const response = await fetch(`${appContext.baseUrl}/api/models`, {
+      headers: { cookie: "token=mapped-openwebui-cookie" }
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(data, { data: [{ id: "gemma4:26b" }] });
+    assert.equal(upstream.calls.length, 1);
+    assert.equal(upstream.calls[0].url, "/api/models");
+    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers.cookie, "token=mapped-openwebui-cookie");
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid proxy rejects unknown OpenWebUI token cookie with JSON 401", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const response = await fetch(`${appContext.baseUrl}/api/models`, {
+      headers: { cookie: "token=unknown-openwebui-cookie" }
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(data.error, "invalid_or_expired_session");
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid proxy rejects expired and revoked mapped OpenWebUI sessions", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  let openWebuiCookie = "expired-openwebui-cookie";
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: upstream.baseUrl
+    },
+    { fetchImpl: async () => openWebuiSigninFetch(openWebuiCookie)() }
+  );
+
+  try {
+    const expiredSession = await createSession(appContext.baseUrl);
+    const expiredStart = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${expiredSession.token}` }
+    });
+    assert.equal(expiredStart.status, 200);
+    const expiredRecord = appContext.app.authStore.data.sessions.find(
+      (item) => item.token === expiredSession.token
+    );
+    expiredRecord.expires_at = new Date(Date.now() - 1000).toISOString();
+    await appContext.app.authStore.persist();
+
+    const expiredResponse = await fetch(`${appContext.baseUrl}/api/models`, {
+      headers: { cookie: "token=expired-openwebui-cookie" }
+    });
+    assert.equal(expiredResponse.status, 401);
+
+    openWebuiCookie = "revoked-openwebui-cookie";
+    const revokedSession = await createSession(appContext.baseUrl);
+    const revokedStart = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${revokedSession.token}` }
+    });
+    assert.equal(revokedStart.status, 200);
+    const revokedRecord = appContext.app.authStore.data.sessions.find(
+      (item) => item.token === revokedSession.token
+    );
+    revokedRecord.revoked_at = new Date().toISOString();
+    await appContext.app.authStore.persist();
+
+    const revokedResponse = await fetch(`${appContext.baseUrl}/api/models`, {
+      headers: { cookie: "token=revoked-openwebui-cookie" }
+    });
+    assert.equal(revokedResponse.status, 401);
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
   }
 });
 
@@ -977,6 +1111,79 @@ test("hybrid upgrade preserves OpenWebUI cookies and strips demo session", async
   } finally {
     await appContext.cleanup();
     await upstream.cleanup();
+  }
+});
+
+test("hybrid upgrade accepts mapped OpenWebUI token cookie", async () => {
+  const upstream = await startOpenWebuiUpgradeStub((_req, socket) => {
+    socket.end(
+      [
+        "HTTP/1.1 101 Switching Protocols",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        "X-Upstream-Upgrade: mapped",
+        "",
+        ""
+      ].join("\r\n")
+    );
+  });
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: upstream.baseUrl
+    },
+    { fetchImpl: openWebuiSigninFetch("mapped-upgrade-cookie") }
+  );
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const start = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    assert.equal(start.status, 200);
+
+    const response = await websocketUpgrade(appContext.baseUrl, "/ws/socket.io/?EIO=4&transport=websocket", {
+      cookie: "token=mapped-upgrade-cookie"
+    });
+
+    assert.equal(response.statusCode, 101);
+    assert.equal(response.headers["x-upstream-upgrade"], "mapped");
+    assert.equal(upstream.calls.length, 1);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("classic chat does not accept mapped OpenWebUI token cookie", async () => {
+  const appContext = await startApp(
+    { openWebuiEnabled: true },
+    { fetchImpl: openWebuiSigninFetch("chat-openwebui-cookie") }
+  );
+
+  try {
+    const session = await createSession(appContext.baseUrl);
+    const start = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    assert.equal(start.status, 200);
+
+    const response = await fetch(`${appContext.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: {
+        cookie: "token=chat-openwebui-cookie",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ message: "Hallo" })
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(data.error, "invalid_or_expired_session");
+  } finally {
+    await appContext.cleanup();
   }
 });
 

@@ -255,6 +255,10 @@ function authError(statusCode, error, message) {
   return { ok: false, statusCode, error, message };
 }
 
+function tokenHash(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
+}
+
 class AuthStore {
   constructor(filePath) {
     this.filePath = path.resolve(filePath);
@@ -468,6 +472,33 @@ class AuthStore {
     return { status: "ok", token, session };
   }
 
+  async validateOpenWebuiToken(token, req) {
+    await this.ensureAvailable();
+    if (!token) {
+      return { status: "missing" };
+    }
+    const hash = tokenHash(token);
+    const session = this.data.sessions.find((record) => record.openwebui_token_hash === hash);
+    if (!session) {
+      return { status: "invalid" };
+    }
+    if (session.revoked_at) {
+      return { status: "revoked" };
+    }
+    if (Date.parse(session.expires_at) <= Date.now()) {
+      return { status: "expired" };
+    }
+    session.last_seen_at = nowIso();
+    session.queryTimes = Array.isArray(session.queryTimes)
+      ? session.queryTimes
+      : Array.isArray(session.query_times)
+        ? session.query_times
+        : [];
+    this.audit({ event: "session_seen", token: session.token, status: "ok" }, req);
+    await this.persist();
+    return { status: "ok", token: session.token, session };
+  }
+
   async saveSession(session) {
     session.query_times = Array.isArray(session.queryTimes) ? session.queryTimes : session.query_times || [];
     await this.persist();
@@ -503,6 +534,17 @@ function cookieHeader(token, maxAgeSeconds) {
   ].join("; ");
 }
 
+function cookieValue(value, cookieName) {
+  const raw = Array.isArray(value) ? value.join("; ") : String(value || "");
+  for (const part of raw.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === cookieName) {
+      return rest.join("=");
+    }
+  }
+  return "";
+}
+
 function tokenFromRequest(req) {
   const authorization = req.headers.authorization || "";
   const bearer = authorization.match(/^Bearer\s+(.+)$/i);
@@ -510,11 +552,19 @@ function tokenFromRequest(req) {
     return bearer[1].trim();
   }
 
-  const cookie = req.headers.cookie || "";
-  for (const part of cookie.split(";")) {
-    const [name, ...rest] = part.trim().split("=");
-    if (name === "demo_session") {
-      return decodeURIComponent(rest.join("="));
+  const token = cookieValue(req.headers.cookie, "demo_session");
+  return token ? decodeURIComponent(token) : "";
+}
+
+function openWebuiTokenFromRequest(req) {
+  return cookieValue(req.headers.cookie, "token");
+}
+
+function openWebuiTokenFromSetCookies(cookies) {
+  for (const cookie of cookies) {
+    const token = cookieValue(String(cookie).split(";")[0], "token");
+    if (token) {
+      return token;
     }
   }
   return "";
@@ -523,6 +573,18 @@ function tokenFromRequest(req) {
 async function getSession(req, authStore) {
   const token = tokenFromRequest(req);
   return authStore.validateSession(token, req);
+}
+
+async function getOpenWebuiMuxSession(req, authStore) {
+  const auth = await getSession(req, authStore);
+  if (auth.status === "ok") {
+    return auth;
+  }
+  const openWebuiToken = openWebuiTokenFromRequest(req);
+  if (!openWebuiToken) {
+    return auth;
+  }
+  return authStore.validateOpenWebuiToken(openWebuiToken, req);
 }
 
 function trustedHeaders(config, identity) {
@@ -660,6 +722,11 @@ async function handleOpenWebuiStart(req, res, app) {
   try {
     await openWebuiEnsureReviewer(app.config, app.fetchImpl, identity);
     const signin = await openWebuiReviewerSignin(app.config, app.fetchImpl, identity);
+    const openWebuiToken = openWebuiTokenFromSetCookies(signin.cookies);
+    if (openWebuiToken) {
+      auth.session.openwebui_token_hash = tokenHash(openWebuiToken);
+      await app.authStore.saveSession(auth.session);
+    }
     const maxAgeSeconds = Math.max(1, (Date.parse(auth.session.expires_at) - Date.now()) / 1000);
     const cookies = [...signin.cookies, cookieHeader(auth.session.token, maxAgeSeconds)];
     const headers = { "set-cookie": cookies };
@@ -962,7 +1029,7 @@ async function handleOpenWebuiUpgrade(req, socket, head, app) {
     return;
   }
 
-  const auth = await getSession(req, app.authStore);
+  const auth = await getOpenWebuiMuxSession(req, app.authStore);
   if (auth.status !== "ok") {
     writeSocketHttpError(socket, 401, "Unauthorized");
     return;
@@ -1359,9 +1426,13 @@ async function handleRequest(req, res, app) {
   }
 
   if (app.config.openWebuiEnabled && !isReservedLocalPath(url.pathname)) {
-    const auth = await getSession(req, app.authStore);
+    const auth = await getOpenWebuiMuxSession(req, app.authStore);
     if (auth.status === "ok") {
       await proxyOpenWebuiRequest(req, res, app, reviewerIdentity(auth.session));
+      return;
+    }
+    if (url.pathname.startsWith("/api/")) {
+      sendJson(res, 401, { error: "invalid_or_expired_session" });
       return;
     }
   }
