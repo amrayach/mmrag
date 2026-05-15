@@ -520,7 +520,10 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
     const data = await response.json();
 
     assert.equal(response.status, 200);
-    assert.deepEqual(data, { ok: true, redirect: "/" });
+    assert.deepEqual(data, { ok: true, redirect: "/", openwebui_token: "reviewer-jwt" });
+    assert.notEqual(data.openwebui_token, session.token);
+    assert.notEqual(data.openwebui_token, "reviewer-cookie");
+    assert.notEqual(data.openwebui_token, calls[1].body.password);
     const setCookie = response.headers.get("set-cookie") || "";
     assert.match(setCookie, /token=reviewer-cookie/);
     assert.match(setCookie, /demo_session=/);
@@ -618,7 +621,7 @@ test("OpenWebUI duplicate reviewer creation still bootstraps session", async () 
     });
     const data = await response.json();
     assert.equal(response.status, 200);
-    assert.deepEqual(data, { ok: true, redirect: "/" });
+    assert.deepEqual(data, { ok: true, redirect: "/", openwebui_token: "reviewer-jwt" });
     assert.equal(calls.length, 3);
     assert.equal(calls[0].headers["X-Demo-Email"], undefined);
     assert.equal(calls[0].headers["X-Demo-Name"], undefined);
@@ -626,6 +629,7 @@ test("OpenWebUI duplicate reviewer creation still bootstraps session", async () 
     assert.equal(calls[2].headers["X-Demo-Name"], undefined);
     assert.equal(calls[1].body.password, calls[2].body.password);
     assert.match(calls[2].body.password, /^[A-Za-z0-9_-]{32}$/);
+    assert.notEqual(data.openwebui_token, calls[2].body.password);
   } finally {
     await appContext.cleanup();
   }

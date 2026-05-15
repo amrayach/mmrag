@@ -720,11 +720,12 @@ async function openWebuiReviewerSignin(config, fetchImpl, identity, password) {
       password
     })
   });
-  await openWebuiResponseBody(response);
+  const body = await openWebuiResponseBody(response);
   if (!response.ok) {
     throw openWebuiError(`openwebui_reviewer_signin_${response.status}`);
   }
-  return { cookies: responseSetCookies(response) };
+  const token = body.json?.token || body.json?.access_token || "";
+  return { cookies: responseSetCookies(response), token };
 }
 
 async function handleOpenWebuiStart(req, res, app) {
@@ -768,7 +769,11 @@ async function handleOpenWebuiStart(req, res, app) {
     const maxAgeSeconds = Math.max(1, (Date.parse(auth.session.expires_at) - Date.now()) / 1000);
     const cookies = [...signin.cookies, cookieHeader(auth.session.token, maxAgeSeconds)];
     const headers = { "set-cookie": cookies };
-    sendJson(res, 200, { ok: true, redirect: "/" }, headers);
+    const payload = { ok: true, redirect: "/" };
+    if (signin.token) {
+      payload.openwebui_token = signin.token;
+    }
+    sendJson(res, 200, payload, headers);
   } catch {
     sendJson(res, 502, {
       error: "openwebui_bootstrap_failed",

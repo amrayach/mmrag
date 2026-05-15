@@ -223,6 +223,13 @@ async function startOpenWebui() {
     }
 
     const redirect = typeof data.redirect === "string" && data.redirect ? data.redirect : "/";
+    if (typeof data.openwebui_token === "string" && data.openwebui_token) {
+      try {
+        localStorage.setItem("token", data.openwebui_token);
+      } catch (_err) {
+        // localStorage unavailable (private mode etc.) — cookie auth still works for proxied requests.
+      }
+    }
     window.location.assign(redirect);
   } catch (error) {
     launchStatus.textContent = error.message;
