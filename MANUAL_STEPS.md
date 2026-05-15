@@ -103,6 +103,37 @@ For Option 3C hybrid mode, OpenWebUI is configured for plain email/password auth
 
 Provision internal OpenWebUI accounts (for example Ammer as admin, Sven as user) through the OpenWebUI Admin panel after the stack is up. Internal users sign in directly through the OpenWebUI login form on the internal Serve slot — they do not depend on demo-site.
 
+### Migration Runtime Order (Password Bootstrap)
+
+`OPENWEBUI_ADMIN_EMAIL` / `OPENWEBUI_ADMIN_PASSWORD` are read at demo-site startup. If they are empty when demo-site comes up, `/api/openwebui/start` will skip reviewer pre-creation and the public `:8443` flow will fail at signin (the `demo2-*` reviewer does not exist yet in OpenWebUI). To migrate cleanly, do this in two phases with operator approval at each step:
+
+Phase A — bring the new auth model up with admin creds still empty:
+
+```bash
+TAILSCALE_HOST_IP=100.77.150.62 docker compose -f docker-compose.yml -f docker-compose.tailnet-raw.yml -p ammer-mmragv2 up -d --build --no-deps openwebui demo-site
+```
+
+Then visit the internal Serve slot (e.g. `https://spark-e010.tail907fce.ts.net:8451`) and:
+
+1. Sign up Ammer — the first OpenWebUI signup becomes admin.
+2. As admin, create Sven from **Admin → Users**.
+3. Update `.env` with the admin credentials just created:
+   - `OPENWEBUI_ADMIN_EMAIL=amrayach@gmail.com`
+   - `OPENWEBUI_ADMIN_PASSWORD=<Ammer password>`
+
+Phase B — recreate demo-site only so it picks up the new env:
+
+```bash
+TAILSCALE_HOST_IP=100.77.150.62 docker compose -f docker-compose.yml -f docker-compose.tailnet-raw.yml -p ammer-mmragv2 up -d --no-deps demo-site
+```
+
+After Phase B, validate both flows before merging the feature branch:
+
+- `:8451` direct login as Ammer/Sven works.
+- `:8443` reviewer redeem → "OpenWebUI Chat starten" → chat streams `gemma4:26b`.
+- `DEMO_HEALTH_HYBRID_CHECK=true DEMO_HEALTH_DEMO_SITE_URL=http://127.0.0.1:56158 python3 scripts/demo_e2e_check.py` is green.
+- `docker compose -p ammer-mmragv2 exec -T ollama ollama ps` shows `gemma4:26b` at `100% GPU`.
+
 Rollback for hybrid mode: set `DEMO_SITE_OPENWEBUI_ENABLED=false`, restart the affected service after approval, and use the classic demo-site chat (`/classic`) backed by the existing `/api/chat` endpoint.
 
 ### Optional S5 Hybrid Local Check
