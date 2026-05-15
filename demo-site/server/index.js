@@ -128,12 +128,10 @@ function createConfig(overrides = {}) {
       "http://openwebui:8080",
     openWebuiAdminEmail: envString(overrides, "openWebuiAdminEmail", "OPENWEBUI_ADMIN_EMAIL", ""),
     openWebuiAdminPassword: envString(overrides, "openWebuiAdminPassword", "OPENWEBUI_ADMIN_PASSWORD", ""),
-    openWebuiTrustedEmailHeader:
-      envString(overrides, "openWebuiTrustedEmailHeader", "OPENWEBUI_TRUSTED_EMAIL_HEADER", "X-Demo-Email") ||
-      "X-Demo-Email",
-    openWebuiTrustedNameHeader:
-      envString(overrides, "openWebuiTrustedNameHeader", "OPENWEBUI_TRUSTED_NAME_HEADER", "X-Demo-Name") ||
-      "X-Demo-Name",
+    openWebuiPasswordSecret:
+      envString(overrides, "openWebuiPasswordSecret", "DEMO_SITE_OPENWEBUI_PASSWORD_SECRET", "") ||
+      process.env.WEBUI_SECRET_KEY ||
+      "",
     mockGateway:
       typeof overrides.mockGateway === "boolean"
         ? overrides.mockGateway
@@ -220,7 +218,7 @@ function reviewerIdentity(session) {
   const prefix = tokenPrefix(session?.token);
   return {
     token_prefix: prefix,
-    email: `demo-${prefix}@mmrag.invalid`,
+    email: `demo2-${prefix}@mmrag.invalid`,
     name: `Demo Reviewer ${prefix}`
   };
 }
@@ -621,11 +619,15 @@ async function getOpenWebuiMuxSession(req, authStore) {
   return authStore.validateOpenWebuiToken(openWebuiToken, req);
 }
 
-function trustedHeaders(config, identity) {
-  return {
-    [config.openWebuiTrustedEmailHeader]: identity.email,
-    [config.openWebuiTrustedNameHeader]: identity.name
-  };
+function reviewerPassword(token, secret) {
+  if (!secret) {
+    throw new Error("openwebui_password_secret_missing");
+  }
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`reviewer:${String(token || "")}`)
+    .digest("base64url")
+    .slice(0, 32);
 }
 
 async function openWebuiResponseBody(response) {
@@ -660,15 +662,10 @@ function isOpenWebuiDuplicateUser(response, body) {
 }
 
 async function openWebuiAdminSignin(config, fetchImpl) {
-  const adminIdentity = {
-    email: config.openWebuiAdminEmail,
-    name: "Demo Admin"
-  };
   const response = await fetchImpl(`${config.openWebuiUrl}/api/v1/auths/signin`, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
-      ...trustedHeaders(config, adminIdentity)
+      "content-type": "application/json"
     },
     body: JSON.stringify({
       email: config.openWebuiAdminEmail,
@@ -686,13 +683,12 @@ async function openWebuiAdminSignin(config, fetchImpl) {
   return token;
 }
 
-async function openWebuiEnsureReviewer(config, fetchImpl, identity) {
+async function openWebuiEnsureReviewer(config, fetchImpl, identity, password) {
   if (!config.openWebuiAdminEmail || !config.openWebuiAdminPassword) {
     return { skipped: true };
   }
 
   const adminToken = await openWebuiAdminSignin(config, fetchImpl);
-  const throwawayPassword = crypto.randomBytes(24).toString("base64url");
   const response = await fetchImpl(`${config.openWebuiUrl}/api/v1/auths/add`, {
     method: "POST",
     headers: {
@@ -702,7 +698,7 @@ async function openWebuiEnsureReviewer(config, fetchImpl, identity) {
     body: JSON.stringify({
       name: identity.name,
       email: identity.email,
-      password: throwawayPassword,
+      password,
       role: "user"
     })
   });
@@ -713,16 +709,15 @@ async function openWebuiEnsureReviewer(config, fetchImpl, identity) {
   throw openWebuiError(`openwebui_add_user_${response.status}`);
 }
 
-async function openWebuiReviewerSignin(config, fetchImpl, identity) {
+async function openWebuiReviewerSignin(config, fetchImpl, identity, password) {
   const response = await fetchImpl(`${config.openWebuiUrl}/api/v1/auths/signin`, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
-      ...trustedHeaders(config, identity)
+      "content-type": "application/json"
     },
     body: JSON.stringify({
       email: identity.email,
-      password: ""
+      password
     })
   });
   await openWebuiResponseBody(response);
@@ -752,10 +747,19 @@ async function handleOpenWebuiStart(req, res, app) {
     return true;
   }
 
+  if (!app.config.openWebuiPasswordSecret) {
+    sendJson(res, 503, {
+      error: "openwebui_password_secret_missing",
+      message: "OpenWebUI ist nicht ordnungsgemaess konfiguriert."
+    });
+    return true;
+  }
+
   const identity = reviewerIdentity(auth.session);
+  const password = reviewerPassword(auth.session.token, app.config.openWebuiPasswordSecret);
   try {
-    await openWebuiEnsureReviewer(app.config, app.fetchImpl, identity);
-    const signin = await openWebuiReviewerSignin(app.config, app.fetchImpl, identity);
+    await openWebuiEnsureReviewer(app.config, app.fetchImpl, identity, password);
+    const signin = await openWebuiReviewerSignin(app.config, app.fetchImpl, identity, password);
     const openWebuiToken = openWebuiTokenFromSetCookies(signin.cookies);
     if (openWebuiToken) {
       auth.session.openwebui_token_hash = tokenHash(openWebuiToken);
@@ -824,11 +828,9 @@ function openWebuiCookieHeader(value) {
     .join("; ");
 }
 
-function openWebuiRequestHeaders(req, config, identity, targetUrl) {
+function openWebuiRequestHeaders(req, targetUrl) {
   const headers = {};
   const connectionScoped = new Set(connectionHeaderNames(req.headers));
-  const trustedEmailHeader = config.openWebuiTrustedEmailHeader.toLowerCase();
-  const trustedNameHeader = config.openWebuiTrustedNameHeader.toLowerCase();
 
   for (const [name, value] of Object.entries(req.headers)) {
     const lowerName = name.toLowerCase();
@@ -837,8 +839,6 @@ function openWebuiRequestHeaders(req, config, identity, targetUrl) {
       lowerName === "authorization" ||
       HOP_BY_HOP_HEADERS.has(lowerName) ||
       connectionScoped.has(lowerName) ||
-      lowerName === trustedEmailHeader ||
-      lowerName === trustedNameHeader ||
       lowerName.startsWith("x-demo-")
     ) {
       continue;
@@ -854,7 +854,6 @@ function openWebuiRequestHeaders(req, config, identity, targetUrl) {
   }
 
   headers.host = targetUrl.host;
-  Object.assign(headers, trustedHeaders(config, identity));
   return headers;
 }
 
@@ -913,7 +912,7 @@ function writeSocketHttpError(socket, statusCode, statusMessage) {
   );
 }
 
-function proxyOpenWebuiRequest(req, res, app, identity) {
+function proxyOpenWebuiRequest(req, res, app) {
   return new Promise((resolve) => {
     let settled = false;
     const settle = () => {
@@ -940,7 +939,7 @@ function proxyOpenWebuiRequest(req, res, app, identity) {
         port: targetUrl.port,
         method: req.method,
         path: openWebuiRequestPath(targetUrl, req.url),
-        headers: openWebuiRequestHeaders(req, app.config, identity, targetUrl)
+        headers: openWebuiRequestHeaders(req, targetUrl)
       },
       (upstreamRes) => {
         const responseHeaders = openWebuiResponseHeaders(upstreamRes.headers);
@@ -972,14 +971,14 @@ function proxyOpenWebuiRequest(req, res, app, identity) {
   });
 }
 
-function openWebuiUpgradeHeaders(req, config, identity, targetUrl) {
-  const headers = openWebuiRequestHeaders(req, config, identity, targetUrl);
+function openWebuiUpgradeHeaders(req, targetUrl) {
+  const headers = openWebuiRequestHeaders(req, targetUrl);
   headers.connection = "Upgrade";
   headers.upgrade = String(req.headers.upgrade || "websocket");
   return headers;
 }
 
-function proxyOpenWebuiUpgrade(req, socket, head, app, identity) {
+function proxyOpenWebuiUpgrade(req, socket, head, app) {
   let upstreamSocket = null;
   let settled = false;
   const destroyBoth = () => {
@@ -1010,7 +1009,7 @@ function proxyOpenWebuiUpgrade(req, socket, head, app, identity) {
     port: targetUrl.port,
     method: req.method,
     path: openWebuiRequestPath(targetUrl, req.url),
-    headers: openWebuiUpgradeHeaders(req, app.config, identity, targetUrl)
+    headers: openWebuiUpgradeHeaders(req, targetUrl)
   });
 
   upstreamReq.on("upgrade", (upstreamRes, nextUpstreamSocket, upstreamHead) => {
@@ -1082,7 +1081,7 @@ async function handleOpenWebuiUpgrade(req, socket, head, app) {
     return;
   }
 
-  proxyOpenWebuiUpgrade(req, socket, head, app, reviewerIdentity(auth.session));
+  proxyOpenWebuiUpgrade(req, socket, head, app);
 }
 
 function checkRateLimit(session, config, now = Date.now()) {
@@ -1475,7 +1474,7 @@ async function handleRequest(req, res, app) {
   if (app.config.openWebuiEnabled && !isReservedLocalPath(url.pathname)) {
     const auth = await getOpenWebuiMuxSession(req, app.authStore);
     if (auth.status === "ok") {
-      await proxyOpenWebuiRequest(req, res, app, reviewerIdentity(auth.session));
+      await proxyOpenWebuiRequest(req, res, app);
       return;
     }
     if (url.pathname.startsWith("/api/")) {
@@ -1542,5 +1541,6 @@ module.exports = {
   createApp,
   parseAssistantContent,
   sanitizeMessages,
-  checkRateLimit
+  checkRateLimit,
+  reviewerPassword
 };

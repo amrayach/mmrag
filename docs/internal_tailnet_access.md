@@ -21,6 +21,13 @@ OpenWebUI direct Serve access is not part of the reviewer path in hybrid mode.
 Reviewers should enter through demo-site so the access-code gate and session
 bootstrap remain in control.
 
+When OpenWebUI is exposed on an internal Serve slot (for example
+`https://spark-e010.tail907fce.ts.net:8451`), internal users sign in with their
+own email/password directly through the OpenWebUI login form. The first account
+created becomes the admin; later accounts can be invited or pre-created from
+the OpenWebUI Admin panel. Trusted-header SSO is no longer configured, so the
+direct Serve slot must not be a public Funnel slot.
+
 The demo-site reviewer URL is the approved `:8443` demo Funnel slot:
 `https://spark-e010.tail907fce.ts.net:8443`. That slot is separate from the
 admin Serve URLs above.

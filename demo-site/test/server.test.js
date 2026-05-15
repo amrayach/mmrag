@@ -6,7 +6,7 @@ const http = require("node:http");
 const net = require("node:net");
 const path = require("node:path");
 const test = require("node:test");
-const { createApp, parseAssistantContent } = require("../server/index.js");
+const { createApp, parseAssistantContent, reviewerPassword } = require("../server/index.js");
 
 const ADMIN_TOKEN = "admin-test-token";
 
@@ -265,6 +265,27 @@ test("parseAssistantContent separates Quellen links", () => {
   ]);
 });
 
+test("reviewerPassword is deterministic for the same token and secret", () => {
+  const a = reviewerPassword("session-token-abcd1234", "secret-1");
+  const b = reviewerPassword("session-token-abcd1234", "secret-1");
+  const c = reviewerPassword("session-token-abcd1234", "secret-2");
+  const d = reviewerPassword("different-token", "secret-1");
+  assert.equal(typeof a, "string");
+  assert.equal(a.length, 32);
+  assert.match(a, /^[A-Za-z0-9_-]{32}$/);
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+  assert.notEqual(a, d);
+  assert.equal(a.includes("session-token-abcd1234"), false);
+  assert.equal(a.includes("abcd1234"), false);
+});
+
+test("reviewerPassword throws when secret is missing", () => {
+  assert.throws(() => reviewerPassword("session-token", ""), /secret/i);
+  assert.throws(() => reviewerPassword("session-token", null), /secret/i);
+  assert.throws(() => reviewerPassword("session-token", undefined), /secret/i);
+});
+
 test("admin token missing disables code creation", async () => {
   const appContext = await startApp({ adminToken: "" });
   try {
@@ -479,7 +500,8 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
       openWebuiEnabled: true,
       openWebuiUrl: "http://openwebui.test/",
       openWebuiAdminEmail: "admin@mmrag.invalid",
-      openWebuiAdminPassword: "admin-pass"
+      openWebuiAdminPassword: "admin-pass",
+      openWebuiPasswordSecret: "test-secret"
     },
     { fetchImpl }
   );
@@ -488,7 +510,7 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
     const created = await adminCreateCode(appContext.baseUrl);
     const session = await assertRedeemOk(appContext.baseUrl, created.code);
     const prefix = session.token.slice(0, 8);
-    const reviewerEmail = `demo-${prefix}@mmrag.invalid`;
+    const reviewerEmail = `demo2-${prefix}@mmrag.invalid`;
     const reviewerName = `Demo Reviewer ${prefix}`;
 
     const response = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
@@ -513,8 +535,10 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
 
     assert.equal(calls[0].url, "http://openwebui.test/api/v1/auths/signin");
     assert.equal(calls[0].method, "POST");
-    assert.equal(calls[0].headers["X-Demo-Email"], "admin@mmrag.invalid");
-    assert.equal(calls[0].headers["X-Demo-Name"], "Demo Admin");
+    assert.equal(calls[0].headers["X-Demo-Email"], undefined);
+    assert.equal(calls[0].headers["x-demo-email"], undefined);
+    assert.equal(calls[0].headers["X-Demo-Name"], undefined);
+    assert.equal(calls[0].headers["x-demo-name"], undefined);
     assert.deepEqual(calls[0].body, {
       email: "admin@mmrag.invalid",
       password: "admin-pass"
@@ -526,15 +550,19 @@ test("OpenWebUI start pre-creates reviewer and relays signin cookie", async () =
     assert.equal(calls[1].body.email, reviewerEmail);
     assert.equal(calls[1].body.role, "user");
     assert.equal(typeof calls[1].body.password, "string");
-    assert.ok(calls[1].body.password.length >= 20);
+    assert.equal(calls[1].body.password.length, 32);
+    assert.match(calls[1].body.password, /^[A-Za-z0-9_-]{32}$/);
     assert.equal(calls[1].body.password.includes(prefix), false);
+    assert.equal(calls[1].body.password.includes(session.token), false);
 
     assert.equal(calls[2].url, "http://openwebui.test/api/v1/auths/signin");
-    assert.equal(calls[2].headers["X-Demo-Email"], reviewerEmail);
-    assert.equal(calls[2].headers["X-Demo-Name"], reviewerName);
+    assert.equal(calls[2].headers["X-Demo-Email"], undefined);
+    assert.equal(calls[2].headers["x-demo-email"], undefined);
+    assert.equal(calls[2].headers["X-Demo-Name"], undefined);
+    assert.equal(calls[2].headers["x-demo-name"], undefined);
     assert.deepEqual(calls[2].body, {
       email: reviewerEmail,
-      password: ""
+      password: calls[1].body.password
     });
     assert.equal(JSON.stringify(calls).includes(session.token), false);
     assert.equal(JSON.stringify(calls).includes(session.token.slice(8)), false);
@@ -575,7 +603,8 @@ test("OpenWebUI duplicate reviewer creation still bootstraps session", async () 
       openWebuiEnabled: true,
       openWebuiUrl: "http://openwebui.test",
       openWebuiAdminEmail: "admin@mmrag.invalid",
-      openWebuiAdminPassword: "admin-pass"
+      openWebuiAdminPassword: "admin-pass",
+      openWebuiPasswordSecret: "test-secret"
     },
     { fetchImpl }
   );
@@ -591,6 +620,44 @@ test("OpenWebUI duplicate reviewer creation still bootstraps session", async () 
     assert.equal(response.status, 200);
     assert.deepEqual(data, { ok: true, redirect: "/" });
     assert.equal(calls.length, 3);
+    assert.equal(calls[0].headers["X-Demo-Email"], undefined);
+    assert.equal(calls[0].headers["X-Demo-Name"], undefined);
+    assert.equal(calls[2].headers["X-Demo-Email"], undefined);
+    assert.equal(calls[2].headers["X-Demo-Name"], undefined);
+    assert.equal(calls[1].body.password, calls[2].body.password);
+    assert.match(calls[2].body.password, /^[A-Za-z0-9_-]{32}$/);
+  } finally {
+    await appContext.cleanup();
+  }
+});
+
+test("OpenWebUI start fails with 503 when password secret is missing", async () => {
+  let fetchCount = 0;
+  const fetchImpl = async () => {
+    fetchCount += 1;
+    return jsonResponse({});
+  };
+  const appContext = await startApp(
+    {
+      openWebuiEnabled: true,
+      openWebuiUrl: "http://openwebui.test/",
+      openWebuiAdminEmail: "admin@mmrag.invalid",
+      openWebuiAdminPassword: "admin-pass"
+    },
+    { fetchImpl }
+  );
+
+  try {
+    const created = await adminCreateCode(appContext.baseUrl);
+    const session = await assertRedeemOk(appContext.baseUrl, created.code);
+    const response = await fetch(`${appContext.baseUrl}/api/openwebui/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${session.token}` }
+    });
+    const data = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(data.error, "openwebui_password_secret_missing");
+    assert.equal(fetchCount, 0);
   } finally {
     await appContext.cleanup();
   }
@@ -604,7 +671,8 @@ test("hybrid proxy accepts mapped OpenWebUI token cookie without demo_session", 
   const appContext = await startApp(
     {
       openWebuiEnabled: true,
-      openWebuiUrl: upstream.baseUrl
+      openWebuiUrl: upstream.baseUrl,
+      openWebuiPasswordSecret: "test-secret"
     },
     { fetchImpl: openWebuiSigninFetch("mapped-openwebui-cookie") }
   );
@@ -630,7 +698,7 @@ test("hybrid proxy accepts mapped OpenWebUI token cookie without demo_session", 
     assert.deepEqual(data, { data: [{ id: "gemma4:26b" }] });
     assert.equal(upstream.calls.length, 1);
     assert.equal(upstream.calls[0].url, "/api/models");
-    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], undefined);
     assert.equal(upstream.calls[0].headers.authorization, undefined);
     assert.equal(upstream.calls[0].headers.cookie, "token=mapped-openwebui-cookie; theme=dark");
   } finally {
@@ -665,7 +733,7 @@ test("hybrid proxy ignores stale OpenWebUI bearer when demo_session cookie is va
     assert.deepEqual(data, { data: [{ id: "gemma4:26b" }] });
     assert.equal(upstream.calls.length, 1);
     assert.equal(upstream.calls[0].url, "/api/models");
-    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], undefined);
     assert.equal(upstream.calls[0].headers.authorization, undefined);
   } finally {
     await appContext.cleanup();
@@ -681,7 +749,8 @@ test("hybrid proxy ignores stale OpenWebUI bearer after the SPA rotates the toke
   const appContext = await startApp(
     {
       openWebuiEnabled: true,
-      openWebuiUrl: upstream.baseUrl
+      openWebuiUrl: upstream.baseUrl,
+      openWebuiPasswordSecret: "test-secret"
     },
     { fetchImpl: openWebuiSigninFetch("first-openwebui-cookie") }
   );
@@ -710,7 +779,7 @@ test("hybrid proxy ignores stale OpenWebUI bearer after the SPA rotates the toke
     assert.equal(response.status, 200);
     assert.deepEqual(data, { data: [{ id: "gemma4:26b" }] });
     assert.equal(upstream.calls.length, 1);
-    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], undefined);
     assert.equal(upstream.calls[0].headers.authorization, undefined);
     assert.equal(upstream.calls[0].headers.cookie, "token=rotated-openwebui-cookie");
   } finally {
@@ -753,7 +822,8 @@ test("hybrid proxy rejects expired and revoked mapped OpenWebUI sessions", async
   const appContext = await startApp(
     {
       openWebuiEnabled: true,
-      openWebuiUrl: upstream.baseUrl
+      openWebuiUrl: upstream.baseUrl,
+      openWebuiPasswordSecret: "test-secret"
     },
     { fetchImpl: async () => openWebuiSigninFetch(openWebuiCookie)() }
   );
@@ -890,7 +960,7 @@ test("hybrid stale OpenWebUI assets without a session do not serve demo HTML", a
   }
 });
 
-test("hybrid enabled root with a valid session proxies to OpenWebUI with reviewer headers", async () => {
+test("hybrid enabled root with a valid session proxies to OpenWebUI without trusted headers", async () => {
   const upstream = await startOpenWebuiStub((_req, res) => {
     res.writeHead(201, {
       "content-type": "text/plain; charset=utf-8",
@@ -917,8 +987,8 @@ test("hybrid enabled root with a valid session proxies to OpenWebUI with reviewe
     assert.equal(upstream.calls.length, 1);
     assert.equal(upstream.calls[0].method, "GET");
     assert.equal(upstream.calls[0].url, "/");
-    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
-    assert.equal(upstream.calls[0].headers["x-demo-name"], `Demo Reviewer ${prefix}`);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], undefined);
+    assert.equal(upstream.calls[0].headers["x-demo-name"], undefined);
     assert.equal(upstream.calls[0].headers.cookie, undefined);
   } finally {
     await appContext.cleanup();
@@ -958,8 +1028,8 @@ test("hybrid proxy strips incoming X-Demo spoof headers and preserves request de
     assert.equal(upstream.calls[0].method, "POST");
     assert.equal(upstream.calls[0].url, "/owui/api/test?x=1");
     assert.equal(upstream.calls[0].body, "request-body");
-    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
-    assert.equal(upstream.calls[0].headers["x-demo-name"], `Demo Reviewer ${prefix}`);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], undefined);
+    assert.equal(upstream.calls[0].headers["x-demo-name"], undefined);
     assert.equal(upstream.calls[0].headers["x-demo-extra"], undefined);
     assert.equal(upstream.calls[0].headers["x-regular-header"], "keep-me");
     assert.equal(upstream.calls[0].headers.cookie, "token=openwebui-cookie");
@@ -1187,7 +1257,7 @@ test("hybrid upgrade without a valid session returns 401 without upstream call",
   }
 });
 
-test("hybrid upgrade strips spoofed X-Demo headers and injects reviewer identity", async () => {
+test("hybrid upgrade strips spoofed X-Demo headers without injecting trusted headers", async () => {
   const upstream = await startOpenWebuiUpgradeStub((_req, socket) => {
     socket.end("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
   });
@@ -1209,8 +1279,8 @@ test("hybrid upgrade strips spoofed X-Demo headers and injects reviewer identity
 
     assert.equal(response.statusCode, 101);
     assert.equal(upstream.calls.length, 1);
-    assert.equal(upstream.calls[0].headers["x-demo-email"], `demo-${prefix}@mmrag.invalid`);
-    assert.equal(upstream.calls[0].headers["x-demo-name"], `Demo Reviewer ${prefix}`);
+    assert.equal(upstream.calls[0].headers["x-demo-email"], undefined);
+    assert.equal(upstream.calls[0].headers["x-demo-name"], undefined);
     assert.equal(upstream.calls[0].headers["x-demo-extra"], undefined);
     assert.equal(upstream.calls[0].headers["x-regular-header"], "keep-me");
   } finally {
@@ -1260,7 +1330,8 @@ test("hybrid upgrade accepts mapped OpenWebUI token cookie", async () => {
   const appContext = await startApp(
     {
       openWebuiEnabled: true,
-      openWebuiUrl: upstream.baseUrl
+      openWebuiUrl: upstream.baseUrl,
+      openWebuiPasswordSecret: "test-secret"
     },
     { fetchImpl: openWebuiSigninFetch("mapped-upgrade-cookie") }
   );
@@ -1290,7 +1361,7 @@ test("hybrid upgrade accepts mapped OpenWebUI token cookie", async () => {
 
 test("classic chat does not accept mapped OpenWebUI token cookie", async () => {
   const appContext = await startApp(
-    { openWebuiEnabled: true },
+    { openWebuiEnabled: true, openWebuiPasswordSecret: "test-secret" },
     { fetchImpl: openWebuiSigninFetch("chat-openwebui-cookie") }
   );
 

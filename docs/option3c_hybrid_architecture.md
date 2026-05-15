@@ -25,16 +25,18 @@ Reserved demo-site paths stay local, including `/health`, `/api/auth/*`, `/api/a
 
 ## OpenWebUI Bootstrap
 
-S0 spike facts to preserve in implementation:
+OpenWebUI is configured for plain email/password auth (`WEBUI_AUTH=true`, no trusted-header SSO). `/api/openwebui/start` bootstraps a reviewer account on demand and signs it in using a deterministic password.
 
-- Trusted-header signin works through `POST /api/v1/auths/signin`.
-- Header-only requests do not authenticate.
-- The OpenWebUI session cookie is required after signin.
-- A stale reviewer1 cookie with reviewer2 trusted headers is rejected.
-- Duplicate `POST /api/v1/auths/add` for the same email returns HTTP 400 with an already-registered detail and should be treated as success.
+Bootstrap contract preserved from the S0 spike:
+
+- `POST /api/v1/auths/signin` requires a real email/password pair.
+- The OpenWebUI session cookie is required after signin; header-only requests do not authenticate.
+- Duplicate `POST /api/v1/auths/add` for the same email returns HTTP 400 with an already-registered detail and is treated as success.
 - SSE-through-Funnel has not yet been tested.
 
-Because header-only auth is insufficient, `/api/openwebui/start` must sign in with trusted headers and relay OpenWebUI `Set-Cookie` headers to the browser. Reviewer identities use the deterministic format `demo-<8-char-token-prefix>@mmrag.invalid` and `Demo Reviewer <token_prefix>`; the full token or access code must never be exposed.
+Reviewer identities use the format `demo2-<8-char-token-prefix>@mmrag.invalid` and `Demo Reviewer <token_prefix>`. The reviewer password is derived as `HMAC-SHA256(DEMO_SITE_OPENWEBUI_PASSWORD_SECRET, "reviewer:" + session.token)`, base64url-encoded, sliced to 32 characters. The full token, access code, and derived password must never be exposed to the browser or logs. Old `demo-<prefix>@mmrag.invalid` users from the trusted-header era stay in OpenWebUI as harmless orphans.
+
+`DEMO_SITE_OPENWEBUI_PASSWORD_SECRET` defaults to `WEBUI_SECRET_KEY` when unset. `/api/openwebui/start` fails closed with `503 openwebui_password_secret_missing` when neither value is configured.
 
 ## Configuration
 
@@ -42,9 +44,8 @@ OpenWebUI:
 
 ```env
 WEBUI_AUTH=true
-WEBUI_AUTH_TRUSTED_EMAIL_HEADER=X-Demo-Email
-WEBUI_AUTH_TRUSTED_NAME_HEADER=X-Demo-Name
-ENABLE_FORWARD_USER_INFO_HEADERS=true
+WEBUI_SECRET_KEY=...                  # stable across restarts; also seeds the reviewer-password HMAC by default
+ENABLE_FORWARD_USER_INFO_HEADERS=true  # forwards X-OpenWebUI-User-* to rag-gateway for rate-limit identity
 JWT_EXPIRES_IN=24h
 ```
 
@@ -53,10 +54,9 @@ demo-site:
 ```env
 DEMO_SITE_OPENWEBUI_ENABLED=false
 OPENWEBUI_URL=http://openwebui:8080
-OPENWEBUI_ADMIN_EMAIL=
-OPENWEBUI_ADMIN_PASSWORD=
-OPENWEBUI_TRUSTED_EMAIL_HEADER=X-Demo-Email
-OPENWEBUI_TRUSTED_NAME_HEADER=X-Demo-Name
+OPENWEBUI_ADMIN_EMAIL=               # required for reviewer pre-creation
+OPENWEBUI_ADMIN_PASSWORD=            # required for reviewer pre-creation
+DEMO_SITE_OPENWEBUI_PASSWORD_SECRET= # optional override; falls back to WEBUI_SECRET_KEY
 ```
 
 rag-gateway:
