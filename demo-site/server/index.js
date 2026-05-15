@@ -40,6 +40,16 @@ const LOCAL_STATIC_PATHS = new Set([
   "/index.html"
 ]);
 
+const OPENWEBUI_STALE_NAVIGATION_PATHS = new Set([
+  "/auth",
+  "/error"
+]);
+
+const OPENWEBUI_STALE_ASSET_PATHS = new Set([
+  "/manifest.json",
+  "/loader.js"
+]);
+
 function envFlag(value) {
   return String(value || "").toLowerCase() === "true";
 }
@@ -140,6 +150,25 @@ function sendJson(res, statusCode, data, extraHeaders = {}) {
     ...extraHeaders
   });
   res.end(body);
+}
+
+function sendText(res, statusCode, body, extraHeaders = {}) {
+  res.writeHead(statusCode, {
+    "content-type": "text/plain; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "no-store",
+    ...extraHeaders
+  });
+  res.end(body);
+}
+
+function sendRedirect(res, location) {
+  res.writeHead(302, {
+    location,
+    "cache-control": "no-store",
+    "content-length": 0
+  });
+  res.end();
 }
 
 function sendNoContent(res) {
@@ -757,6 +786,18 @@ function isReservedLocalPath(pathname) {
     pathname === "/classic" ||
     pathname.startsWith("/classic/") ||
     LOCAL_STATIC_PATHS.has(pathname)
+  );
+}
+
+function isStaleOpenWebuiNavigation(pathname) {
+  return OPENWEBUI_STALE_NAVIGATION_PATHS.has(pathname);
+}
+
+function isStaleOpenWebuiAsset(pathname) {
+  return (
+    OPENWEBUI_STALE_ASSET_PATHS.has(pathname) ||
+    pathname.startsWith("/_app/") ||
+    pathname.startsWith("/static/")
   );
 }
 
@@ -1439,6 +1480,14 @@ async function handleRequest(req, res, app) {
     }
     if (url.pathname.startsWith("/api/")) {
       sendJson(res, 401, { error: "invalid_or_expired_session" });
+      return;
+    }
+    if ((req.method === "GET" || req.method === "HEAD") && isStaleOpenWebuiNavigation(url.pathname)) {
+      sendRedirect(res, "/");
+      return;
+    }
+    if ((req.method === "GET" || req.method === "HEAD") && isStaleOpenWebuiAsset(url.pathname)) {
+      sendText(res, 401, "OpenWebUI session is not active. Return to / and enter a valid demo code.");
       return;
     }
   }

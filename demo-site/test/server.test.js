@@ -844,6 +844,52 @@ test("hybrid enabled root without a session serves demo-site UI without proxying
   }
 });
 
+test("hybrid stale OpenWebUI navigation without a session redirects to demo root", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    const response = await fetch(`${appContext.baseUrl}/error`, { redirect: "manual" });
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get("location"), "/");
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
+test("hybrid stale OpenWebUI assets without a session do not serve demo HTML", async () => {
+  const upstream = await startOpenWebuiStub((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end("unexpected proxy call");
+  });
+  const appContext = await startApp({
+    openWebuiEnabled: true,
+    openWebuiUrl: upstream.baseUrl
+  });
+
+  try {
+    for (const path of ["/manifest.json", "/loader.js", "/_app/immutable/nodes/51.test.js"]) {
+      const response = await fetch(`${appContext.baseUrl}${path}`);
+      const text = await response.text();
+      assert.equal(response.status, 401);
+      assert.match(response.headers.get("content-type") || "", /text\/plain/);
+      assert.doesNotMatch(text, /<!doctype html>/i);
+    }
+    assert.equal(upstream.calls.length, 0);
+  } finally {
+    await appContext.cleanup();
+    await upstream.cleanup();
+  }
+});
+
 test("hybrid enabled root with a valid session proxies to OpenWebUI with reviewer headers", async () => {
   const upstream = await startOpenWebuiStub((_req, res) => {
     res.writeHead(201, {
